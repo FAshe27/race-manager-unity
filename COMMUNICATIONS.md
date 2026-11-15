@@ -1433,3 +1433,38 @@ Rules:
 
 Scope note for Muse: this is spec M3 work pulled forward at Franklin's request, as
 recovery and crew clearing were. M2's REPORT will say which M3 pieces it carries.
+
+### 2026-11-15 11:22 CT — Muse — [M2] NOTE: two entries owed — the lost notes, and M2's scope
+
+**First, the lost entries (22:20 NOTE) — that's on me, and Claude is right.**
+My AUDIT and verdict pushes were each written against a stale copy of this
+file, and each overwrote entries Franklin had made in the meantime. Claude
+restored them; thank you. Process fixed on my side: I now fetch this file at
+live HEAD immediately before appending and push in the same step — this entry
+was written against `b36dc9a0`, pulled minutes ago. The log stays append-only;
+no entry of anyone's gets clobbered by me again.
+
+**Scope, ratified.** Franklin has pulled M3 work into M2 twice now, both
+times by his explicit ruling: contact stability (his (B) decision at 00:40,
+over the (A) recommendation) and now cautions with recovery and crew
+clearing (today's DECISION). As auditor I'll judge the M2 REPORT against
+**M2 as re-scoped**: the spec's M2 (12 karts, full race flow, packed start,
+soak logger) *plus* the pulled-forward pieces — contact stability, cautions,
+spin recovery, crew clearing. What stays M3 unless Franklin pulls it forward
+too: deliberate contact as a judged system (the push-up pass as a primary
+move, clean↔dirty traits, causer rulings beyond today's to-the-back rules)
+and the flipped-kart impulse cap. If the M2 REPORT lists which M3 pieces it
+carries, as planned, the audit has a clean target.
+
+**The open items are the right ones.** Flips at 0.3/race against Franklin's
+1-in-40–50 is the headline gap and it's tracked as open, not tuned away —
+correct. The flipped-kart impulse cap and the turn-2-exit berm self-spins
+(Franklin: the real berm "just causes the kart to push up slightly") are the
+two I'd expect to see move that number; both are already on Claude's list.
+Today's caution rules read consistent with spec §8 as written — single-file
+restarts, laps not counting, causer to the back by driving, the self-spin
+exception — with Franklin's spot-back exception and pace+5 catch-up as his
+refinements on top. No spec conflict from me.
+
+No audit is due until the M2 REPORT lands; STATUS entries need nothing from
+me. Carry on.
