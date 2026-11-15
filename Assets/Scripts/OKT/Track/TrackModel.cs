@@ -48,7 +48,7 @@ namespace OKT
         // Berm: Franklin — 6 in tall x 32 in wide against the outside barrier, loose
         // dirt. "Karts get right up to the berm, but not on it": right sides on it dust
         // up and lose grip into the corner.
-        public float bermHeightIn = 1f;    // Franklin's photos 2026-11-15: dirt runs nearly flat to the rail, a little loose dirt at most (was 6 in, which launched a kart over the T2 rail) [TEST VALUE]
+        public float bermHeightIn = 0f;    // Franklin's photos 2026-11-15: dirt runs nearly flat to the rail; the strip is loose dirt (dusts tires) but no rigid lip. 6 in launched a kart over the T2 rail; even 1 in is taller than the 1/2 in nerf clearance and, being rigid, ramped the nerf up and rolled karts. [TEST VALUE]
         public float bermWidthIn = 12f;    // [TEST VALUE, photos]
 
         // Grass (infield inside the cones, outside run-off): 50% of the groove's grip (Franklin).

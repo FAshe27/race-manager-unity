@@ -752,7 +752,10 @@ namespace OKT
                 bool spun = yaw > cfg.spinAngleDeg, flipped = e.kart.UpsideDown;
                 bool stopped = (phase == RacePhase.Green || phase == RacePhase.Caution) && e.kart.ForwardSpeed < 2f * U.Mph && !e.finished;
                 e.stoppedT = stopped ? e.stoppedT + dt : 0f;
-                bool stuck = e.stoppedT > cfg.stoppedSeconds && !e.blocked && phase == RacePhase.Green; // stopped behind a kart = waiting in a jam; under caution, stopped in the queue is not a crash
+                bool stuck = (e.stoppedT > cfg.stoppedSeconds && !e.blocked && phase == RacePhase.Green)
+                             // under caution a stop is normally just the queue; but a kart that's supposed to be rolling
+                             // (its cap allows it) and hasn't moved for 5 s is stuck (e.g. nosed into the wall after a hit)
+                             || (phase == RacePhase.Caution && e.stoppedT > 5f && ai.speedCap > 3f * U.Mph); // stopped behind a kart = waiting in a jam; under caution, stopped in the queue is not a crash
                 bool incident = spun || flipped || stuck;
                 bool wasRecovering = e.recovering;
                 bool newEpisode = incident && !e.inIncident && !e.recovering;

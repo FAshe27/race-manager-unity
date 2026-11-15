@@ -17,8 +17,8 @@ Construction:
     sized so the CENTERLINE stays exactly 660 ft (201.17 m, 1/8-mile calibration)
   - width 27 ft on straights, easing to 29 ft over the first/last 30 deg of each
     end; the extra turn width comes off the INSIDE (infield)
-  - groove (lineFrac) and go line carried over from v2 by matching sections:
-    each straight maps to its straight, each end to its end (piecewise-linear in u)
+  - go line carried over from v2 by matching sections (piecewise-linear in u)
+  - groove (lineFrac): a smooth stadium-shaped line (Franklin's sketch, 2026-11-15), see LINE_* below
   - cornerTable recomputed from the new centerline with the Track Editor's method
 
 Run:  python Tools/build_track_v3.py   (from the project root; stdlib only)
@@ -145,6 +145,31 @@ def interp_loop(vals, u):
 
 # groove: v3 sample i takes v2's lineFrac at the matching u
 frac3 = [round(interp_loop(v2["lineFrac"], map_u(i / N, u3, u2)), 4) for i in range(N)]
+
+# ---- groove v3.1 (Franklin, 2026-11-15): the v2 hand-set line mapped onto v3 came out "wiggly" (curvature
+# reversing ~50 times through the corners, a dent at the turn-1 end). Franklin's sketch: smooth like a smaller
+# stadium -- straight and parallel to the walls on the straights (high, near the outside), one clean arc
+# through each end that comes down near the inside at the apex. Built geometrically: a capsule (stadium) with
+# straights at +LINE_STRAIGHT_FT from the centreline and semicircle ends whose apex sits LINE_APEX_FT from the
+# centreline (negative = toward the inside). Both values copied from the v2 line's own straight/apex offsets.
+LINE_STRAIGHT_FT = 9.0     # v2 line on the straights: +8.8..+9.3 ft  [TEST VALUE]
+LINE_APEX_FT = -10.8       # v2 line at the turn apexes: -10.0..-10.8 ft [TEST VALUE]
+Y_LINE = max(p[1] for p in C3) + LINE_STRAIGHT_FT * FT            # straights' distance from the long axis = arc radius
+X_APEX = max(p[0] for p in C3) + LINE_APEX_FT * FT                # apex x at the ends
+X_C = X_APEX - Y_LINE                                             # arc centres at (+-X_C, 0)
+def line_sdf(x, z):
+    cx = max(-X_C, min(X_C, x))
+    return math.hypot(x - cx, z) - Y_LINE
+On3 = normals(C3)
+frac3 = []
+for i in range(N):
+    px, pz = C3[i]; nx, nz = On3[i]; hw = HW3[i]
+    lo, hi = -hw, hw
+    for _ in range(60):                                           # bisection along the outward normal
+        mid = (lo + hi) / 2
+        if line_sdf(px + nx * mid, pz + nz * mid) < 0: lo = mid
+        else: hi = mid
+    frac3.append(round((lo + hi) / 2 / (2 * hw) + 0.5, 4))
 goU3 = round(map_u(v2["goU"], u2, u3), 4)
 
 # cornerTable: Track Editor method (smoothed heading change / arc, ref = 95th pct)

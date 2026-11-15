@@ -155,7 +155,7 @@ namespace OKT
                     MakeRun(t, outer, type + "_" + (start % segs), start, start + len, segs, h, cfg.barrierThickness,
                         type == BarrierType.Fence ? fenceMat : railMat, pmat);
                     // the solid wall behind the guardrail (photos): stops anything that gets over the rail
-                    if (type == BarrierType.Guardrail)
+                    if (type == BarrierType.Guardrail && cfg.backWallHeightFt > 0f)
                         MakeRun(t, outer, "BackWall_" + (start % segs), start, start + len, segs, cfg.backWallHeightFt * U.Ft, cfg.barrierThickness,
                             wallMat, pmat, cfg.barrierThickness + cfg.backWallGapIn * U.In);
                 }

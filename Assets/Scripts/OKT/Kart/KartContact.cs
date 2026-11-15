@@ -18,9 +18,19 @@ namespace OKT
         void OnCollisionEnter(Collision c) => Record(c);
         void OnCollisionStay(Collision c) => Record(c);
 
+        // debug: last contact with a non-kart collider (rail, wall, surface) — which of my parts, which surface, normal
+        [System.NonSerialized] public string lastTrackContact = "";
         void Record(Collision c)
         {
-            if (c.rigidbody == null) return;
+            if (c.rigidbody == null)
+            {
+                if (c.contactCount > 0)
+                {
+                    var cp = c.GetContact(0);
+                    lastTrackContact = $"{cp.thisCollider.name}->{c.collider.name} n({cp.normal.x:F2},{cp.normal.y:F2},{cp.normal.z:F2}) imp{c.impulse.magnitude:F0} y{cp.point.y:F2}";
+                }
+                return;
+            }
             var other = c.rigidbody.GetComponent<KartPhysics>();
             if (other == null) return;
             float imp = c.impulse.magnitude;

@@ -289,7 +289,7 @@ namespace OKT.EditorTools
                                 var names = new System.Collections.Generic.List<string>(); foreach (var c in hitsO) if (c != box) names.Add(c.name);
                                 sb.AppendLine($"    touching: {string.Join(",", names)}  vel {k.Body.linearVelocity}  angvel {k.Body.angularVelocity}");
                             }
-                            sb.AppendLine($"    trace ph{phase} t={w.simTime:F2} u={ai.s / w.track.N:F4} d={ai.d:F2} m hw={ff.halfWidth:F2} barrier={w.track.BarrierAt(ai.s / w.track.N)} gap={ai.wallGapNow:F2} v={k.ForwardSpeed:F1} head={headOut:F0} breaches={ai.bandBreachSteps} pos={k.transform.position}");
+                            sb.AppendLine($"    trace ph{phase} t={w.simTime:F2} u={ai.s / w.track.N:F4} d={ai.d:F2} m hw={ff.halfWidth:F2} barrier={w.track.BarrierAt(ai.s / w.track.N)} gap={ai.wallGapNow:F2} v={k.ForwardSpeed:F1} head={headOut:F0} breaches={ai.bandBreachSteps} pos={k.transform.position} hAbove={(k.transform.position.y - w.track.SurfaceHeightSD(ai.s, ai.d)) / U.In:F1}in roll={Vector3.SignedAngle(Vector3.up, Vector3.ProjectOnPlane(k.transform.up, k.transform.forward), k.transform.forward):F0} gnd{(k.grounded[0] ? 1 : 0)}{(k.grounded[1] ? 1 : 0)}{(k.grounded[2] ? 1 : 0)}{(k.grounded[3] ? 1 : 0)} load{k.load[0]:F0}/{k.load[1]:F0}/{k.load[2]:F0}/{k.load[3]:F0} vy={k.Body.linearVelocity.y:F2} contact={(k.GetComponent<KartContact>() != null ? k.GetComponent<KartContact>().lastTrackContact : "")}");
                         }
                         if (phase == 2)
                         {

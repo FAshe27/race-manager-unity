@@ -219,6 +219,11 @@ namespace OKT
                 // saw "ground" inches high and produced tens of kN — launches at 58 mph (M2 soak forensics). Kart-on-kart
                 // contact (shoving, a tire riding up a rival) belongs to the tire/tube colliders.
                 if (h.rigidbody != null && h.rigidbody.GetComponent<KartPhysics>() != null) continue;
+                // ...and never on a barrier: a tire overlapping the guardrail saw the rail top as "ground" and the stiff
+                // spring lifted that side onto the rail — a 6-degree touch rolled the kart (M1 wall test, 2026-11-15).
+                // The rail belongs to the nerf/bumper tubes.
+                var hp = h.collider.transform.parent;
+                if (hp != null && hp.name == "OutsideBarrier") continue;
                 if (h.distance < bd) { bd = h.distance; best = h; found = true; }
             }
             return found;
