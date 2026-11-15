@@ -1292,3 +1292,35 @@ step: cap contact impulses on flipped karts (M3 contact work).
    That's roughly 1 flip per 500 kart-starts. With 12 karts, that's about 1 flip every
    40 races, which confirms the 1-in-40–50 target. The current soak (1 in 10) is about
    4× too high.
+
+### 2026-11-15 CT — Franklin (recorded by Claude Code) — [M2/M3] NOTES: video evidence; contact sport; clean vs dirty drivers
+
+1. **Videos** (Atoka, Buddies 500, 05/11/2024; YouTube PAmhN9pQPh0 and b6rSIHfTGeA):
+   - The pass on the leader: 2nd gets under him entering turn 3, and the leader lifts
+     slightly to fall back in line (Part 1, 4:15 and 10:45).
+   - The start (Part 2, 0:40).
+   - A typical crash (Part 2, 7:09). 6th gets spun, and it causes a small pile-up. Some
+     karts spin *while braking* to avoid contact (the 24 and the 4).
+
+   Claude Code's read of the crash frames:
+   - the field runs nose to tail, about a kart length apart;
+   - karts behind the spin slow and thread through, and the jam clears within a few
+     seconds.
+
+   The sim had followed about 20 ft back at speed, now 8 ft. In a sim pileup, karts
+   braked to a full stop and gridlocked.
+2. **"This is very much a contact sport."** Contact isn't encouraged, but karts can and
+   will hit and bounce off each other. There's a fine line between aggressive and dirty.
+   Drivers differ:
+   - some pride themselves on clean driving (Franklin: has never wrecked anyone on
+     purpose);
+   - some "will drive through you on corner entry for sixth in a race that only pays out
+     the top 3".
+
+   **Build consequence:** a per-driver clean ↔ dirty trait, separate from aggression,
+   with the stakes mattering little to the dirty ones. It sets:
+   - whether a driver lifts or holds his line when overlapped;
+   - whether he will hit someone to make a pass.
+
+   It feeds the M3 incident-judging rules (who caused it). M2 contact stays incidental
+   (shoves, rubbing); deliberate contact is M3.
