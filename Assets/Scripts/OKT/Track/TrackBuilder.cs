@@ -66,7 +66,9 @@ namespace OKT
                     verts[r * cols + j] = new Vector3(p.x, t.SurfaceHeightSD(s, d), p.y);
                     // u: distance from the groove (texture paints the darker worn strip); v: along the lap.
                     // Off the dirt (run-off bank) u is pushed to the texture's grass end.
-                    float u = (d > f.halfWidth + 0.01f || d < -f.halfWidth - 0.01f) ? 1f : Mathf.Clamp((d - f.LineOffset) / 8f + 0.5f, 0f, 0.97f);
+                    float u = (d > f.halfWidth + 0.01f || d < -f.halfWidth - cfg.insideRidgeWidth - cfg.insideBand - 0.01f) ? 1f
+                            : d < -f.halfWidth - 0.01f ? 0.97f // ridge + graded band: plain dirt
+                            : Mathf.Clamp((d - f.LineOffset) / 8f + 0.5f, 0f, 0.97f);
                     uvs[r * cols + j] = new Vector2(u, arc / 4f);
                 }
             }
@@ -104,16 +106,18 @@ namespace OKT
             return go;
         }
 
-        public static int ColumnCount(SurfaceConfig cfg) => 2 + cfg.surfaceCols + cfg.bermCols + 1 + 4; // + 2 inside apron columns
+        public static int ColumnCount(SurfaceConfig cfg) => 7 + cfg.surfaceCols + cfg.bermCols + 1 + 4; // + 7 inside columns (grass, band, ridge)
 
         /// <summary>Lateral offset of mesh column j: inside edge .. berm start .. outside edge .. flat .. bank.</summary>
         public static float ColumnOffset(in TrackFrame f, SurfaceConfig cfg, int j)
         {
             float hw = f.halfWidth;
             float bermStart = hw - cfg.bermWidth;
-            if (j == 0) return -hw - cfg.insideApron - 1.0f;   // flat infield edge of the mesh
-            if (j == 1) return -hw - cfg.insideApron;          // bottom of the apron
-            j -= 2;
+            float rw = cfg.insideRidgeWidth, band = cfg.insideBand;
+            if (j == 0) return -hw - rw - band - 1.0f;          // grass edge of the mesh
+            if (j == 1) return -hw - rw - band;                 // band meets the grass
+            if (j <= 6) return -hw - rw * (1f - (j - 2) / 5f);  // ridge: foot (j=2) .. last slice before the edge (j=6)
+            j -= 7;
             if (j <= cfg.surfaceCols) return Mathf.Lerp(-hw, bermStart, (float)j / cfg.surfaceCols);
             int jb = j - cfg.surfaceCols;
             if (jb <= cfg.bermCols) return Mathf.Lerp(bermStart, hw, (float)jb / cfg.bermCols);
@@ -128,6 +132,7 @@ namespace OKT
             var outer = new GameObject("OutsideBarrier").transform; outer.SetParent(parent, false);
             var railMat = Materials.Solid(new Color(0.82f, 0.82f, 0.84f), 0.5f);
             var fenceMat = Materials.Solid(new Color(0.55f, 0.58f, 0.62f), 0.3f);
+            var wallMat = Materials.Solid(new Color(0.92f, 0.92f, 0.92f), 0.2f);
             var pmat = BarrierMaterial(cfg.barrierFriction);
             // One continuous mesh per barrier run (no internal seams on the face: separate
             // end-to-end boxes produced "ghost" contacts that stopped a kart dead on a 10° hit).
@@ -149,6 +154,10 @@ namespace OKT
                     float h = type == BarrierType.Fence ? cfg.fenceHeight : cfg.guardrailHeight;
                     MakeRun(t, outer, type + "_" + (start % segs), start, start + len, segs, h, cfg.barrierThickness,
                         type == BarrierType.Fence ? fenceMat : railMat, pmat);
+                    // the solid wall behind the guardrail (photos): stops anything that gets over the rail
+                    if (type == BarrierType.Guardrail)
+                        MakeRun(t, outer, "BackWall_" + (start % segs), start, start + len, segs, cfg.backWallHeightFt * U.Ft, cfg.barrierThickness,
+                            wallMat, pmat, cfg.barrierThickness + cfg.backWallGapIn * U.In);
                 }
                 done += len;
             }
@@ -156,7 +165,7 @@ namespace OKT
 
         /// <summary>A barrier run as one closed ribbon (inner face on the outside edge, top, back) + MeshCollider.</summary>
         static void MakeRun(TrackModel t, Transform parent, string name, int start, int end, int segs, float height,
-            float thick, Material mat, PhysicsMaterial pmat)
+            float thick, Material mat, PhysicsMaterial pmat, float setBack = 0f)
         {
             const float sink = 0.4f; // extend below the surface so nothing slips under
             int n = end - start + 1;
@@ -167,8 +176,8 @@ namespace OKT
                 float s = (float)((start + i) % segs) / segs * t.N;
                 var f = t.Frame(s);
                 float baseY = t.SurfaceHeightSD(s, f.halfWidth);
-                var a = f.pos + f.outN * f.halfWidth;
-                var b = f.pos + f.outN * (f.halfWidth + thick);
+                var a = f.pos + f.outN * (f.halfWidth + setBack);
+                var b = f.pos + f.outN * (f.halfWidth + setBack + thick);
                 v[i * 4 + 0] = new Vector3(a.x, baseY - sink, a.y);
                 v[i * 4 + 1] = new Vector3(a.x, baseY + height, a.y);
                 v[i * 4 + 2] = new Vector3(b.x, baseY + height, b.y);

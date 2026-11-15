@@ -48,8 +48,8 @@ namespace OKT
         // Berm: Franklin — 6 in tall x 32 in wide against the outside barrier, loose
         // dirt. "Karts get right up to the berm, but not on it": right sides on it dust
         // up and lose grip into the corner.
-        public float bermHeightIn = 6f;
-        public float bermWidthIn = 32f;
+        public float bermHeightIn = 1f;    // Franklin's photos 2026-11-15: dirt runs nearly flat to the rail, a little loose dirt at most (was 6 in, which launched a kart over the T2 rail) [TEST VALUE]
+        public float bermWidthIn = 12f;    // [TEST VALUE, photos]
 
         // Grass (infield inside the cones, outside run-off): 50% of the groove's grip (Franklin).
         public float gripGrass = 0.50f;
@@ -68,7 +68,9 @@ namespace OKT
         public float grooveBermClearanceIn = 26.6f;
 
         // Barriers (layout from the JSON 'barriers' list — Franklin's overhead).
-        public float guardrailHeightIn = 20f;  // spec ≈0.5 m [TEST VALUE]
+        public float guardrailHeightIn = 24f;  // steel W-beam, ~2 ft (photos 2026-11-15) [TEST VALUE]
+        public float backWallHeightFt = 4f;    // solid (checkered) wall behind the guardrail (photos) [TEST VALUE]
+        public float backWallGapIn = 0f;       // directly behind the rail [TEST VALUE]
         public float fenceHeightFt = 6f;       // chain-link + low wall [TEST VALUE]
         public float barrierThicknessIn = 12f; // build value [TEST VALUE]
         public float barrierFriction = 0.10f;  // steel rail vs bodywork: shallow hits skim [TEST VALUE]
@@ -76,8 +78,17 @@ namespace OKT
         // Inside apron (M2): the bank's slope continues past the inside edge onto the grass for this far, so a kart
         // dropping a wheel off the inside doesn't meet a buried step where the banked dirt meets flat infield
         // (the low-side nerf bar caught that crease and tripped karts into flips). [TEST VALUE — Franklin to confirm]
-        public float insideApronFt = 3f;
+        public float insideApronFt = 3f;       // (superseded by the ridge + band below; kept for reference)
         public float insideApron => insideApronFt * U.Ft;
+        // Inside edge (Franklin's photos, 2026-11-15): at the edge of the racing surface a low ridge of loose dirt
+        // ("hitting that just causes the kart to push up slightly"), then a flat band of graded dirt, then grass.
+        // No sharp crease: the bank reaches ground level at the inside edge and the band is level with it.
+        public float insideRidgeHeightIn = 3f;   // [TEST VALUE]
+        public float insideRidgeWidthIn = 18f;   // [TEST VALUE]
+        public float insideBandFt = 8f;          // flat graded dirt before the grass [TEST VALUE]
+        public float insideRidgeHeight => insideRidgeHeightIn * U.In;
+        public float insideRidgeWidth => insideRidgeWidthIn * U.In;
+        public float insideBand => insideBandFt * U.Ft;
 
         // Outside run-off behind the barrier/openings: flat, then a grass bank down to infield level.
         public float outerFlatFt = 3f;
@@ -378,12 +389,17 @@ namespace OKT
                 return edge * (1f - t * t * (3f - 2f * t));
             }
             if (d < -f.halfWidth)
-                return -Mathf.Min(-f.halfWidth - d, cfg.insideApron) * tanBank; // apron: the bank continues down, then flat
+            {
+                // inside ridge (half-cosine hump of loose dirt), then the flat band and grass at ground level
+                float x = -f.halfWidth - d;
+                if (x >= cfg.insideRidgeWidth) return 0f;
+                return cfg.insideRidgeHeight * 0.5f * (1f - Mathf.Cos(2f * Mathf.PI * x / cfg.insideRidgeWidth));
+            }
             return LayerBanking(f, d) + LayerGroove(f, d) + LayerRoughness(s, f, d) + LayerBerm(f, d);
         }
 
         /// <summary>Height of the flat infield beyond the apron.</summary>
-        public float InfieldHeight => -cfg.insideApron * tanBank;
+        public float InfieldHeight => 0f;
 
         /// <summary>
         /// What the ground at (s, d) does to a tire (Franklin): grass has 50% grip;
@@ -392,7 +408,14 @@ namespace OKT
         public GroundSample GroundAtSD(float s, float d)
         {
             var f = Frame(s);
-            if (d < -f.halfWidth || d > f.halfWidth + 0.01f) return new GroundSample { grip = cfg.gripGrass, loose = false };
+            if (d > f.halfWidth + 0.01f) return new GroundSample { grip = cfg.gripGrass, loose = false };
+            if (d < -f.halfWidth)
+            {
+                float x = -f.halfWidth - d;
+                if (x < cfg.insideRidgeWidth) return new GroundSample { grip = 1f, loose = true };   // loose ridge: dusts the tire
+                if (x < cfg.insideRidgeWidth + cfg.insideBand) return new GroundSample { grip = 1f, loose = false }; // graded dirt
+                return new GroundSample { grip = cfg.gripGrass, loose = false };
+            }
             return new GroundSample { grip = 1f, loose = d > f.halfWidth - cfg.bermWidth };
         }
 
