@@ -49,7 +49,7 @@ namespace OKT
             var win = order.Count > 0 ? order[0] : null;
             if (win != null && win.finished)
             {
-                st.winnerTimes.Add(win.finishTime - d.greenTime);
+                st.winnerTimes.Add(win.finishTime - d.firstGreenTime);
                 st.winGrid.Add(win.gridPos + 1);
                 // feature-pace rank of the winner (grid is qualifying order, which can differ)
                 var byPace = new List<RaceDirector.Entry>(d.field); byPace.Sort((x, y) => x.driver.paceOffsetSec.CompareTo(y.driver.paceOffsetSec));
@@ -57,8 +57,8 @@ namespace OKT
             }
 
             sb.AppendLine($"Race {st.races} (seed {seed}): {(done ? "complete" : "TIME CAP (did not finish)")}, " +
-                          $"sim {d.raceTime:F0} s, green {(d.greenTime >= 0 ? (d.raceTime - d.greenTime) : 0):F0} s");
-            sb.AppendLine($"  cautions {d.cautions} (M2: no caution system — incidents below are logged, not judged)   " +
+                          $"sim {d.raceTime:F0} s, from green flag {(d.firstGreenTime >= 0 ? (d.raceTime - d.firstGreenTime) : 0):F0} s");
+            sb.AppendLine($"  cautions {d.cautions} (Franklin's rules)   " +
                           $"wall breaches {d.WallBreaches}   incidents {d.Incidents} (spins/flips/stops)   DNF {d.Dnfs}   " +
                           $"on-track passes {d.passes}   mean positions moved vs grid {d.MeanPositionsMoved:F1}");
             sb.AppendLine($"  pass logic (kart-steps): ahead {d.dbgAhead} close {d.dbgClose} faster {d.dbgFaster} heldUp {d.dbgHeld} want {d.dbgWant} insideOk {d.dbgInsideOk} outsideOk {d.dbgOutsideOk} started {d.dbgStarted} hazardAhead {d.dbgHaz} pushes {d.dbgPushes} push->dive {d.dbgPushPasses} completed {d.dbgCompleted} | exit runs: seen {d.dbgRuns} started {d.dbgRunStarted} done {d.dbgRunDone} | bump-draft steps {d.dbgBumpDraft}");
@@ -86,14 +86,14 @@ namespace OKT
             }
             sb.AppendLine();
             if (d.trace != null) sb.Append(d.trace);
-            foreach (var ev in d.events) if (ev.Contains("SPIN") || ev.Contains("FLIP") || ev.Contains("STOPPED") || ev.Contains("OUT:") || ev.Contains("WALL BREACH") || ev.Contains("GRID AT GREEN") || ev.Contains("before:") || ev.Contains("DIVE") || ev.Contains("dive ")) sb.AppendLine("  " + ev);
+            foreach (var ev in d.events) if (ev.Contains("SPIN") || ev.Contains("FLIP") || ev.Contains("STOPPED") || ev.Contains("OUT:") || ev.Contains("WALL BREACH") || ev.Contains("CAUTION") || ev.Contains("TO THE TAIL") || ev.Contains("ONE TO GO") || ev.Contains("GREEN") || ev.Contains("GRID AT GREEN") || ev.Contains("before:") || ev.Contains("DIVE") || ev.Contains("dive ")) sb.AppendLine("  " + ev);
         }
 
         public static string Summary(SoakStats st)
         {
             float mean = 0; foreach (var x in st.cleanBest) mean += x; mean = st.cleanBest.Count > 0 ? mean / st.cleanBest.Count : 0;
             float win = 0; foreach (var x in st.winnerTimes) win += x; win = st.winnerTimes.Count > 0 ? win / st.winnerTimes.Count : 0;
-            return $"SOAK SUMMARY: {st.races} races, {st.finished} completed. Cautions {st.cautions} total ({(st.races > 0 ? (float)st.cautions / st.races : 0):F1}/race; M2 stub). " +
+            return $"SOAK SUMMARY: {st.races} races, {st.finished} completed. Cautions {st.cautions} total ({(st.races > 0 ? (float)st.cautions / st.races : 0):F1}/race). " +
                    $"Wall breaches {st.breaches}. Incidents {st.incidents} ({(st.races > 0 ? (float)st.incidents / st.races : 0):F1}/race). DNFs {st.dnfs}. " +
                    $"Clean-air best laps: {st.cleanBest.Count} karts, mean {mean:F2} s, range {(st.cleanBest.Count > 0 ? st.minClean : 0):F2}–{st.maxClean:F2} s (Clone band 10.5–11.5). " +
                    $"Mean winner race time {win:F1} s. Off-track steps {st.offTrackSteps}. " +

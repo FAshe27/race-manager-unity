@@ -86,6 +86,7 @@ namespace OKT
                 RacePhase.Grid => "ON THE GRID — press Start race",
                 RacePhase.Pace => "<color=#ffd84d>PACE LAP</color> — double file, no passing",
                 RacePhase.Green => $"<color=#5fe35f>GREEN</color>   Lap {lap} / {d.cfg.featureLaps}",
+                RacePhase.Caution => $"<color=#ffd84d>CAUTION</color>   {(d.oneToGo ? "ONE TO GO" : "single file")}   Lap {lap} / {d.cfg.featureLaps}",
                 RacePhase.Checkered => "<color=#ffffff>CHECKERED</color>",
                 _ => "RACE COMPLETE",
             };
@@ -110,7 +111,7 @@ namespace OKT
                 string tier = e.driver.tier == "fast" ? "★" : e.driver.tier == "new" ? "·" : " ";
                 sb.AppendLine($"{i + 1,2}.  #{e.driver.number,-3}{tier} {e.driver.name,-10} {e.lapsDone,3}   {gap,-7} {last,6} {best,6}");
             }
-            sb.AppendLine($"on-track passes {d.passes}   incidents {d.Incidents} (M2: logged, no cautions yet)");
+            sb.AppendLine($"on-track passes {d.passes}   incidents {d.Incidents} (cautions judged per Franklin's rules)");
             return sb.ToString();
         }
     }
