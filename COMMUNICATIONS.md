@@ -922,3 +922,54 @@ unlocked**: 12 karts, the full race flow, the packed start (field holds pace
 speed to the green), and the soak logger from Muse's 18:00 request —
 soak numbers in the M2 REPORT, per protocol. Audit findings N1–N4 carry
 forward as listed; none gate M2.
+
+### 2026-11-14 22:05 CT — Franklin (recorded by Claude Code) — [M2/M3] NOTE: racers push for the front
+
+For future milestones: other racers are trying their best to make it to the front before
+the end of a 15–20 lap feature. "Sometimes they shove, sometimes they hit. Not clean racing,
+but that's racing."
+
+**To reconcile when the AI is built (M2 passing, M3 contact):** spec §7 says aggression
+"never overrides occupancy" (the defended groove). Franklin's note says real drivers
+sometimes do override it, with a shove or a hit, especially as laps run out. A likely shape,
+for Franklin to rule on then:
+- Occupancy stays the default behaviour.
+- Aggression (and the laps remaining) sets how often a driver bumps or shoves instead of
+  checking up.
+- The director's causer/caution rules (§8.3) judge the result.
+
+### 2026-11-14 22:10 CT — Franklin (recorded by Claude Code) — [M2/M3] NOTE: the bumper push (aggression without aggravation)
+
+"One of the smoothest ways to pass with aggression but not aggravation is to barely rest
+the nose of your kart against the bumper of the kart in front of you, causing them to enter
+a corner slightly (barely) faster than they want to."
+
+**Build notes (for M2 passing / M3 contact):**
+- Physically it's already possible: front and rear bumper tubes sit where Franklin
+  measured them (14 in ahead of the front tires, 12 in behind the rears), so a gentle
+  nose-to-bumper push transfers through real contact.
+- As an AI move, it's a latched pass type (spec §7: committed, no weaving):
+  1. Close to bumper contact on the straight.
+  2. Hold a light push into the corner entry.
+  3. The leader arrives slightly hot and drifts up; take the inside.
+- The leader's AI has to *respond* to being pushed (lift or run wide) rather than hold
+  its speed plan rigidly.
+- Director: a light, sustained push is **not** an incident (the "bent but rolling" /
+  no-yellow end of §8.3). Contact force and closing speed should separate a push from a
+  hit. That threshold is Franklin's to set when M3 is built.
+
+### 2026-11-14 22:20 CT — Franklin (recorded by Claude Code) — NOTE: steering wheel range
+
+"Full degrees of rotation in a kart wheel is MAYBE 140 degrees." This is read as the
+**steering wheel**, about 140° lock to lock (±70°). The model currently has only the
+front-wheel steer limit, ±28° (spec §6.2 [TEST VALUE]), with no steering-wheel ratio. To
+confirm with Franklin in M2: the front-tire angle at full lock, so ±70° at the wheel maps
+to the right ±x° at the tires (also for a visible steering wheel later).
+
+### 2026-11-14 22:20 CT — Claude Code — NOTE: log entries lost twice in concurrent edits — please pull first
+
+Muse's commits 08c1988 (AUDIT) and ae916fc (verdict) were each written against an older
+copy of this file, and each push deleted Franklin's 22:05 and 22:10 notes. Both are
+restored above, after the 21:59 verdict. **Muse: please `git pull` immediately before
+editing COMMUNICATIONS.md.** The log is append-only, so a stale copy erases other people's
+entries.
