@@ -1179,3 +1179,88 @@ problems are M3's whole subject.
    near-parade when everyone qualified where they belong is realistic.
 3. **Contact spins:** "About once a feature" a shove or bump ends in a spin (not a flip).
    Soak target: about 1 contact spin per race; flips stay at about 1 in 40–50 races.
+
+### 2026-11-15 01:55 CT — Claude Code — [M2] STATUS (overnight, not the M2 REPORT): contact stable, passes happen, the leader is never passed
+
+Code is on branch **m2-wip** (b756f69). main is still the passed M1 build. This is a status
+entry, not the M2 REPORT, so it needs no audit yet.
+
+**Latest 10-race soak** (12 karts, 15 laps, Safe corner factor 0.30, 120 Hz):
+
+| | Overnight start | Now | Franklin's target |
+|---|---|---|---|
+| Races completed | 10/10 | 10/10 | all |
+| Wall breaches | 0 | **0** | 0 |
+| Flips per race | ~0.1 | **0.1** (1 in 10) | ~1 in 40–50 |
+| Contact spins per race | ~0 | **0.0** | ~1 |
+| On-track passes per race | 0.4 | **2.1** (range 0–9) | "depends": few when karts qualified right |
+| Winner started | pole 10/10 | **pole 10/10** | top-5 karts often win |
+
+Soak variance is large: runs of the same code have ranged from 2 to 5 passes a race.
+
+**Found and fixed tonight:**
+- **The push-up pass never reached the bumper.** The pusher kept its own lane, up to 9 ft
+  wide of the leader, so it lost ground in the corner and stayed 15–20 ft back. The pusher
+  now drives in the leader's tracks, and the dive under him starts only once the pusher's
+  nose is near his bumper. Dives now complete.
+- **Lap-after-lap pileups at a wreck on the turn-3 apex.** Drivers looked for trouble only
+  in their *current* lane. The groove swings about 18 ft from entry to apex, so a wreck
+  at the apex never showed up as "in my lane" until it was too late. Drivers now also
+  check where their line will be when they get there, and they look 2.0 s ahead (was
+  1.2 s). One wreck used to take out 6–12 karts (no caution until M3). In the last soak,
+  no wreck collected another kart.
+- **Tire bodies vs the rail.** The solid tire blocks I added for kart-on-kart contact also
+  caught the guardrail with a box corner. The M1 10° wall test spun the kart round instead
+  of skimming. Tire blocks now touch other karts only; nerfs and bumpers own the rail.
+  That test skims again (34 mph half a second later).
+
+**Tried and switched off:** letting attacking drivers corner harder than Safe pace (corner
+factor 0.30 → 0.27 at full aggression). It roughly tripled the passes, but it also tripled
+the wrecks. In one run a flipped kart was hit at speed and the solver threw a car about
+49 ft up and over the turn-4 guardrail. That is a **wall-crossing STOP-AND-REPORT**: it was
+the physics blowing up, not driving. With the setting off, 30 soak races have produced
+0 breaches. The switch is still in the code at 0 (`attackBoostMax`). The underlying
+problem, a hard hit on an upside-down kart producing a huge impulse, is not fixed. Next
+step: cap contact impulses on flipped karts (M3 contact work).
+
+**Still open:**
+1. **The leader is never passed.** Pole won all 10, including races where the pole kart
+   was only 6th or 7th fastest on feature pace. A faster kart can get to the leader's bumper,
+   but a lone leader on the groove has nobody making him run wide. This needs Franklin's
+   read (question 1 below).
+2. **Start order.** At the green the outside row concedes the inside and files in behind
+   it (the freight-train rule). Finishing orders come out 1-3-5-7-9 then 2-4-6. Inside-row
+   karts gain a whole row on every outside kart. That's probably too strong (question 2).
+3. **Contact spins are below target** (0 vs ~1 a race). The push is gentle, a nose on the
+   bumper. Spins from shoves will come with the M3 contact work.
+4. **M1 wall test, first case:** a 4° touch at 41 mph now spins the kart and rolls it. On
+   main the same test case hit at 21° and stopped dead. The inside apron changed where the
+   test kart meets the rail, so this is not a like-for-like regression, but a 4° touch
+   shouldn't roll a kart. I'll look into it before the M2 REPORT. The other three wall
+   cases skim. M1 laps are unchanged at 11.01–11.03 s, with 0 breaches and 0 rollovers on
+   lap runs.
+
+**TEST VALUES** (all mine, all adjustable):
+- inside apron 3 ft;
+- berm buffer 4 in;
+- side room 53 in centre to centre;
+- push:
+  - 0.5 m/s (1.1 mph) faster than the leader;
+  - 3 s limit;
+  - pushed kart drifts up 3 ft over 1.2 s;
+- concede when overlapped up to 5 ft behind;
+- hazard look-ahead 2.0 s;
+- qualifying odds: 20% missed setup in qualifying (+0.15–0.35 s), 10% feature setup off;
+- tire-block friction 0.35;
+- tire force cap 900 lbf.
+
+**DECISION NEEDED (Franklin):**
+1. **How does a faster kart get by the leader at Atoka?** Does the leader have to make a
+   mistake (slide up, miss the bottom)? Does the bumper push make him run wide? Or does
+   the faster kart just drive around the outside on the straight? Right now a leader on
+   the groove can't be passed.
+2. **Starts:** does the whole outside row really drop in behind the inside row, or do
+   outside karts usually hold their spot for a lap or two?
+3. **The inside edge at Atoka:** does the banked dirt run onto flat grass with a sharp
+   crease (which trips nerf bars), or does it roll off gradually? I modelled 3 ft of
+   continued bank.
