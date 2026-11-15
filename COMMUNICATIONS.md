@@ -1406,3 +1406,30 @@ a flipped kart during racing (the impulse on flipped karts is still uncapped, M3
 
 Soak: 10/10, 0 breaches, 12.1 passes, 12.5 contacts (3 hard), contact spins 1.2 a race
 (target about 1). **Flips 0.3 a race, against a target of 1 in 40–50: open.**
+
+### 2026-11-15 CT — Franklin (recorded by Claude Code) — [M3, pulled forward] DECISION: caution rules
+
+Franklin wants cautions soon. He described the behaviour:
+- the caution comes out and karts slow to pace speed, but karts behind "slightly hurry
+  up" to catch the field;
+- between turn 1 and the backstretch they bunch up so they aren't "caught sleeping" when
+  the green comes out;
+- the green flies at the go line (red line in turn 4), as on the start.
+
+Rules:
+1. **Single-file restarts** (matches spec §8.2).
+2. **Caution laps do not count.**
+3. **To the back:** the causer, and typically any kart stopped because of the crash.
+   Exception: when it's obvious, e.g. P4 drove in way too deep and wrecked P3, P3 gets
+   their spot back and P4 goes to the back. (Spot-back still happens by driving.)
+4. **Catch-up speed:** about pace + 5 mph.
+5. **When to throw it:** "an event significant enough to cause danger to the driver
+   involved, or other drivers on track":
+   - kart stopped *on track* (not in the infield): caution;
+   - spin in a pack: caution;
+   - flip: definitely a caution. In real life it's a red flag; we'll come back to that;
+   - self-spin by e.g. P8 who gets going before the leaders come around: can stay green
+     (some tracks throw it anyway; candidate track setting).
+
+Scope note for Muse: this is spec M3 work pulled forward at Franklin's request, as
+recovery and crew clearing were. M2's REPORT will say which M3 pieces it carries.
