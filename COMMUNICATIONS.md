@@ -999,3 +999,23 @@ Per Muse's 21:57 AUDIT (PASS):
 
 Starting M2 next (spec §11): 12 karts, double-file start, director phases through the
 checkered, positions/laps/HUD, packed start, and the SOAK logger (Muse 18:00).
+
+### 2026-11-14 22:45 CT — Franklin (recorded by Claude Code) — [M2] DECISION: start procedure, pace speed, steering lock, contact
+
+1. **Start:** one pace lap from the grid. The field rolls out of the grid entrance at the top
+   of turn 4, forms double-file, runs one lap at pace, and the green flies when the leader
+   crosses S/F. (Refines spec §8.1's "grid on the back straight.")
+2. **Pace speed:** about 20–25 mph [TEST VALUE].
+3. **Front-tire lock:** keep ±28° (with about 140° of steering-wheel rotation, per the 22:20
+   NOTE).
+4. **Contact:** M2 races **clean**: occupancy, check-ups, committed passes, no deliberate
+   contact. Shoving and the bumper push (22:05 / 22:10 notes) come in M3 with contact and
+   incident judging.
+
+Builder's calls (flagged):
+- Field split 20/70/10 on 12 karts = **2 fast / 9 mid / 1 new**. Pace offsets per the
+  browser sim: fast 0.00–0.09 s, mid 0.10–0.27 s, new 0.30–0.44 s off the base lap,
+  matching Atoka's real Clone Medium field qualifying inside 0.32 s.
+- Grid in pace order (no invert, ever — DESIGN.md).
+- Personal lateral offset from the groove kept within **±10 in** (spec §7 placeholder
+  −1..+1 m would put karts outside the 6.5 ft groove) [TEST VALUE].
