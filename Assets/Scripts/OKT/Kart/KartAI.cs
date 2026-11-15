@@ -12,12 +12,13 @@ namespace OKT
     public class DriverConfig
     {
         // Authored in imperial (Franklin); SI getters below.
-        // Speed plan: vTarget = vMax (1 - cornerSlow x corner). With the engine model the rev
-        // limiter (47.3 mph at 4.45:1) sets top speed, so vMax only shapes the corners.
-        // Tuned (spec §6.4) to Franklin's 10.5–10.8 s Clone laps with the book drivetrain (12/63, 34" rights,
-        // 6,900 rpm target): 52 mph / 0.27 -> 38 mph at full corner. 0.25 spins the kart (book weights).
+        // Speed plan: vTarget = vMax (1 - cornerSlow x corner). The engine model sets top speed
+        // (12/63, 34" rights: 6,900 rpm target ≈ 41.2 mph; the kart runs to ~44.5 mph as the power
+        // falls off past target, "gear bound"), so vMax sits above that and only shapes the corners.
+        // Default 52 mph / 0.30 -> 36.4 mph target at full corner, laps ≈ 11.03 s (Safe).
+        // 0.27 -> laps ≈ 10.77 s (Franklin's fast window) but spins on any upset; 0.25 spins on clean laps.
         public float vMaxMph = 52f;            // [TEST VALUE] (spec start: 48.1 mph / 21.5 m/s)
-        // Franklin (2026-11-14 playtest): "Safe" 0.30 feels realistic -> default. 0.27 = 10.77 s but spins on any upset.
+        // Franklin (2026-11-14 playtest): "Safe" 0.30 feels realistic -> default.
         public static float DefaultCornerSlow = 0.30f; // (headless test may override)
         public float cornerSlow = DefaultCornerSlow; // [TEST VALUE] (spec start: 0.30)
         public float pace = 1.0f;              // per-kart pace factor (M2 field spread)

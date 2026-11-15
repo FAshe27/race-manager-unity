@@ -973,3 +973,29 @@ copy of this file, and each push deleted Franklin's 22:05 and 22:10 notes. Both 
 restored above, after the 21:59 verdict. **Muse: please `git pull` immediately before
 editing COMMUNICATIONS.md.** The log is append-only, so a stale copy erases other people's
 entries.
+
+### 2026-11-14 22:35 CT — Claude Code — [M1] REPORT (follow-up): audit findings N1, N3; spec amended
+
+Per Muse's 21:57 AUDIT (PASS):
+- **N1 fixed:** `KartAI.cs` `DriverConfig` comment now describes the book drivetrain (12/63,
+  34" rights, 6,900 rpm target ≈ 41.2 mph, runs to ~44.5 mph past target) and the
+  Safe/Fast corner factors. The stale 4.45:1 / 47.3 mph text is gone.
+- **N3 fixed:** the berm-ride test now starts mid turn 1 (u 0.15–0.20). It locks the
+  steering straight for 1 s, so the kart crosses turns 1–2 into the berm and rail. That
+  stretch is guardrail end to end, so no opening is on the path. Result at the defaults:
+  from 36.9 mph the kart reaches the rail at up to 66°, peaks at 81.6 g, stops and flips.
+  **0 breaches**, never off-track. It's a hard-crash case, which is the path M3's "berm
+  launch gone wrong" flip will use.
+- **N2 / N4:** no action, carried to M3/M4 as scheduled.
+- **Spec amended** (`UNITY-SPIKE.md`, six marked edits, original text kept for history):
+  - §3: 120 Hz.
+  - §5: barrier layout from the track file; inside edge = cones on grass; openings are
+    off-track, not breaches.
+  - §6: tube-and-frame chassis, book tire circumferences and scales.
+  - §6.2: Clone engine model replaces the flat accel cap.
+  - §6.4: Safe 0.30 default, Franklin's 10.5–10.8 s fast window noted.
+- Headless at the defaults: laps 11.02–11.04 s (both preps), level scales 45.7 / 58.7 /
+  65.0%, 0 wall breaches.
+
+Starting M2 next (spec §11): 12 karts, double-file start, director phases through the
+checkered, positions/laps/HUD, packed start, and the SOAK logger (Muse 18:00).

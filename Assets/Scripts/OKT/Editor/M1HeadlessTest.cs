@@ -306,8 +306,10 @@ namespace OKT.EditorTools
                     w.Destroy();
                 }
 
-            // ---------- R. berm ride: run the right side up the berm down the front straight, then hold the
-            // steering straight into turn 1 so the turn's berm curves into the kart (the old box dug in here).
+            // ---------- R. berm ride: mid turn 1, lock the steering straight for 1 s so the kart runs off the
+            // groove, across the turn and up into the berm and rail of turn 2. (Muse N3: the old version rode the
+            // berm down the front straight and could leave the track at the turn-1 access-road opening first;
+            // turns 1–2 are guardrail end to end, u 0.099–0.582, so there is no opening on this path.)
             {
                 var w = World.Build(json);
                 var k = w.karts[0]; var ai = w.drivers[0];
@@ -315,9 +317,8 @@ namespace OKT.EditorTools
                 for (int i = 0; i < (hz / 60) * 60 * 40 && phase < 3; i++)
                 {
                     float u = ai.s / w.track.N;
-                    if (phase == 0 && w.simTime > 12f && u > 0.93f) { phase = 1; ai.cfg.lateralOffsetFt = 6f; }
-                    if (phase == 1 && u > 0.075f && u < 0.2f) { phase = 2; t0 = w.simTime; vIn = k.ForwardSpeed; ai.steerOverride = true; ai.steerOverrideDeg = 0f; }
-                    if (phase == 2 && w.simTime - t0 > 1.0f) { ai.steerOverride = false; ai.cfg.lateralOffsetFt = 0f; }
+                    if (phase == 0 && w.simTime > 12f && u > 0.15f && u < 0.20f) { phase = 2; t0 = w.simTime; vIn = k.ForwardSpeed; ai.steerOverride = true; ai.steerOverrideDeg = 0f; }
+                    if (phase == 2 && w.simTime - t0 > 1.0f) { ai.steerOverride = false; }
                     w.StepOnce();
                     var v = k.Body.linearVelocity;
                     if (phase == 2)
@@ -329,7 +330,7 @@ namespace OKT.EditorTools
                     }
                     vPrev = v;
                 }
-                sb.AppendLine($"Berm ride into turn 1 (steering held straight 1 s from {U.MphS(vIn)}): peak decel {peakDecel:F1} g; max angle to track {maxYaw:F0}°; lowest frame/tube clearance {U.InS(minClr, 2)}; 3 s later {U.MphS(vOut)}; wall breaches {ai.bandBreaches}; off-track {ai.offTrackSteps * World.FixedDt:F1} s; upside-down {k.UpsideDown}");
+                sb.AppendLine($"Berm ride, turns 1-2 (steering locked straight 1 s from {U.MphS(vIn)} mid turn 1): peak decel {peakDecel:F1} g; max angle to track {maxYaw:F0}°; lowest frame/tube clearance {U.InS(minClr, 2)}; 3 s later {U.MphS(vOut)}; wall breaches {ai.bandBreaches}; off-track {ai.offTrackSteps * World.FixedDt:F1} s; upside-down {k.UpsideDown}");
                 w.Destroy();
             }
 

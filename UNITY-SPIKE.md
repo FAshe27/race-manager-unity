@@ -1,5 +1,11 @@
 # OKT Raceway — Unity Race-Core Spike
 
+**Amended 2026-11-14 (post-M1, per Muse's M1 AUDIT and Franklin's rulings):** §3 physics
+at 120 Hz; §5 barriers come from the track file and the inside edge is cones on flush grass;
+§6 compound tube-and-frame chassis, tire/weight values from *From Beginner to Winner*, and
+a Clone engine model in place of the flat accel cap; §6.4 Safe default corner speed. Each
+change is marked *(amended 2026-11-14)*; the reasons are in COMMUNICATIONS.md.
+
 **Status:** Spec v2 (2026-11-14), revised by Muse at Franklin's ruling —
 **3D physics from the start** (see §14 for what changed and why). Supersedes
 v1's 2D plan; if you read v1, re-read §§1, 3–6, 9, 11–14.
@@ -60,7 +66,10 @@ after the core is judged.
   version in the project README.
 - New private repo `race-manager-unity` with the standard Unity `.gitignore`
   (Library/, Temp/, Builds/ never committed).
-- Physics (PhysX) settings: gravity (0, −9.81, 0); Fixed Timestep 1/60;
+- Physics (PhysX) settings: gravity (0, −9.81, 0); Fixed Timestep **1/120**
+  *(amended 2026-11-14: was 1/60; stiff tire springs and round-tube-on-dirt contact need
+  it — the 60 Hz berm barrel-roll was a solver artifact; §13's "shrink the timestep
+  before hacks")*;
   default solver iterations raised (velocity 8 / position 4 is a sane start
   **[TEST VALUE]**); kart rigidbodies use **Continuous Dynamic** collision
   detection, and their `maxAngularVelocity` is raised (≈ 25 rad/s
@@ -137,6 +146,12 @@ come from the data, never from art pixels.**
   (static, non-convex). Extend the mesh a skirt beyond both edges (infield
   apron and outer run-off at ground level) so a kart that leaves the band
   is still on ground, not falling through the world.
+- *(amended 2026-11-14)* **Barrier layout lives in the track file** (`barriers` /
+  `openings` in `test-track-one-v3.json`): at Atoka, a chain-link fence past S/F, then
+  guardrail, with openings at the tops of turns 1, 3 and 4 (access road, track exit, grid
+  entrance) that lead onto run-off. A kart leaving through an opening is off-track, not a
+  wall breach. **The inside edge is not a wall:** cones on flush infield grass (Franklin).
+  The original text below is kept for history; the inner tire-stack is superseded.
 - **Walls:** the outer boundary is a physical barrier following the outer
   edge loop — an extruded low wall (tire-wall height ≈ 0.5 m
   **[TEST VALUE]**) with a box-strip collider per segment. At its base, the
@@ -151,6 +166,17 @@ come from the data, never from art pixels.**
   spike-ending bug — report it in COMMUNICATIONS.md, don't paper over it.
 
 ## 6. The kart (3D physics model)
+
+*(amended 2026-11-14)* **Chassis as built:** a frame/seat/engine box between the wheels
+plus round tubes for the nerf bars and front/rear bumpers, from Franklin's measurements:
+bottoms about 1/2 in off the ground, front bumper about 14 in ahead of the front tires,
+rear about 12 in behind the rears, nerfs 1/8 in outside the tires. A square box corner dug
+into the berm; round tubes ride up it. Every visual is its own collider (§9). Tire
+**rolling sizes** are measured circumferences per the book (rights 34", LR 32¼", LF 32½" at
+6/5 psi: 1¾" rear and 1½" front stagger). Scales per the book's worked Clone Medium:
+**45.7% nose, 59.4% left, 65% crossweight**, the cross set by spindle height. Tire "spring"
+= sidewall + flex, "barely at all" squat (Franklin). The original text below is kept for
+history.
 
 One prefab: a `Rigidbody` (mass per class weight, §6.1), a compound
 collider (a low box for the chassis/body ≈ 1.80 m long × 1.35 m wide ×
@@ -176,6 +202,11 @@ kart behaviour we need. Use the proven arcade pattern instead:
   track ≈ 1.1 m rear / 1.0 m front **[TEST VALUE]** — real kart geometry,
   Franklin to confirm). Each grounded wheel applies a **suspension spring
   force** (stiffness/damping **[TEST VALUE]**) along its ray.
+- *(amended 2026-11-14)* **Engine model replaces the flat accel cap below:** Clone,
+  17 crank hp × 0.90 drivetrain; power curve peaks 6,550–6,900 rpm (book target 6,900),
+  then falls off as the engine goes "gear bound" (book Ch 24); centrifugal clutch; gearing
+  axle ÷ clutch, 12/63 at Atoka (Franklin); rolling resistance + air drag. The pull fades
+  with speed, so momentum costs something. Braking stays rear-axle only.
 - **Drive:** the rear wheels apply longitudinal force from the engine,
   toward the AI's target speed (§7); accel cap ≈ 4.5 m/s², braking ≈ 8
   **[TEST VALUE]**.
@@ -201,6 +232,13 @@ Per-kart attitude −1 (loose) .. +1 (tight), from setup:
 Feel seasoning — a neutral field is fine for M1–M2; wire it in by M4.
 
 ### 6.4 Speed calibration
+
+*(amended 2026-11-14)* **As tuned at M1:** vMax 52 mph with the engine model setting the
+top speed. Default corner factor **0.30 ("Safe")**: laps about 11.03 s, robust to bumps,
+dust and shallow wall hits; Franklin: "feels realistic." Franklin's fast-Clone window at
+Atoka is **10.5–10.8 s**. The 0.27 "Fast" setting reaches 10.77 s but spins on any upset
+until the AI drives at the limit with recovery (M3/M4). The original text below is kept
+for history.
 Clone Medium at Test Track One: nominal lap **10.68 s** (browser
 calibration; Franklin's real Clone band at Atoka is 10.5–11.5 s). Average
 ≈ 18.8 m/s. Starting target-speed curve: `vTarget = vMax × (1 − 0.30 ×
