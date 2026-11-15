@@ -1,0 +1,351 @@
+// Builds the track GameObjects from the TrackModel (spec §5): the heightfield
+// ribbon mesh + MeshCollider (racing surface, berm, outside run-off bank),
+// the outside barrier as box strips laid only where the JSON's barrier layout
+// says (guardrail / fence; openings stay open), a ground plane (infield grass),
+// visual-only cones on the inside edge, and line markers. Barrier visuals ARE the
+// collider boxes, so mesh and collider can never disagree.
+// Franklin (2026-11-14): the inside edge is NOT a wall — flush grass, cones only.
+using UnityEngine;
+using UnityEngine.Rendering;
+
+namespace OKT
+{
+    public static class TrackBuilder
+    {
+        public static PhysicsMaterial DirtMaterial()
+        {
+            // Chassis-on-dirt contact (only when the frame bottoms out). Tires do NOT
+            // use this — tire grip is the raycast model's job. [TEST VALUE]
+            return new PhysicsMaterial("Dirt") { dynamicFriction = 0.6f, staticFriction = 0.6f, bounciness = 0f,
+                frictionCombine = PhysicsMaterialCombine.Average, bounceCombine = PhysicsMaterialCombine.Minimum };
+        }
+
+        /// <summary>Kart bodywork. Friction combine = Minimum so the rail's low friction decides a scrape.</summary>
+        public static PhysicsMaterial BodyMaterial()
+        {
+            return new PhysicsMaterial("KartBody") { dynamicFriction = 0.3f, staticFriction = 0.3f, bounciness = 0f,
+                frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Minimum };
+        }
+
+        /// <summary>Guardrail / fence. Low friction: a shallow hit skims along it (Franklin).</summary>
+        public static PhysicsMaterial BarrierMaterial(float friction)
+        {
+            return new PhysicsMaterial("Barrier") { dynamicFriction = friction, staticFriction = friction, bounciness = 0f,
+                frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Minimum };
+        }
+
+        public static GameObject Build(TrackModel t, Transform parent)
+        {
+            var root = new GameObject("Track (" + t.name + ")");
+            root.transform.SetParent(parent, false);
+            BuildSurface(t, root.transform);
+            BuildBarriers(t, root.transform);
+            BuildGround(t, root.transform);
+            BuildCones(t, root.transform);
+            BuildMarkers(t, root.transform);
+            return root;
+        }
+
+        public static GameObject BuildSurface(TrackModel t, Transform parent)
+        {
+            var cfg = t.cfg;
+            int rows = t.M;
+            int cols = ColumnCount(cfg);
+            var verts = new Vector3[rows * cols];
+            var uvs = new Vector2[rows * cols];
+            var colors = new Color[rows * cols];
+            for (int r = 0; r < rows; r++)
+            {
+                float s = (float)r / rows * t.N;
+                var f = t.Frame(s);
+                float arc = t.ArcAt(s);
+                for (int j = 0; j < cols; j++)
+                {
+                    float d = ColumnOffset(f, cfg, j);
+                    var p = f.pos + f.outN * d;
+                    verts[r * cols + j] = new Vector3(p.x, t.SurfaceHeightSD(s, d), p.y);
+                    // u: distance from the groove (texture paints the darker worn strip); v: along the lap.
+                    // Off the dirt (run-off bank) u is pushed to the texture's grass end.
+                    float u = d > f.halfWidth + 0.01f ? 1f : Mathf.Clamp((d - f.LineOffset) / 8f + 0.5f, 0f, 0.97f);
+                    uvs[r * cols + j] = new Vector2(u, arc / 4f);
+                }
+            }
+            var tris = new int[rows * (cols - 1) * 6];
+            int ti = 0;
+            for (int r = 0; r < rows; r++)
+            {
+                int rn = (r + 1) % rows;
+                for (int j = 0; j < cols - 1; j++)
+                {
+                    int a = r * cols + j, b = r * cols + j + 1, c = rn * cols + j, e = rn * cols + j + 1;
+                    tris[ti++] = a; tris[ti++] = c; tris[ti++] = b;
+                    tris[ti++] = b; tris[ti++] = c; tris[ti++] = e;
+                }
+            }
+            var mesh = new Mesh { name = "TrackSurface", indexFormat = IndexFormat.UInt32 };
+            mesh.vertices = verts; mesh.uv = uvs; mesh.triangles = tris;
+            mesh.RecalculateNormals();
+            if (mesh.normals[cols / 2].y < 0f) // flip winding if normals face down
+            {
+                for (int i = 0; i < tris.Length; i += 3) { int tmp = tris[i + 1]; tris[i + 1] = tris[i + 2]; tris[i + 2] = tmp; }
+                mesh.triangles = tris;
+                mesh.RecalculateNormals();
+            }
+            mesh.RecalculateBounds();
+
+            var go = new GameObject("Surface");
+            go.transform.SetParent(parent, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = Materials.Dirt();
+            var mc = go.AddComponent<MeshCollider>();
+            mc.convex = false;
+            mc.sharedMesh = mesh;
+            mc.sharedMaterial = DirtMaterial();
+            return go;
+        }
+
+        public static int ColumnCount(SurfaceConfig cfg) => cfg.surfaceCols + cfg.bermCols + 1 + 4;
+
+        /// <summary>Lateral offset of mesh column j: inside edge .. berm start .. outside edge .. flat .. bank.</summary>
+        public static float ColumnOffset(in TrackFrame f, SurfaceConfig cfg, int j)
+        {
+            float hw = f.halfWidth;
+            float bermStart = hw - cfg.bermWidth;
+            if (j <= cfg.surfaceCols) return Mathf.Lerp(-hw, bermStart, (float)j / cfg.surfaceCols);
+            int jb = j - cfg.surfaceCols;
+            if (jb <= cfg.bermCols) return Mathf.Lerp(bermStart, hw, (float)jb / cfg.bermCols);
+            int js = jb - cfg.bermCols; // 1..4
+            if (js == 1) return hw + cfg.outerFlat;
+            return hw + cfg.outerFlat + cfg.outerBank * (js - 1) / 3f;
+        }
+
+        public static void BuildBarriers(TrackModel t, Transform parent)
+        {
+            var cfg = t.cfg;
+            var outer = new GameObject("OutsideBarrier").transform; outer.SetParent(parent, false);
+            var railMat = Materials.Solid(new Color(0.82f, 0.82f, 0.84f), 0.5f);
+            var fenceMat = Materials.Solid(new Color(0.55f, 0.58f, 0.62f), 0.3f);
+            var pmat = BarrierMaterial(cfg.barrierFriction);
+            // One continuous mesh per barrier run (no internal seams on the face: separate
+            // end-to-end boxes produced "ghost" contacts that stopped a kart dead on a 10° hit).
+            int segs = t.N * 2; // 512 slices around the lap (~1.3 ft each)
+            var types = new BarrierType[segs];
+            for (int i = 0; i < segs; i++) types[i] = t.BarrierAt((i + 0.5f) / segs);
+            // Start at a boundary between runs so no run is split across slice 0.
+            int b0 = 0;
+            for (int i = 0; i < segs; i++) if (types[i] != types[(i - 1 + segs) % segs]) { b0 = i; break; }
+            int done = 0;
+            while (done < segs)
+            {
+                int start = b0 + done;
+                var type = types[start % segs];
+                int len = 1;
+                while (done + len < segs && types[(start + len) % segs] == type) len++;
+                if (type != BarrierType.None) // None = an opening (access road / exit / grid entrance)
+                {
+                    float h = type == BarrierType.Fence ? cfg.fenceHeight : cfg.guardrailHeight;
+                    MakeRun(t, outer, type + "_" + (start % segs), start, start + len, segs, h, cfg.barrierThickness,
+                        type == BarrierType.Fence ? fenceMat : railMat, pmat);
+                }
+                done += len;
+            }
+        }
+
+        /// <summary>A barrier run as one closed ribbon (inner face on the outside edge, top, back) + MeshCollider.</summary>
+        static void MakeRun(TrackModel t, Transform parent, string name, int start, int end, int segs, float height,
+            float thick, Material mat, PhysicsMaterial pmat)
+        {
+            const float sink = 0.4f; // extend below the surface so nothing slips under
+            int n = end - start + 1;
+            // 4 corners per slice: inner-bottom, inner-top, outer-top, outer-bottom
+            var v = new Vector3[n * 4];
+            for (int i = 0; i < n; i++)
+            {
+                float s = (float)((start + i) % segs) / segs * t.N;
+                var f = t.Frame(s);
+                float baseY = t.SurfaceHeightSD(s, f.halfWidth);
+                var a = f.pos + f.outN * f.halfWidth;
+                var b = f.pos + f.outN * (f.halfWidth + thick);
+                v[i * 4 + 0] = new Vector3(a.x, baseY - sink, a.y);
+                v[i * 4 + 1] = new Vector3(a.x, baseY + height, a.y);
+                v[i * 4 + 2] = new Vector3(b.x, baseY + height, b.y);
+                v[i * 4 + 3] = new Vector3(b.x, baseY - sink, b.y);
+            }
+            var tris = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < n - 1; i++)
+                for (int q = 0; q < 3; q++) // faces: inner (0-1), top (1-2), outer (2-3)
+                {
+                    int a0 = i * 4 + q, a1 = i * 4 + q + 1, b0 = (i + 1) * 4 + q, b1 = (i + 1) * 4 + q + 1;
+                    tris.Add(a0); tris.Add(a1); tris.Add(b0);
+                    tris.Add(a1); tris.Add(b1); tris.Add(b0);
+                }
+            // end caps
+            foreach (int i in new[] { 0, n - 1 })
+            {
+                int o = i * 4;
+                if (i == 0) { tris.Add(o); tris.Add(o + 2); tris.Add(o + 1); tris.Add(o); tris.Add(o + 3); tris.Add(o + 2); }
+                else { tris.Add(o); tris.Add(o + 1); tris.Add(o + 2); tris.Add(o); tris.Add(o + 2); tris.Add(o + 3); }
+            }
+            var mesh = new Mesh { name = name, indexFormat = IndexFormat.UInt32 };
+            mesh.vertices = v; mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals(); mesh.RecalculateBounds();
+            // Make sure the inner face points at the track (toward -outN): flip if not.
+            var f0 = t.Frame((float)(start % segs) / segs * t.N);
+            var nrm = mesh.normals[1];
+            if (Vector2.Dot(new Vector2(nrm.x, nrm.z), f0.outN) > 0f)
+            {
+                for (int i = 0; i < tris.Count; i += 3) { int tmp = tris[i + 1]; tris[i + 1] = tris[i + 2]; tris[i + 2] = tmp; }
+                mesh.SetTriangles(tris, 0); mesh.RecalculateNormals();
+            }
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+            var mc = go.AddComponent<MeshCollider>();
+            mc.sharedMesh = mesh; mc.convex = false; mc.sharedMaterial = pmat;
+            go.isStatic = true;
+        }
+
+        static void BuildGround(TrackModel t, Transform parent)
+        {
+            // Infield + surroundings: grass at y = 0 (= inside-edge height, flush with the dirt).
+            var g = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            g.name = "Ground";
+            g.transform.SetParent(parent, false);
+            g.transform.localScale = new Vector3(160f, 1f, 110f);
+            g.transform.position = new Vector3(0f, -0.5f - 0.005f, 0f);
+            g.GetComponent<MeshRenderer>().sharedMaterial = Materials.Solid(new Color(0.30f, 0.40f, 0.20f), 0.05f);
+            g.GetComponent<BoxCollider>().sharedMaterial = DirtMaterial();
+            g.isStatic = true;
+        }
+
+        static void BuildCones(TrackModel t, Transform parent)
+        {
+            // Visual-only marker cones on the inside edge (as in the Atoka video). No colliders.
+            var root = new GameObject("InsideCones").transform; root.SetParent(parent, false);
+            var mat = Materials.Solid(new Color(1f, 0.55f, 0.05f), 0.3f);
+            float spacing = 30f * U.Ft; // [TEST VALUE] presentation
+            int n = Mathf.Max(4, Mathf.RoundToInt(t.centerLength / spacing));
+            for (int i = 0; i < n; i++)
+            {
+                float s = (float)i / n * t.N; var f = t.Frame(s);
+                var p = f.pos - f.outN * (f.halfWidth + 0.25f);
+                var c = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                Object.DestroyImmediate(c.GetComponent<Collider>());
+                c.name = "Cone" + i; c.layer = 2;
+                c.transform.SetParent(root, false);
+                c.transform.position = new Vector3(p.x, 0.15f, p.y);
+                c.transform.localScale = new Vector3(0.18f, 0.15f, 0.18f);
+                c.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            }
+        }
+
+        static void BuildMarkers(TrackModel t, Transform parent)
+        {
+            // Visual-only stripes (no colliders): start/finish (u = 0) and the go line (u = goU).
+            MakeLineMarker(t, parent, "StartFinish", 0f, Color.white);
+            MakeLineMarker(t, parent, "GoLine", t.goU * t.N, new Color(0.9f, 0.15f, 0.1f));
+        }
+
+        static void MakeLineMarker(TrackModel t, Transform parent, string name, float s, Color col)
+        {
+            var f = t.Frame(s);
+            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = name;
+            Object.DestroyImmediate(go.GetComponent<BoxCollider>());
+            go.transform.SetParent(parent, false);
+            float h = t.SurfaceHeightSD(s, 0f);
+            go.transform.position = new Vector3(f.pos.x, h + 0.02f, f.pos.y);
+            var outward = new Vector3(f.outN.x, 0, f.outN.y);
+            var fwd = new Vector3(f.tan.x, 0, f.tan.y);
+            var n = (Vector3.up - outward * Mathf.Tan(t.cfg.bankingDeg * Mathf.Deg2Rad)).normalized;
+            go.transform.rotation = Quaternion.LookRotation(fwd, n);
+            go.transform.localScale = new Vector3(f.halfWidth * 2f, 0.02f, 0.25f);
+            go.GetComponent<MeshRenderer>().sharedMaterial = Materials.Unlit(col);
+        }
+
+        /// <summary>Debug overlay: Franklin's groove (from lineFrac) drawn on the surface.</summary>
+        public static LineRenderer BuildLineOverlay(TrackModel t, Transform parent)
+        {
+            var go = new GameObject("RacingLineOverlay");
+            go.transform.SetParent(parent, false);
+            var lr = go.AddComponent<LineRenderer>();
+            lr.loop = true;
+            lr.useWorldSpace = true;
+            lr.widthMultiplier = 0.12f;
+            lr.shadowCastingMode = ShadowCastingMode.Off;
+            lr.sharedMaterial = Materials.Unlit(new Color(1f, 0.85f, 0.1f));
+            int n = t.LineCount / 2;
+            var pts = new Vector3[n];
+            for (int i = 0; i < n; i++)
+            {
+                int k = i * 2; var p = t.LinePoint(k); float s = t.LineS(k); var f = t.Frame(s);
+                pts[i] = new Vector3(p.x, t.SurfaceHeightSD(s, f.LineOffset) + 0.04f, p.y);
+            }
+            lr.positionCount = n;
+            lr.SetPositions(pts);
+            return lr;
+        }
+    }
+
+    /// <summary>Runtime-created materials (URP Lit when available).</summary>
+    public static class Materials
+    {
+        static Shader lit, unlit;
+        static Material dirt;
+
+        static Shader Lit() => lit != null ? lit : (lit = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+        static Shader UnlitShader() => unlit != null ? unlit : (unlit = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color"));
+
+        public static Material Solid(Color c, float smooth)
+        {
+            var m = new Material(Lit());
+            SetColor(m, c);
+            if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smooth);
+            if (m.HasProperty("_Glossiness")) m.SetFloat("_Glossiness", smooth);
+            return m;
+        }
+
+        public static Material Unlit(Color c)
+        {
+            var m = new Material(UnlitShader());
+            SetColor(m, c);
+            return m;
+        }
+
+        static void SetColor(Material m, Color c)
+        {
+            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
+            if (m.HasProperty("_Color")) m.SetColor("_Color", c);
+        }
+
+        /// <summary>Dirt with a subtly darker worn strip along the groove (u = 0.5); u ≈ 1 is grass.</summary>
+        public static Material Dirt()
+        {
+            if (dirt != null) return dirt;
+            const int W = 256, H = 16;
+            var tex = new Texture2D(W, H, TextureFormat.RGBA32, true) { wrapModeU = TextureWrapMode.Clamp, wrapModeV = TextureWrapMode.Repeat, name = "DirtGroove" };
+            var baseC = new Color(0.50f, 0.36f, 0.24f);
+            var groove = new Color(0.36f, 0.25f, 0.17f);
+            var grass = new Color(0.30f, 0.40f, 0.20f);
+            var rnd = new System.Random(7);
+            var px = new Color[W * H];
+            for (int y = 0; y < H; y++)
+                for (int x = 0; x < W; x++)
+                {
+                    float uu = (x + 0.5f) / W;
+                    float dm = Mathf.Abs(uu - 0.5f) * 8f; // metres from the groove centre
+                    float g = dm < 1f ? 0.5f * (1f + Mathf.Cos(Mathf.PI * dm)) : 0f;
+                    var c = uu > 0.985f ? grass : Color.Lerp(baseC, groove, g);
+                    float n = (float)(rnd.NextDouble() - 0.5) * 0.04f;
+                    px[y * W + x] = new Color(c.r + n, c.g + n, c.b + n, 1f);
+                }
+            tex.SetPixels(px); tex.Apply(true);
+            dirt = Solid(Color.white, 0.05f);
+            dirt.name = "Dirt";
+            if (dirt.HasProperty("_BaseMap")) dirt.SetTexture("_BaseMap", tex);
+            if (dirt.HasProperty("_MainTex")) dirt.SetTexture("_MainTex", tex);
+            return dirt;
+        }
+    }
+}
