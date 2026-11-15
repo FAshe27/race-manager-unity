@@ -1514,3 +1514,54 @@ laps at pace), 0.6 a race. Getting there took four fixes to deadlocks in the que
 1. How tall and how wide is the Atoka berm at the turn-2 exit, really? Would a
    2–3 in berm be closer?
 2. How tall is the guardrail, from the dirt to the top of the rail? It's modelled at 20 in.
+
+### 2026-11-15 CT — Claude Code — [M2] STATUS: track edges from Franklin's photos, smooth groove; turn-2 launch closed
+
+Code: m2-wip e70b3a5.
+
+**From Franklin's six Atoka photos:**
+- **Outside:** the dirt runs nearly flat to a W-beam guardrail (now 24 in) with a solid
+  wall about 4 ft tall directly behind it (now modelled). The berm is now **0 in tall**,
+  with its 12 in loose strip kept so tires still dust there.
+- **Inside:** Franklin's "pushes the kart up slightly" berm is a loose ridge at the inside
+  edge, now 3 in × 18 in. Then an 8 ft flat band of graded dirt, then grass, all level
+  with the inside edge.
+- All of these are TEST VALUEs, marked "sounds good" by Franklin.
+
+**Groove:** the old line (v2 hand-set, mapped onto v3) was wiggly, the same problem Muse
+saw: curvature reversed about 50 times through the corners, with a dent at the turn-1 end.
+It's now built geometrically per Franklin's sketch, in `Tools/build_track_v3.py`:
+- straight and parallel along the straights, 9.0 ft out from the centreline;
+- one true arc per end, apex 10.8 ft in from the centreline (both copied from the old line).
+
+Laps went from 11.02 to 11.13 s, still inside the Clone band.
+
+**Turn-2 STOP-AND-REPORT closed.** The cause was the outside berm as a rigid ramp. At
+6 in it launched a kart over the rail. At 1 in it was still taller than the ½ in nerf
+clearance: the nerf ran into the lip on shallow rail touches and the kart rolled. I
+isolated it in the M1 wall test: removing the back wall changed nothing, flattening the
+berm fixed it. All wall hits from 6° to 11° now skim.
+
+**10-race soak:** 10/10 completed, 0 breaches, 0 flips, 1 caution (cycled in 74 s),
+11.1 passes a race.
+
+**Also fixed under caution:** a kart nosed into the wall sat forever, so the restart
+never came. A kart stopped more than 5 s while it's supposed to be rolling now counts as
+stuck and drives itself out.
+
+**Open:**
+1. **Pole won 10/10 again,** and 30 of the last 30 across three soaks, including races
+   where the pole was 6th, 7th or even 12th fastest on feature pace. A faster kart can't
+   get by the leader. See the DECISION NEEDED below.
+2. **Contact spins:** 0.2 a race (target about 1).
+3. **Flipped-kart impulse cap** (overnight STOP-AND-REPORT): M3.
+
+**DECISION NEEDED (Franklin): where does a faster kart's speed come from?** In the model,
+pace only raises corner speed: a 3% better kart is about 1 mph faster mid-corner. On the
+straights every Clone hits the same engine-limited top speed (about 44.5 mph). So an exit
+run gains barely a foot or two before the next entry, and the leader is never overlapped.
+In real Clone racing, is a faster kart mainly:
+  (a) faster through the middle of the corner,
+  (b) better off the corner, putting the power down earlier and harder, so it carries
+      speed down the straight, or
+  (c) both? Roughly how much, e.g. 1–2 mph at the end of the straight?
