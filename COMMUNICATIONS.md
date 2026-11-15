@@ -1058,3 +1058,18 @@ laps running out, and it races back through with the push-up pass more readily.
   current position) and as laps run out, on top of the driver's base aggression stat.
 - That's also a natural way for cautions to breed contact on restarts, as the browser
   sim's "cautions breed cautions" boost does.
+
+### 2026-11-14 23:35 CT — Franklin (recorded by Claude Code) — [M2/M4] NOTE: winners aren't predetermined
+
+"Dirt oval karting isn't like F1 — drivers aren't almost guaranteed to finish in the top 3.
+It's not unusual for a top 5 kart to snag a win."
+
+**Soak target:** wins spread across roughly the top five on pace, not locked to the fastest
+kart or the pole. Early M2 soaks show the opposite: the fast pole sitter wins every
+completed race and the field finishes close to grid order (0–6 on-track passes a race).
+Levers:
+- per-lap **consistency** variation (browser sim stat: fast 75–95, mid 55–85, new 35–60);
+- real passing, which M3's push-up pass will add;
+- start and traffic chaos.
+
+The M2 soak will report wins by grid position and pace rank so this can be audited.
