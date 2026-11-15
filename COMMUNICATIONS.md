@@ -1019,3 +1019,14 @@ Builder's calls (flagged):
 - Grid in pace order (no invert, ever — DESIGN.md).
 - Personal lateral offset from the groove kept within **±10 in** (spec §7 placeholder
   −1..+1 m would put karts outside the 6.5 ft groove) [TEST VALUE].
+
+### 2026-11-14 23:05 CT — Franklin (recorded by Claude Code) — [M2/M3/M4] NOTE: flip rate calibration
+
+"Flips are rare. I've run 150+ features with no flips, have been in races about 3–4 times
+when other people flipped."
+
+**Soak target:** a flip in roughly **1 race in 40–50** (about 0.02–0.03 flips per race,
+field-wide), and a given kart flipping far less often still. That makes spec §12.5's
+"order of one per several races" an upper bound, and puts the real number lower. Early M2
+traffic runs flip karts in most races, so that's a bug to fix, not a tuning band. The M2
+REPORT's soak numbers will be held to this.
