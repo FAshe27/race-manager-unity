@@ -1376,3 +1376,33 @@ Code: branch **m2-wip** (95b3add). Status entry, not the M2 REPORT.
 - run abandon 5 s;
 - jam crawl 4 mph;
 - a kart restarting after a spin counts as recovered at 3 mph (was 6).
+
+### 2026-11-15 CT — Claude Code — [M2] STOP-AND-REPORT (found and fixed): crew-cleared kart launched another over the turn-4 rail
+
+**What happened (soak, race 5):**
+- #60 was out of the race, so crew clearing started walking it to the infield. A kart
+  being walked is kinematic, so it can't be pushed back.
+- #44 was stopped on the infield grass beside it. The kinematic kart moved into #44.
+- The solver's push-out threw #44 at a solver-made "362 mph", 74 m/s vertical, over the
+  turn-4 guardrail (u 0.748).
+
+Not driving, not a contact bug in racing: a scripted (kinematic) move into a dynamic body.
+
+**Fix** (m2-wip 3ac6f11): while a kart is being cleared it ignores collisions with every
+other kart. The crew walks around karts in reality. No breaches in the next 10-race soak.
+
+**Same root cause as the overnight 49 ft launch?** Probably not. That one was a hard hit on
+a flipped kart during racing (the impulse on flipped karts is still uncapped, M3).
+
+**Also landed from Franklin's playtest notes today** (same commit):
+- passes start only from close behind;
+- following at about 1 ft plus 0.03 s;
+- bumper drafting on the straights, lifting at entry;
+- the push: nose on his bumper, he enters 1.5 mph hot and slides up mid-corner;
+- side by side at nerf contact (50 in centre to centre);
+- the optimal line through the corners for everyone;
+- the green at the go line (red line in turn 4);
+- the pace formation bumper to bumper and nerf to nerf.
+
+Soak: 10/10, 0 breaches, 12.1 passes, 12.5 contacts (3 hard), contact spins 1.2 a race
+(target about 1). **Flips 0.3 a race, against a target of 1 in 40–50: open.**
