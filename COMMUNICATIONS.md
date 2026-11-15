@@ -1073,3 +1073,18 @@ Levers:
 - start and traffic chaos.
 
 The M2 soak will report wins by grid position and pace rank so this can be audited.
+
+### 2026-11-14 23:55 CT — Franklin (recorded by Claude Code) — [M2] NOTE: conceding the inside, and the freight train
+
+"If a kart gets to my inside, I'll usually slightly drag the brakes on entry to file in
+behind the passing kart. Occasionally, this ends up with me getting freight trained as the
+inside line is nose-to-tail and goes by me."
+
+**Build note (M2, since it's clean racing):** the defender's response to a kart established
+on its inside at corner entry is to **concede**: a slight brake on entry, then drop in
+behind the passer. It does not hold the outside line through the corner. If the passer's
+followers are nose-to-tail on the inside, they come through too, and the conceding kart
+can lose several spots at once ("freight trained"). Planned implementation:
+- a kart alongside on my inside with its nose at least level at corner entry → I cap my
+  speed slightly below his and merge behind him;
+- karts close behind the passer keep their inside run and keep coming.
