@@ -745,7 +745,7 @@ namespace OKT
                     if (contact) { if (flipped) contactFlips++; else contactSpins++; } else { if (flipped) selfFlips++; else selfSpins++; }
                     string who = contact && kc.lastOther != null ? $" after contact with #{field.Find(x => x.kart == kc.lastOther)?.driver.number} ({kc.lastImpulse:F0} N·s, {w.simTime - kc.lastContactTime:F1} s before)" : " (no kart contact — self)";
                     Event($"{(flipped ? "FLIP" : spun ? "SPIN" : "STOPPED")}: {Tag(e)} at lap {e.lapsDone + 1}, u={ai.s / w.track.N:F2}, {e.kart.ForwardSpeed / U.Mph:F0} mph{who}{(wasRecovering ? " [while recovering]" : "")}.");
-                    if (!contact && !wasRecovering) foreach (var h in e.hist) events.Add("      before: " + h);
+                    if ((!contact || flipped) && (!wasRecovering || flipped)) foreach (var h in e.hist) events.Add("      before: " + h);
                 }
                 e.inIncident = incident;
                 if (!e.finished && !e.recovering && (flipped || (e.stoppedT > cfg.dnfStoppedSeconds && !e.blocked)))

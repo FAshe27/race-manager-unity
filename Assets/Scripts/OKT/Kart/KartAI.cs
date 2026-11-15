@@ -27,6 +27,8 @@ namespace OKT
         public float yawDamping = 0.1f;        // rad of steer per rad/s of unwanted yaw rate [TEST VALUE]
         public float minLookaheadFt = 8.2f;    // controller floor at low speed [TEST VALUE]
         public float speedGain = 2.0f;         // accel cmd per (m/s) of speed error, 1/s [TEST VALUE]
+        public float featherStartDeg = 6f;     // body slip angle where the driver starts easing the throttle [TEST VALUE]
+        public float featherRangeDeg = 10f;    // ...and is fully off by start + this [TEST VALUE]
         public float lateralOffsetFt = 0f;     // personal offset from the groove (spec §7), + = toward the outside
 
         public float vMax => vMaxMph * U.Mph;
@@ -237,6 +239,20 @@ namespace OKT
             if (recovering) targetSpeed = recoverySpeed;
             targetSpeed = Mathf.Min(targetSpeed, speedCap);
             kart.accelCmd = (targetSpeed - kart.ForwardSpeed) * cfg.speedGain;
+            // Feather the throttle when the rear steps out: a driver eases off a power slide instead of holding it
+            // flat. Held flat, the rear caught grip all at once with the wheel turned against the slide and
+            // high-sided the kart (turn-2-exit self spins and a self flip, soak 2026-11-15).
+            if (kart.accelCmd > 0f && !paceMode)
+            {
+                var vel = kart.Body.linearVelocity; vel.y = 0f;
+                if (vel.magnitude > 3f)
+                {
+                    var fwd = tr.forward; fwd.y = 0f;
+                    float beta = Vector3.Angle(fwd, vel);
+                    if (beta > cfg.featherStartDeg)
+                        kart.accelCmd *= Mathf.Clamp01(1f - (beta - cfg.featherStartDeg) / cfg.featherRangeDeg);
+                }
+            }
         }
 
         float WallGap(in TrackFrame fr)
