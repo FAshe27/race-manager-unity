@@ -1162,3 +1162,20 @@ problems are M3's whole subject.
    flip occur." **Target behaviour:** karts lean on, rub and shove each other; a tire
    climbing a rival and flipping belongs to the big crashes only (soak target stays about 1
    flip in 40–50 races).
+
+### 2026-11-15 00:50 CT — Franklin (recorded by Claude Code) — [M2/M3] DECISION: side-by-side rubbing, where passes come from, contact spin rate
+
+1. **Side by side:** "Often they'll rub kart bodies against each other." Rubbing is normal
+   racing. The occupancy room (60 in centre to centre, ~9 in of daylight) is too polite;
+   karts may run in contact side by side, and the physics must stay stable doing it.
+2. **Passes per feature:** "Really depends. If karts qualified into spots that fit their
+   speed, passes seldom happen." Passing comes from karts **out of position**:
+   - someone who missed the setup in qualifying but nailed it for the feature comes
+     through the pack;
+   - a front-runner sent to the back for causing a caution comes through quickly (M3).
+
+   **Build consequence:** the grid must come from *qualifying* pace, which can differ from
+   *feature* pace for some karts (setup hit or miss), not from feature pace itself. A
+   near-parade when everyone qualified where they belong is realistic.
+3. **Contact spins:** "About once a feature" a shove or bump ends in a spin (not a flip).
+   Soak target: about 1 contact spin per race; flips stay at about 1 in 40–50 races.
