@@ -1153,3 +1153,12 @@ The clean regime meets the first and fails the second; the passing regime is the
 
 Recommendation: (A). M2's job is the race flow and the soak floor, and the contact
 problems are M3's whole subject.
+
+### 2026-11-15 00:40 CT — Franklin (recorded by Claude Code) — [M2] DECISION: fix contact now (B); contact is a shoving match
+
+1. **Option (B):** fix kart-on-kart contact now; M2 stays open until passing is both frequent
+   and safe.
+2. "Contact between karts almost is a shoving match — only in the biggest of crashes does a
+   flip occur." **Target behaviour:** karts lean on, rub and shove each other; a tire
+   climbing a rival and flipping belongs to the big crashes only (soak target stays about 1
+   flip in 40–50 races).
