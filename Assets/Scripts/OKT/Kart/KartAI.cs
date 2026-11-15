@@ -105,6 +105,8 @@ namespace OKT
         /// <summary>Director: driving harder than safe pace while pushing or passing — cornerSlow is reduced by this
         /// (0.30 Safe -> 0.27 Fast at most). Closer to the grip limit, so a spin is more likely: honest physics.</summary>
         [System.NonSerialized] public float attackBoost;
+        /// <summary>Director: I'm being pushed — I enter the corner this much (m/s) faster than I want to (Franklin).</summary>
+        [System.NonSerialized] public float pushedBoost;
         [System.NonSerialized] public float recoverySpeed = 8f * U.Mph;
         /// <summary>Lane limits from karts alongside (absolute lateral m), set by the director each step.</summary>
         [System.NonSerialized] public float latMin = float.NegativeInfinity, latMax = float.PositiveInfinity;
@@ -181,7 +183,9 @@ namespace OKT
             var tf = track.Frame(ts);
             // Never aim through a wall (spec §7): keep the target where the whole kart fits on the dirt.
             trafficOffset += Mathf.Clamp(trafficGoal - trafficOffset, -trafficRate * dt, trafficRate * dt);
-            float off = cfg.lateralOffset + DriveOverOffset(ti) + trafficOffset;
+            // personal offset fades out through the corner: everyone runs the optimal line there (Franklin: the line is
+            // at grip's edge — entering low on purpose costs too much momentum unless you're passing)
+            float off = cfg.lateralOffset * (1f - tf.corner) + DriveOverOffset(ti) + trafficOffset;
             float dWant = formation ? laneFrac * tf.halfWidth : tf.LineOffset + off;
             if (recovering) dWant = Mathf.Min(d, tf.LineOffset - 1.0f); // rejoin low, off the groove, out of the way
             float dT = Mathf.Clamp(dWant, -tf.halfWidth + kart.setup.FootLeft + 2f * U.In, HighLimit(tf));
@@ -229,6 +233,7 @@ namespace OKT
             }
             targetSpeed = paceMode ? Mathf.Lerp(paceStraight, paceCorner, tf.corner) : freeSpeed;
             if (diving && !paceMode) targetSpeed *= divingSpeedFactor;
+            if (!paceMode) targetSpeed += pushedBoost;
             if (recovering) targetSpeed = recoverySpeed;
             targetSpeed = Mathf.Min(targetSpeed, speedCap);
             kart.accelCmd = (targetSpeed - kart.ForwardSpeed) * cfg.speedGain;

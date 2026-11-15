@@ -29,22 +29,24 @@ namespace OKT
         public float paceStraightMph = 25f;        // Franklin: ~20–25 mph [TEST VALUE]
         public float paceCornerMph = 20f;
         public float gridLeaderU = 0.95f;          // front row: front straight, just past the grid entrance (top of T4) [TEST VALUE]
-        public float rowGapFt = 8.2f;              // centre to centre (~6 in bumper to bumper — "basically pushing") [TEST VALUE, browser sim 2.5 m]
-        public float laneFrac = 0.33f;             // double-file lanes at ±0.33 half-width (browser sim gridLat) [TEST VALUE]
+        public float rowGapFt = 6.7f;              // centre to centre: bumpers ~1 in apart (Franklin: no daylight between karts in a line) [TEST VALUE]
+        public float laneFrac = 0.16f;             // double-file lanes at ±0.16 half-width ≈ 53 in apart: the two lines nearly touching (Franklin) [TEST VALUE]
         public float packedStartSeconds = 4f;      // browser sim (Franklin) [TEST VALUE]
         // Traffic geometry [TEST VALUEs]
         public float alongsideFt = 7.5f;           // longitudinal window that counts as "alongside" (≈ kart length + margin)
-        public float sideRoomIn = 53f;             // centre-to-centre side by side: about body width — rubbing is normal (Franklin) [TEST VALUE]
-        public float followGapFt = 2.0f;           // bumper-to-bumper gap a kart settles at when it checks up (Franklin's video: nose to tail, ~a kart length) [TEST VALUE]
+        public float sideRoomIn = 50f;             // centre-to-centre side by side: nerfs are 51 in apart, so side by side means rubbing (Franklin: contact is commonplace) [TEST VALUE]
+        public float followGapFt = 1.0f;           // bumper-to-bumper gap a kart settles at when it checks up (Franklin's video: nose to tail, ~a kart length) [TEST VALUE]
         public float lookAheadTime = 0.5f;         // spec §7: slot projected ~0.5 s ahead
-        public float passStartGapFt = 20f;         // a pass can start inside this gap (browser 0.038 lap ≈ 25 ft)
-        public float passHoldGapFt = 30f;          // ...and stays latched inside this gap (browser 0.055 lap)
+        public float passStartGapFt = 11f;         // centre to centre: nose within ~4 ft of his bumper (Franklin: passes tried from way too far back) [TEST VALUE]
+        public float passHoldGapFt = 16f;          // ...and stays latched inside this gap (browser 0.055 lap)
         public float passAbandonSec = 3f;          // browser sim
         public float passCooldownSec = 2.5f;       // browser sim
         // The exit-run pass (Franklin, 2026-11-15): a faster kart times a run off the corner, pulls to the inside of the
         // leader on the straight and owns the inside line into the next corner; the leader lifts and files in behind.
         public float runRoomFt = 4f;               // extra gap the follower leaves mid-corner so he can carry speed off it [TEST VALUE]
-        public float runAbandonSec = 5f;           // straight + entry take longer than a dive [TEST VALUE]
+        public float runAbandonSec = 5f;
+        public float bumpDraftAggression = 0.45f;  // drivers above this bumper-draft on the straights even when not faster [TEST VALUE]
+        public float bumpLean = 0.3f;              // m/s extra while leaning on his bumper [TEST VALUE]           // straight + entry take longer than a dive [TEST VALUE]
         public float fasterBy = 1.005f;            // needs a pace edge (like-for-like free speed) to start a pass [TEST VALUE]
         // Conceding the inside (Franklin, 23:55): established inside me at corner entry -> drag the brakes, file in behind.
         public float concedeEntryCorner = 0.25f;    // corner value at my speed-lookahead that counts as "entry" [TEST VALUE]
@@ -59,7 +61,7 @@ namespace OKT
         public float insidePassMargin = 0.3f;       // m of spare room above the inside edge to dive [TEST VALUE]
         // The push-up pass (Franklin 22:10 / 23:20): nose on his bumper at corner entry, push him in slightly hot,
         // he drifts up, take the bottom. [TEST VALUEs]
-        public float pushSpeedDelta = 0.5f;         // m/s faster than him while pushing
+        public float pushSpeedDelta = 0.7f;         // m/s (~1.5 mph) — Franklin: make him enter the corner 1–2 mph faster than he wants
         public float pushMaxSeconds = 3.0f;         // close up + lean; give it up if the bottom doesn't open
         public float pushCooldown = 3f;
         public float pushEntryCorner = 0.15f;       // only into a corner (corner value at the speed-lookahead point)
@@ -68,7 +70,7 @@ namespace OKT
         public float pushedSeconds = 1.2f;          // how long the drift lasts after the push [TEST VALUE]      // m of spare room needed to try the outside [TEST VALUE]
         public float freeMergeRate = 2.5f;          // m/s lateral offset change with nobody alongside [TEST VALUE]
         public float trafficMergeRate = 1.0f;       // m/s when side by side / passing (browser sim's capped arc) [TEST VALUE]
-        public float followHeadway = 0.08f;        // s of extra following gap at speed (was 0.3: ~20 ft back at speed, real karts run nose to tail) [TEST VALUE]
+        public float followHeadway = 0.03f;        // s of extra following gap at speed (was 0.3: ~20 ft back at speed, real karts run nose to tail) [TEST VALUE]
         public float followGain = 1.5f;            // check-up: m/s of speed per m of gap error [TEST VALUE]
         public float cleanAirSeconds = 1.0f;       // a lap is clean-air if the kart ahead was always > this far in time [TEST VALUE]
         // Consistency (browser sim stat; Franklin: winners aren't predetermined) [TEST VALUEs]
@@ -197,6 +199,9 @@ namespace OKT
 
         /// <summary>Distance (m) of the S/F line that ends the pace lap and starts green lap 1.</summary>
         public float GreenLine => cfg.paceLaps * L;
+        /// <summary>The go line (the red line in turn 4, JSON goU): the green flies here, not at the S/F line (Franklin).
+        /// Laps are still scored at the S/F line.</summary>
+        public float GoLine => GreenLine - (L - w.track.ArcAt(w.track.goU * w.track.N));
         public float CheckeredLine => GreenLine + cfg.featureLaps * L;
 
         public List<Entry> RunningOrder()
@@ -235,7 +240,7 @@ namespace OKT
             {
                 var ai = e.ai;
                 ai.paceStraight = paceS; ai.paceCorner = paceC;
-                ai.speedCap = float.PositiveInfinity; ai.attackBoost = 0f;
+                ai.speedCap = float.PositiveInfinity; ai.attackBoost = 0f; ai.pushedBoost = 0f;
                 ai.latMin = float.NegativeInfinity; ai.latMax = float.PositiveInfinity;
                 if (e.outOfRace) { ai.paceMode = true; ai.speedCap = 0f; continue; }
 
@@ -401,7 +406,7 @@ namespace OKT
                 // Faster on pace, OR being held up behind him (browser sim: close behind and overlapped counts).
                 // Start distance is relative to where a follower settles (the follow gap includes a time headway),
                 // otherwise a faster kart sat in its following slot and never got close enough to try.
-                float startGap = Mathf.Max(cfg.passStartGapFt * U.Ft, SettleGap(e, v, kartLen, false) + 1.5f);
+                float startGap = Mathf.Max(cfg.passStartGapFt * U.Ft, SettleGap(e, v, kartLen, true) + 0.3f);
                 bool heldUp = gapA < startGap && ahead.kart.ForwardSpeed < ai.freeSpeed * 0.985f;
                 bool faster = ai.freeSpeed > ahead.ai.freeSpeed * cfg.fasterBy || heldUp;
                 bool latched = e.attackTarget == field.IndexOf(ahead);
@@ -411,7 +416,7 @@ namespace OKT
                 // (pace compared like for like: free speed is read at each kart's own look-ahead point, and off a corner
                 // the follower's point is still further back in the turn, so he always looked slower than the leader)
                 bool run = !latched && ExitRun(ai) && ai.cfg.pace > ahead.ai.cfg.pace * cfg.fasterBy
-                           && gapA < SettleGap(e, v, kartLen, false) + cfg.runRoomFt * U.Ft + 3f
+                           && gapA < SettleGap(e, v, kartLen, true) + cfg.runRoomFt * U.Ft + 1f
                            && v > ahead.kart.ForwardSpeed + 0.2f;
                 if (run) { want = true; dbgRuns++; }
                 if (gapA < startGap) dbgClose++; if (faster) dbgFaster++; if (heldUp) dbgHeld++; if (want) dbgWant++;
@@ -488,9 +493,15 @@ namespace OKT
             {
                 if (o == e || o.pushTarget != field.IndexOf(e)) continue;
                 float g = Gap(e, o); // how far I am ahead of the pusher
-                if (g > 0f && g < kartLen + 0.4f) e.pushedT = cfg.pushedSeconds;
+                var sp = e.kart.setup; // only once his nose is actually on my bumper (within ~6 in)
+                if (g > 0f && g < sp.FrontBumperZ - sp.RearBumperZ + 2f * sp.TubeRadius + 0.15f) e.pushedT = cfg.pushedSeconds;
             }
-            if (e.pushedT > 0f && !attacking) goalAbs = Mathf.Min(goalAbs + cfg.pushedDriftM * (e.pushedT / cfg.pushedSeconds), hiLim);
+            // Franklin: "juuuust up against their bumper, where they don't even feel you there... make them enter the
+            // corner 1–2 mph faster than they want to. They won't know they were pushed until they slide up just
+            // enough for you to get underneath them mid-corner." He doesn't brake against it (carries the extra
+            // speed in), and he slides up once he's into the corner.
+            if (e.pushedT > 0f) ai.pushedBoost = cfg.pushSpeedDelta;
+            if (e.pushedT > 0f && !attacking && fr.corner > 0.35f) goalAbs = Mathf.Min(goalAbs + cfg.pushedDriftM * (e.pushedT / cfg.pushedSeconds), hiLim);
             ai.trafficGoal = goalAbs - line - personal;
             ai.diving = attacking && e.attackTarget >= 0 && e.attackSide < 0;
 
@@ -554,7 +565,8 @@ namespace OKT
                             float follow = Mathf.Clamp(pt.ai.d, Mathf.Max(loLim, ai.latMin), Mathf.Min(hiLim, ai.latMax));
                             ai.trafficGoal = follow - line - personal; ai.trafficRate = cfg.trafficMergeRate;
                         }
-                        ai.speedCap = Mathf.Min(ai.speedCap, pt.kart.ForwardSpeed + Mathf.Max(cfg.pushSpeedDelta, 0.8f * (gp - kartLen)));
+                        { var stp = ai.kart.setup; float bl = stp.FrontBumperZ - stp.RearBumperZ + 2f * stp.TubeRadius;
+                          ai.speedCap = Mathf.Min(ai.speedCap, pt.kart.ForwardSpeed + Mathf.Max(cfg.pushSpeedDelta, 0.8f * (gp - bl))); }
                     }
                 }
             }
@@ -570,10 +582,21 @@ namespace OKT
                 bool wantBy = ai.cfg.pace > ahead.ai.cfg.pace * cfg.fasterBy && !Hazard(ahead);
                 float settle = packed ? cfg.rowGapFt * U.Ft : SettleGap(e, v, kartLen, wantBy);
                 if (wantBy && !packed && fr.corner > 0.5f) settle += cfg.runRoomFt * U.Ft; // time the run: a little room mid-corner
-                float cap = va + cfg.followGain * (gapA - settle);
+                // Bumper drafting (Franklin, 2026-11-15): "literally up against the bumper of other karts, pushing them
+                // down the straight", then lift slightly on entry so as not to spin him into the corner. On the
+                // straight a racer (faster, or aggressive enough) closes to bumper contact and leans on him; at
+                // entry the normal settle gap comes back — that's the lift.
+                var st = ai.kart.setup;
+                float bumperLen = st.FrontBumperZ - st.RearBumperZ + 2f * st.TubeRadius; // centre to centre at bumper contact
+                bool straightNow = fr.corner < 0.15f && !EntryAhead(ai);
+                bool bumpDraft = !packed && !e.finished && straightNow && !Hazard(ahead)
+                                 && (wantBy || e.driver.aggression > cfg.bumpDraftAggression);
+                if (bumpDraft) { settle = bumperLen + 0.02f; dbgBumpDraft++; }
+                float cap = va + cfg.followGain * (gapA - settle) + (bumpDraft ? cfg.bumpLean : 0f);
                 // Never demand far below the kart ahead's speed unless contact is imminent — a check-up eases
                 // back to his pace; it doesn't collapse (a hard cap cascaded the whole field to a stop).
-                float touch = kartLen + 0.5f;
+                // "Imminent" = within a few inches of his bumper (was 1.6 ft of air, which kept everyone off each other).
+                float touch = bumperLen + (bumpDraft ? -0.05f : 0.1f);
                 cap = gapA > touch ? Mathf.Max(cap, va * 0.85f) : Mathf.Min(cap, va * 0.7f);
                 ai.speedCap = Mathf.Min(ai.speedCap, Mathf.Max(0f, cap));
             }
@@ -633,7 +656,7 @@ namespace OKT
         public void PostStep(float dt)
         {
             var lead = Leader();
-            if (phase == RacePhase.Pace && lead != null && lead.ai.raceDist >= GreenLine)
+            if (phase == RacePhase.Pace && lead != null && lead.ai.raceDist >= GoLine)
             {
                 phase = RacePhase.Green; phaseTime = 0; greenTime = raceTime;
                 {
@@ -774,6 +797,13 @@ namespace OKT
             if (!e.beingCleared)
             {
                 e.beingCleared = true; rb.isKinematic = true;
+                // A kinematic body can't be pushed back: walked into a kart that's sitting on the infield, it launched
+                // that kart over the turn-4 rail at a solver-made 362 mph (soak 2026-11-15, STOP-AND-REPORT). The crew
+                // walks it around other karts in reality — here it simply stops touching other karts while it's moved.
+                foreach (var c in e.kart.GetComponentsInChildren<Collider>())
+                    foreach (var o in field)
+                        if (o != e && o.kart != null)
+                            foreach (var oc in o.kart.GetComponentsInChildren<Collider>()) Physics.IgnoreCollision(c, oc);
                 Event($"CREW: clearing {Tag(e)} to the infield.");
             }
             var ai = e.ai; var f = w.track.Frame(ai.s);
@@ -821,7 +851,7 @@ namespace OKT
         }
 
         public int contactSpins, selfSpins, contactFlips, selfFlips;
-        public long dbgPushes, dbgPushPasses, dbgCompleted, dbgRuns, dbgRunStarted, dbgRunDone;
+        public long dbgPushes, dbgPushPasses, dbgCompleted, dbgRuns, dbgRunStarted, dbgRunDone, dbgBumpDraft;
         public int diveTraces; int traceAtk = -1, traceTgt = -1; float traceT0, traceAcc;
         public long dbgAhead, dbgClose, dbgFaster, dbgHeld, dbgWant, dbgInsideOk, dbgOutsideOk, dbgStarted, dbgHaz;
         public int Contacts { get { int n = 0; foreach (var e in field) { var c = e.kart.GetComponent<KartContact>(); if (c) n += c.contacts; } return n / 2; } }
