@@ -1264,3 +1264,31 @@ step: cap contact impulses on flipped karts (M3 contact work).
 3. **The inside edge at Atoka:** does the banked dirt run onto flat grass with a sharp
    crease (which trips nerf bars), or does it roll off gradually? I modelled 3 ft of
    continued bank.
+
+### 2026-11-15 CT — Franklin (recorded by Claude Code) — [M2] ANSWERS: passing the leader, starts, the inside edge, flip rate
+
+1. **Passing the leader:** "A faster kart will time a run on the exit of the corner,"
+   pulling to the inside of the leader so it has the better line into the next corner.
+   The kart being passed often lifts slightly to file back in line behind the passer.
+   If the passer has another kart pushing him, the leader can get **freight-trained**
+   back several places ("I've gone from 1st to 6th in a lap").
+   **Build:** an exit-run pass. Take the inside on the straight off a better exit, own the
+   inside into the corner, and the passed kart lifts and files in. Karts nose-to-tail
+   behind the passer follow him through.
+2. **Starts:** outside-row karts "file in pretty quickly". Many small tracks run
+   single-file starts because the outside line is at a disadvantage. But the whole line
+   doesn't fall all the way back: "It's not chaos, but it's not organized."
+   **Build:** the outside row loses some spots, not a whole row each.
+3. **The inside edge:** no sharp crease. There's a tiny berm, and hitting it just makes
+   the kart push up slightly. The 3 ft continued bank (no crease) matches this.
+4. **Flip rate:**
+   - Franklin: 300+ starts, never flipped;
+   - his brother: about 300 starts, 2 flips;
+   - his dad: 1,000+ starts, 1 flip.
+
+   A regular track sees only a handful a season. Indoor races on small, tight tracks see
+   more, because aggression is higher.
+
+   That's roughly 1 flip per 500 kart-starts. With 12 karts, that's about 1 flip every
+   40 races, which confirms the 1-in-40–50 target. The current soak (1 in 10) is about
+   4× too high.
