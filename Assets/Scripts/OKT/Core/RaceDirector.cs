@@ -49,7 +49,7 @@ namespace OKT
         public float concedeHoldSec = 1.2f;         // how long the concession lasts once made [TEST VALUE]
         public float hazardYawDeg = 30f;            // off-line angle that makes a kart a hazard [TEST VALUE]
         public float hazardYawRate = 1.8f;          // rad/s of rotation that makes a kart a hazard [TEST VALUE]
-        public float hazardLookSeconds = 1.2f;      // how far ahead (in time) drivers watch for trouble [TEST VALUE]
+        public float hazardLookSeconds = 2.0f;      // how far ahead (in time) drivers watch for trouble [TEST VALUE]
         public float outsidePassMargin = 0.6f;
         public float insidePassMargin = 0.3f;       // m of spare room above the inside edge to dive [TEST VALUE]
         // The push-up pass (Franklin 22:10 / 23:20): nose on his bumper at corner entry, push him in slightly hot,
@@ -304,7 +304,11 @@ namespace OKT
                 if (o == e || o.cleared) continue;
                 float g = Gap(o, e);
                 if (g <= 0f || g > hazLook) continue;
-                if (Mathf.Abs(o.ai.d - myD) < room * 1.5f && Hazard(o) && g < gapH) { gapH = g; haz = o; }
+                // in my lane now, OR where my line will be when I get there (the groove swings ~18 ft from
+                // entry to apex — a wreck at the apex wasn't "in my lane" at entry and got hit, lap after lap)
+                float lineThere = w.track.Frame(o.ai.s).LineOffset + personal;
+                bool inPath = Mathf.Abs(o.ai.d - myD) < room * 1.5f || Mathf.Abs(o.ai.d - lineThere) < room * 1.5f;
+                if (inPath && Hazard(o) && g < gapH) { gapH = g; haz = o; }
             }
 
             // nearest kart ahead whose slot overlaps mine (stopped / wrecked karts included: spec §7)

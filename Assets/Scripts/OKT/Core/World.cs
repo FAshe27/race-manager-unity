@@ -173,11 +173,13 @@ namespace OKT
         void IgnoreTireBodiesVsGround(KartPhysics kp)
         {
             var tb = kp.transform.Find("TireBodies"); if (tb == null) return;
-            var ground = trackGo.transform.Find("Ground");
+            // Tire bodies are for kart-on-kart only: the wheel rays own the ground, and the nerfs/bumpers own the
+            // rails (a box-edge tire body catching the rail spun 4-5 deg wall touches round — M1 had them skim).
+            var trackCols = trackGo.GetComponentsInChildren<Collider>();
             foreach (var c in tb.GetComponentsInChildren<Collider>())
             {
                 if (surfaceGo != null) Physics.IgnoreCollision(c, surfaceGo.GetComponent<Collider>());
-                if (ground != null) Physics.IgnoreCollision(c, ground.GetComponent<Collider>());
+                foreach (var t in trackCols) Physics.IgnoreCollision(c, t);
             }
         }
 
