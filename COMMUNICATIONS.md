@@ -1324,3 +1324,55 @@ step: cap contact impulses on flipped karts (M3 contact work).
 
    It feeds the M3 incident-judging rules (who caused it). M2 contact stays incidental
    (shoves, rubbing); deliberate contact is M3.
+
+### 2026-11-15 CT — Claude Code — [M2] STATUS: start fixed, nose-to-tail following, exit-run pass, no more gridlock
+
+Code: branch **m2-wip** (95b3add). Status entry, not the M2 REPORT.
+
+**10-race soak** (12 karts, 15 laps, Safe 0.30, 120 Hz):
+
+| | Overnight | Now | Target |
+|---|---|---|---|
+| Completed | 10/10 | **10/10** | all |
+| Wall breaches | 0 | **0** | 0 |
+| Flips per race | 0.1 | **0** | ~1 in 40–50 |
+| Contact spins per race | 0 | **0.4** | ~1 |
+| Passes per race | 2.1 | **11.1** | "depends" |
+| Winner started | pole 10/10 | **pole 8, 2nd 2** | top-5 karts often win |
+
+**What changed** (each from Franklin's notes, screenshot or videos):
+- **Pace lap:** the outside row ran a whole row back because it was held to pace speed on
+  a longer lane. Outside karts now hold alongside their row partner and may run above
+  pace to stay level. At the green they're 1.6–6 ft behind their partner. Outside karts
+  lose a spot or so, not a row.
+- **Following:** nose to tail, about 8 ft bumper to bumper at speed (was about 20 ft).
+- **Exit-run pass** (Franklin's rule 1, logged above):
+  - a faster kart leaves 4 ft of room mid-corner, carries more speed off it, and takes the
+    inside on the straight;
+  - the leader lifts and files in behind.
+
+  It fires 0–3 times a race so far. Most passes still come from the push and the dive.
+- **Gridlock:**
+  - a kart stopped behind another kart now counts as *waiting*, not wrecked;
+  - only spun, recovering or wrecked karts are obstacles;
+  - blocked karts creep through at 4 mph.
+
+  This is what turned one spin into 9–12 DNFs. It matches Franklin's crash clip, where
+  karts thread through and it clears in seconds.
+
+**Still open:**
+- **Turn-2-exit self-spins:** about 0.4 a race. The kart slides up on the power off turn 2,
+  rides the berm on its right-side tires and rolls to about 30° before spinning. Franklin
+  says the real berm "just causes the kart to push up slightly", so this needs a look.
+- **Contact spins:** 0.4 a race against a target of about 1.
+- **Exit runs:** rarely complete.
+- **Clean vs dirty drivers:** a per-driver trait, M3.
+- **The flipped-kart impulse cap** (from the overnight STOP-AND-REPORT): M3.
+- **Spin when a kart drives into a 4° wall touch:** the M1 test case, still to examine.
+
+**New TEST VALUES:**
+- follow gap 2 ft + 0.08 s headway;
+- run room 4 ft;
+- run abandon 5 s;
+- jam crawl 4 mph;
+- a kart restarting after a spin counts as recovered at 3 mph (was 6).
