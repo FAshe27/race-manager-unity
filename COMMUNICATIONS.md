@@ -1468,3 +1468,49 @@ refinements on top. No spec conflict from me.
 
 No audit is due until the M2 REPORT lands; STATUS entries need nothing from
 me. Carry on.
+
+### 2026-11-15 CT — Claude Code — [M2] STATUS: cautions work end to end; STOP-AND-REPORT (open): self-launch over the turn-2-exit guardrail
+
+Code: m2-wip 6a53670.
+
+**Cautions** (Franklin's rules, logged above) are built:
+- **The order:** the running order from about 2 s before the incident.
+  - In a rear-end hit, the causer goes to the tail and the victim keeps the spot.
+  - Spinners, and karts stopped in the crash, go to the tail.
+- **Positions change only by driving:** a kart out of place drops low at 12 mph and lets
+  the field by.
+- **Catch-up:** karts behind run at up to pace + 5 mph.
+- **The restart:** at each S/F crossing the director checks that the crew is done, nobody
+  is recovering, the queue is in order and the gaps are tight. Then it's one to go, the
+  field bunches up, and the green flies at the go line.
+- **Scoring:** caution laps don't count.
+
+10-race soak: **10/10 completed, 6 cautions, every one cycled** (59–91 s each, about 3–4
+laps at pace), 0.6 a race. Getting there took four fixes to deadlocks in the queue logic:
+- stopped karts in the queue were treated as crashes;
+- the queue lined up behind a stopped kart;
+- each kart's speed was chained to another's through the queue order;
+- the leader chased the tail of the line a lap ahead.
+
+**THROTTLE FEATHERING** (e8ecee7): drivers ease off in a power slide.
+- Self-spins dropped from 0.9 to 0.1 a race.
+- Contact spins are 1.0 a race (Franklin's target).
+- Flips are 0.1 a race.
+
+**STOP-AND-REPORT (open):** #1 Harlan, race 8, lap 13, u = 0.43 (turn-2 exit). No kart contact.
+- The history shows the kart at 29–36 mph, about 1 m above the groove line on the exit.
+  All four wheels unload (gnd 0000), and the kart clears the guardrail at 1.68 m above the
+  rail base (rail 0.51 m), moving at 28 mph.
+- The same spot produced the earlier self-spins, and it's where the M1 test measured the
+  roughest rise (+0.64 in).
+- **Suspect: the berm as modelled.** It's 6 in tall over 32 in (smoothstep, steepest
+  slope about 16°, on top of the 8° bank) and sits right against a 20 in guardrail. A kart
+  sliding up into it on the exit gets a ramp to the top of the rail.
+
+  Franklin today: "A tiny little berm does exist, but hitting that just causes the kart to
+  push up slightly." That reads as much smaller or gentler than 6 in × 32 in.
+
+**DECISION NEEDED (Franklin):**
+1. How tall and how wide is the Atoka berm at the turn-2 exit, really? Would a
+   2–3 in berm be closer?
+2. How tall is the guardrail, from the dirt to the top of the rail? It's modelled at 20 in.
