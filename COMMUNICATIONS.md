@@ -1047,3 +1047,14 @@ In M2 (clean, per Franklin's ruling) passing has to happen without contact, so M
 **under-pass** relative to real racing. Expect the M2 soak's on-track pass counts to be low;
 the push-up pass is how M3 should close that gap. The director should treat it as racing
 (light, sustained contact), not an incident.
+
+### 2026-11-14 23:25 CT — Franklin (recorded by Claude Code) — [M3] NOTE: the push-up pass, especially after a caution
+
+Addendum to 23:20: "Especially if you get put to the back on a caution."
+
+**For M3:** a kart sent to the tail under §8.4 (causer or spinner) is out of position with
+laps running out, and it races back through with the push-up pass more readily.
+- **Effective aggression should rise with how far out of position a driver is** (pace vs
+  current position) and as laps run out, on top of the driver's base aggression stat.
+- That's also a natural way for cautions to breed contact on restarts, as the browser
+  sim's "cautions breed cautions" boost does.
