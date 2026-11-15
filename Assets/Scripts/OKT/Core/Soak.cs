@@ -86,7 +86,7 @@ namespace OKT
             }
             sb.AppendLine();
             if (d.trace != null) sb.Append(d.trace);
-            foreach (var ev in d.events) if (ev.Contains("SPIN") || ev.Contains("FLIP") || ev.Contains("STOPPED") || ev.Contains("OUT:") || ev.Contains("WALL BREACH") || ev.Contains("before:") || ev.Contains("DIVE") || ev.Contains("dive ")) sb.AppendLine("  " + ev);
+            foreach (var ev in d.events) if (ev.Contains("SPIN") || ev.Contains("FLIP") || ev.Contains("STOPPED") || ev.Contains("OUT:") || ev.Contains("WALL BREACH") || ev.Contains("GRID AT GREEN") || ev.Contains("before:") || ev.Contains("DIVE") || ev.Contains("dive ")) sb.AppendLine("  " + ev);
         }
 
         public static string Summary(SoakStats st)

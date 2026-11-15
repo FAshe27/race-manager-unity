@@ -248,10 +248,21 @@ namespace OKT
                         float g = o.ai.raceDist - ai.raceDist; if (g > 0f && g < gap) { gap = g; ahead = o; }
                     }
                     if (ahead != null) ai.speedCap = Mathf.Max(0f, ahead.kart.ForwardSpeed + 1.0f * (gap - cfg.rowGapFt * U.Ft));
-                    if (e.gridPos == 1) // outside front row holds alongside the pole
+                    // Outside row: hold alongside the inside kart of the same row (Franklin's screenshot: the whole
+                    // outside row ran a full row back). The outside lane is longer through the turns, so at plain
+                    // pace speed it lost ground every corner and could never make it up — let it run faster than
+                    // pace to stay level, never slower than its row partner.
+                    if (e.gridPos % 2 == 1)
                     {
-                        var pole = field.Find(x => x.gridPos == 0);
-                        if (pole != null && !pole.outOfRace) ai.speedCap = Mathf.Max(0f, pole.kart.ForwardSpeed + 1.0f * (pole.ai.raceDist - ai.raceDist));
+                        var partner = field.Find(x => x.gridPos == e.gridPos - 1);
+                        if (partner != null && !partner.outOfRace)
+                        {
+                            float err = partner.ai.raceDist - ai.raceDist; // + = I'm behind him
+                            float want = Mathf.Max(0f, partner.kart.ForwardSpeed + 1.0f * err);
+                            ai.speedCap = ahead != null ? Mathf.Min(ai.speedCap, Mathf.Max(want, ahead.kart.ForwardSpeed)) : want;
+                            float catchUp = Mathf.Max(0f, want - ai.kart.ForwardSpeed) + Mathf.Max(0f, err);
+                            ai.paceStraight = paceS + catchUp; ai.paceCorner = paceC + catchUp;
+                        }
                     }
                     continue;
                 }
@@ -515,8 +526,13 @@ namespace OKT
                     // then lean on him: a touch faster once the noses meet
                     else
                     {
-                        float follow = Mathf.Clamp(pt.ai.d, Mathf.Max(loLim, ai.latMin), Mathf.Min(hiLim, ai.latMax));
-                        ai.trafficGoal = follow - line - personal; ai.trafficRate = cfg.freeMergeRate;
+                        // ...but only line up behind him on the straight / at entry, gently: swinging across to his
+                        // tracks mid-corner at 35 mph spun the pusher on its own and started pileups (soak, 2026-11-15)
+                        if (fr.corner < 0.4f)
+                        {
+                            float follow = Mathf.Clamp(pt.ai.d, Mathf.Max(loLim, ai.latMin), Mathf.Min(hiLim, ai.latMax));
+                            ai.trafficGoal = follow - line - personal; ai.trafficRate = cfg.trafficMergeRate;
+                        }
                         ai.speedCap = Mathf.Min(ai.speedCap, pt.kart.ForwardSpeed + Mathf.Max(cfg.pushSpeedDelta, 0.8f * (gp - kartLen)));
                     }
                 }
@@ -588,6 +604,11 @@ namespace OKT
             if (phase == RacePhase.Pace && lead != null && lead.ai.raceDist >= GreenLine)
             {
                 phase = RacePhase.Green; phaseTime = 0; greenTime = raceTime;
+                {
+                    var sb = new System.Text.StringBuilder("GRID AT GREEN — outside kart vs its inside partner (ft, + = behind):");
+                    foreach (var o in field) if (o.gridPos % 2 == 1) { var p = field.Find(x => x.gridPos == o.gridPos - 1); if (p != null) sb.Append($" row{o.gridPos / 2 + 1} {(p.ai.raceDist - o.ai.raceDist) / U.Ft:+0.0;-0.0}"); }
+                    Event(sb.ToString());
+                }
                 Event($"GREEN FLAG — {Tag(lead)} leads them to the line.");
                 foreach (var e in field) { e.lastCross = -1f; e.ai.SnapTrafficOffsetToCurrent(); }
             }
