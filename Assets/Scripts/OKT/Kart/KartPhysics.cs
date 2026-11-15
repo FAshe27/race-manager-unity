@@ -55,6 +55,9 @@ namespace OKT
             Body.maxAngularVelocity = s.maxAngularVelocity;
             Body.solverIterations = s.solverIterations;
             Body.solverVelocityIterations = s.solverVelocityIterations;
+            // Cap how fast the solver may push overlapping bodies apart (Unity default 10 m/s). In multi-kart
+            // pile-ups the default fired karts metres into the air and over the fence (M2 soak forensics).
+            Body.maxDepenetrationVelocity = s.maxDepenetrationVelocity;
             rayMask = ~(1 << 2); // everything except Ignore Raycast
         }
 
@@ -86,6 +89,9 @@ namespace OKT
                     compression[i] = x;
                     load[i] = f * Mathf.Max(0f, Vector3.Dot(up, hits[i].normal));
                     rb.AddForceAtPosition(up * f, hits[i].point);
+                    // Newton's third law: a tire standing on another kart pushes that kart down/away just as hard.
+                    // (Missing before: a wheel climbing a rival's nerf bar got a free spring push and launched.)
+                    if (hits[i].rigidbody != null && hits[i].rigidbody != rb) hits[i].rigidbody.AddForceAtPosition(-up * f, hits[i].point);
                     if (i >= 2) rearLoad += load[i];
                     if (x > maxCompression) maxCompression = x;
                     n++;
@@ -128,7 +134,9 @@ namespace OKT
                 var fwd = front ? Quaternion.AngleAxis(steerDeg, up) * transform.forward : transform.forward;
                 fwd = Vector3.ProjectOnPlane(fwd, hn).normalized;
                 var side = Vector3.Cross(hn, fwd);
+                // Slip is relative to whatever the tire stands on (another kart moves; the dirt doesn't).
                 var vp = rb.GetPointVelocity(hits[i].point);
+                if (hits[i].rigidbody != null && hits[i].rigidbody != rb) vp -= hits[i].rigidbody.GetPointVelocity(hits[i].point);
                 float vLat = Vector3.Dot(vp, side);
                 float vLong = Vector3.Dot(vp, fwd);
                 float N = load[i];
@@ -161,6 +169,7 @@ namespace OKT
                     sliding[i] = true;
                 }
                 rb.AddForceAtPosition(side * fLat + fwd * fLong, hits[i].point);
+                if (hits[i].rigidbody != null && hits[i].rigidbody != rb) hits[i].rigidbody.AddForceAtPosition(-(side * fLat + fwd * fLong), hits[i].point);
 
                 // Dust: picked up fast on the loose berm; cleaned off by working the tire
                 // (cornering load), plus a little just rolling.

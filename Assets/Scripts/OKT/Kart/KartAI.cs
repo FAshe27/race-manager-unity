@@ -61,6 +61,24 @@ namespace OKT
         public float driveOverArcWindow = 14f; // metres before/after the patch to blend over [TEST VALUE]
         public System.Action<KartAI> onDriveOverDone;
 
+        // ---- Race director commands (M2), set every step before Step(). Defaults = free running (M1).
+        [System.NonSerialized] public bool formation;        // pace lap: hold a grid lane instead of the groove
+        [System.NonSerialized] public float laneFrac;        // lane centre as a fraction of half-width (+ = outside)
+        [System.NonSerialized] public bool paceMode;         // drive the pace-speed profile, not racing speed
+        [System.NonSerialized] public float paceStraight = 25f * U.Mph, paceCorner = 20f * U.Mph;
+        [System.NonSerialized] public float speedCap = float.PositiveInfinity; // traffic / check-up cap (m/s)
+        [System.NonSerialized] public float trafficGoal;     // lateral offset from the groove the traffic logic wants (m)
+        [System.NonSerialized] public float trafficRate = 1.0f; // m/s the traffic offset may change (eased, no steps)
+        float trafficOffset;
+        public float TrafficOffset => trafficOffset;
+        /// <summary>Start the eased traffic offset from where the kart actually is (no lateral step at the green).</summary>
+        public void SnapTrafficOffsetToCurrent() { trafficOffset = d - LineOffsetHere - cfg.lateralOffset; trafficGoal = trafficOffset; }
+        /// <summary>Unwrapped distance along the centerline (m). S/F crossings are multiples of the lap length.</summary>
+        [System.NonSerialized] public float raceDist;
+        float prevArc = float.NaN;
+        /// <summary>The speed this driver would run with no traffic (racing profile x pace), at the lookahead.</summary>
+        public float freeSpeed;
+
         // Test hook: force a steering angle (simulates a driver error that points the kart at the wall).
         [System.NonSerialized] public bool steerOverride;
         [System.NonSerialized] public float steerOverrideDeg;
@@ -74,6 +92,30 @@ namespace OKT
         {
             kart = k; track = t; cfg = c;
         }
+
+        /// <summary>When true (dodging a wreck) the kart may use the berm; otherwise its right-side tires stay off it.</summary>
+        [System.NonSerialized] public bool allowBerm;
+        /// <summary>Spin recovery (spec §8.3): turn the kart back to the racing direction and rejoin slowly.</summary>
+        [System.NonSerialized] public bool recovering;
+        [System.NonSerialized] public float recoverySpeed = 8f * U.Mph;
+        /// <summary>Lane limits from karts alongside (absolute lateral m), set by the director each step.</summary>
+        [System.NonSerialized] public float latMin = float.NegativeInfinity, latMax = float.PositiveInfinity;
+
+        /// <summary>
+        /// Highest lateral position this driver aims for. Franklin: karts get right up to the berm but not on it
+        /// (loose dirt dusts the tires) — so personal offsets and traffic moves never put the right sides on it.
+        /// The wall-footprint limit applies when dodging a wreck.
+        /// </summary>
+        public float HighLimit(in TrackFrame f)
+        {
+            float wall = f.halfWidth - kart.setup.FootRight - 2f * U.In;
+            if (allowBerm) return wall;
+            float rightTire = kart.setup.TireOuter(true);
+            return Mathf.Min(wall, f.halfWidth - track.cfg.bermWidth - rightTire - 1f * U.In);
+        }
+
+        /// <summary>Lateral offset (m) of Franklin's groove at this kart's current position.</summary>
+        public float LineOffsetHere => track.Frame(s).LineOffset;
 
         public void Step(float dt, float simTime)
         {
@@ -111,6 +153,15 @@ namespace OKT
                 lapStartTime = simTime;
             }
             prevS = s;
+            float arcNow = track.ArcAt(s);
+            if (float.IsNaN(prevArc)) { prevArc = arcNow; }
+            else
+            {
+                float da = arcNow - prevArc;
+                if (da > track.centerLength * 0.5f) da -= track.centerLength;
+                else if (da < -track.centerLength * 0.5f) da += track.centerLength;
+                raceDist += da; prevArc = arcNow;
+            }
 
             // --- pure pursuit
             lineHint = track.NearestLineIndex(p2, lineHint);
@@ -120,8 +171,14 @@ namespace OKT
             float ts = track.LineS(ti);
             var tf = track.Frame(ts);
             // Never aim through a wall (spec §7): keep the target where the whole kart fits on the dirt.
-            float off = cfg.lateralOffset + DriveOverOffset(ti);
-            float dT = Mathf.Clamp(tf.LineOffset + off, -tf.halfWidth + kart.setup.FootLeft + 2f * U.In, tf.halfWidth - kart.setup.FootRight - 2f * U.In);
+            trafficOffset += Mathf.Clamp(trafficGoal - trafficOffset, -trafficRate * dt, trafficRate * dt);
+            float off = cfg.lateralOffset + DriveOverOffset(ti) + trafficOffset;
+            float dWant = formation ? laneFrac * tf.halfWidth : tf.LineOffset + off;
+            if (recovering) dWant = Mathf.Min(d, tf.LineOffset - 1.0f); // rejoin low, off the groove, out of the way
+            float dT = Mathf.Clamp(dWant, -tf.halfWidth + kart.setup.FootLeft + 2f * U.In, HighLimit(tf));
+            // Occupancy as hard lane limits on the STEERING TARGET (karts alongside own their slots).
+            if (latMin <= latMax) dT = Mathf.Clamp(dT, latMin, latMax);
+            else dT = d; // squeezed from both sides: hold my line
             var target = tf.pos + tf.outN * dT;
 
             var rear = tr.TransformPoint(0f, 0f, -kart.setup.wheelbase * 0.5f);
@@ -145,7 +202,10 @@ namespace OKT
             }
 
             // --- speed: corner profile read at the lookahead point
-            targetSpeed = cfg.vMax * cfg.pace * (1f - cfg.cornerSlow * tf.corner);
+            freeSpeed = cfg.vMax * cfg.pace * (1f - cfg.cornerSlow * tf.corner);
+            targetSpeed = paceMode ? Mathf.Lerp(paceStraight, paceCorner, tf.corner) : freeSpeed;
+            if (recovering) targetSpeed = recoverySpeed;
+            targetSpeed = Mathf.Min(targetSpeed, speedCap);
             kart.accelCmd = (targetSpeed - kart.ForwardSpeed) * cfg.speedGain;
         }
 

@@ -1,6 +1,7 @@
-// Crude M1 debug HUD (spec §10 spirit, M1 scope): speed controls via physics
-// steps, lap times, the kart's suspension/air telemetry, and the drive-over
-// test. Race buttons (Start race / Spin / Flip) belong to M2/M3.
+// Debug HUD (spec §10, crude by design): phase banner, lap counter, running order, caution
+// count; Start race / Reset; speed Pause / 1x / 2x / 4x via extra physics steps (never
+// Time.timeScale); SOAK runner; plus the M1 toggles (groove overlay, poor prep, Fast/Safe).
+// Spin a kart / Flip a kart arrive with M3.
 using System.Text;
 using UnityEngine;
 
@@ -10,78 +11,107 @@ namespace OKT
     {
         public RaceBootstrap boot;
         bool showLine;
-        string driveOverMsg = "";
-        float doMaxAir, doMaxComp;
-        bool doWatching;
-        GUIStyle box;
+        GUIStyle box, banner;
 
         void OnGUI()
         {
             if (boot == null || boot.world == null) return;
-            var w = boot.world;
-            if (box == null) { box = new GUIStyle(GUI.skin.box) { alignment = TextAnchor.UpperLeft, fontSize = 13, richText = true }; box.normal.textColor = Color.white; }
+            var w = boot.world; var d = w.director;
+            if (box == null)
+            {
+                box = new GUIStyle(GUI.skin.box) { alignment = TextAnchor.UpperLeft, fontSize = 12, richText = true };
+                box.normal.textColor = Color.white;
+                banner = new GUIStyle(GUI.skin.box) { alignment = TextAnchor.MiddleCenter, fontSize = 18, fontStyle = FontStyle.Bold, richText = true };
+                banner.normal.textColor = Color.white;
+            }
 
-            GUILayout.BeginArea(new Rect(10, 10, 330, Screen.height - 20));
-            GUILayout.Label("<b>OKT M1 — a kart laps a real surface</b>", box);
+            if (d != null) DrawBanner(d);
+
+            GUILayout.BeginArea(new Rect(10, 10, 360, Screen.height - 20));
+            GUILayout.Label("<b>OKT M2 — a race</b>   field seed " + boot.seed, box);
+
+            if (boot.soakRunning)
+            {
+                GUILayout.Label(boot.soakStatus, box);
+                GUILayout.EndArea();
+                return;
+            }
+
+            GUILayout.BeginHorizontal();
+            GUI.enabled = d != null && d.phase == RacePhase.Grid;
+            if (GUILayout.Button("Start race")) boot.StartRace();
+            GUI.enabled = true;
+            if (GUILayout.Button("Reset")) boot.ResetWorld(false);
+            if (GUILayout.Button("New field")) boot.ResetWorld(true);
+            GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
             if (GUILayout.Toggle(boot.clock.speed == 0, "Pause", "Button")) boot.clock.speed = 0;
             if (GUILayout.Toggle(boot.clock.speed == 1, "1×", "Button")) boot.clock.speed = 1;
             if (GUILayout.Toggle(boot.clock.speed == 2, "2×", "Button")) boot.clock.speed = 2;
-            if (GUILayout.Button("Reset")) { boot.ResetWorld(); driveOverMsg = ""; doWatching = false; }
+            if (GUILayout.Toggle(boot.clock.speed == 4, "4×", "Button")) boot.clock.speed = 4;
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label($"Corner speed {DriverConfig.DefaultCornerSlow:F2}", GUILayout.Width(120));
+            if (GUILayout.Toggle(Mathf.Abs(DriverConfig.DefaultCornerSlow - 0.30f) < 0.001f, "Safe 0.30", "Button")) SetCorner(w, 0.30f);
+            if (GUILayout.Toggle(Mathf.Abs(DriverConfig.DefaultCornerSlow - 0.27f) < 0.001f, "Fast 0.27", "Button")) SetCorner(w, 0.27f);
             GUILayout.EndHorizontal();
 
             bool nl = GUILayout.Toggle(showLine, " Show Franklin's groove (overlay)");
             if (nl != showLine) { showLine = nl; if (w.lineOverlay) w.lineOverlay.enabled = showLine; }
-
             bool poor = w.surfaceCfg.prepScale > 1.01f;
-            bool np = GUILayout.Toggle(poor, " Poor track prep (roughness ×2 = ±1.6 in)");
+            bool np = GUILayout.Toggle(poor, " Poor track prep (roughness ×2)");
             if (np != poor) { w.surfaceCfg.prepScale = np ? 2f : 1f; w.RebuildSurface(); }
 
-            if (w.drivers.Count > 0)
-            {
-                // Corner-speed choice for playtesting: 0.27 = Franklin's fast-lap window (~10.77 s, little margin);
-                // 0.30 = ~11.03 s, more margin when knocked off the groove.
-                var dc = w.drivers[0].cfg;
-                GUILayout.BeginHorizontal();
-                GUILayout.Label($"Corner speed: {dc.cornerSlow:F2}", GUILayout.Width(130));
-                if (GUILayout.Toggle(Mathf.Abs(dc.cornerSlow - 0.27f) < 0.001f, "Fast 0.27", "Button")) dc.cornerSlow = 0.27f;
-                if (GUILayout.Toggle(Mathf.Abs(dc.cornerSlow - 0.30f) < 0.001f, "Safe 0.30", "Button")) dc.cornerSlow = 0.30f;
-                GUILayout.EndHorizontal();
-            }
+            if (GUILayout.Button("Soak: run 10 races unattended → soak-results.txt")) boot.StartSoak(10);
+            if (!string.IsNullOrEmpty(boot.soakStatus)) GUILayout.Label(boot.soakStatus, box);
 
-            if (w.drivers.Count > 0)
-            {
-                var ai = w.drivers[0]; var k = w.karts[0];
-                if (GUILayout.Button(ai.driveOverArmed || ai.driveOverActive ? "Drive-over: on its way…" : "Drive-over test: cross the roughest patch"))
-                {
-                    w.track.FindRoughestPoint(out ai.driveOverS, out ai.driveOverD, out float hb);
-                    ai.driveOverArmed = true; doWatching = true; doMaxAir = 0; doMaxComp = 0;
-                    k.maxAirTime = 0; k.maxCompression = 0;
-                    ai.onDriveOverDone = a => { doWatching = false; driveOverMsg = $"Drive-over done: max air {doMaxAir:F2} s, max compression {doMaxComp / U.In:F2} in"; };
-                    driveOverMsg = $"Patch: u={ai.driveOverS / w.track.N:F3}, {U.FtS(ai.driveOverD)} from center, rise {U.InS(hb, 2)}";
-                }
-                if (doWatching) { doMaxAir = Mathf.Max(doMaxAir, k.maxAirTime); doMaxComp = Mathf.Max(doMaxComp, k.maxCompression); }
-
-                var sb = new StringBuilder();
-                sb.AppendLine($"Sim time {w.simTime:F1} s   steps {w.steps}");
-                sb.AppendLine($"Laps {ai.lapsCompleted}   last {Fmt(ai.lastLap)}   best {Fmt(ai.bestLap)}   (Clone band 10.5–11.5)");
-                int from = Mathf.Max(0, ai.lapTimes.Count - 6);
-                for (int i = from; i < ai.lapTimes.Count; i++) sb.Append($"L{i + 1} {ai.lapTimes[i]:F2}  ");
-                sb.AppendLine();
-                sb.AppendLine($"Speed {U.MphS(k.ForwardSpeed)}   target {U.MphS(ai.targetSpeed)}   engine {k.EngineRpm:F0} rpm   throttle {k.Throttle * 100f:F0}%");
-                sb.AppendLine($"Steer {k.steerDeg:F1}°   lap pos u={ai.s / w.track.N:F3}   from center {U.FtS(ai.d)}");
-                sb.AppendLine($"Wheels  LF {W(k, 0)}  RF {W(k, 1)}  LR {W(k, 2)}  RR {W(k, 3)}");
-                sb.AppendLine($"Grounded {k.GroundedCount}/4   air {k.airTime:F2} s   max air {k.maxAirTime:F2} s");
-                sb.AppendLine($"Closest body→barrier {U.InS(ai.minWallGap)}   wall breaches {ai.bandBreachSteps}   off-track steps {ai.offTrackSteps}");
-                if (k.UpsideDown) sb.AppendLine("<color=red>UPSIDE DOWN</color>");
-                if (driveOverMsg.Length > 0) sb.AppendLine(driveOverMsg);
-                GUILayout.Label(sb.ToString(), box);
-            }
+            if (d != null) GUILayout.Label(Order(d), box);
             GUILayout.EndArea();
         }
 
-        static string Fmt(float t) => float.IsInfinity(t) || t <= 0 ? "—" : t.ToString("F2");
-        static string W(KartPhysics k, int i) => k.grounded[i] ? $"{k.compression[i] / U.In:F2}in{(k.sliding[i] ? " slide" : "")}{(k.dust[i] > 0.01f ? $" dust{k.dust[i] * 100f:F0}%" : "")}{(k.surfaceGripNow[i] < 0.99f ? $" grip{k.surfaceGripNow[i] * 100f:F0}%" : "")}" : "air";
+        static void SetCorner(World w, float v)
+        {
+            DriverConfig.DefaultCornerSlow = v;
+            foreach (var a in w.drivers) a.cfg.cornerSlow = v;
+        }
+
+        void DrawBanner(RaceDirector d)
+        {
+            var lead = d.Leader();
+            int lap = lead != null ? Mathf.Clamp(lead.lapsDone + 1, 1, d.cfg.featureLaps) : 0;
+            string text = d.phase switch
+            {
+                RacePhase.Grid => "ON THE GRID — press Start race",
+                RacePhase.Pace => "<color=#ffd84d>PACE LAP</color> — double file, no passing",
+                RacePhase.Green => $"<color=#5fe35f>GREEN</color>   Lap {lap} / {d.cfg.featureLaps}",
+                RacePhase.Checkered => "<color=#ffffff>CHECKERED</color>",
+                _ => "RACE COMPLETE",
+            };
+            text += $"     cautions {d.cautions}";
+            GUI.Label(new Rect(Screen.width / 2 - 230, 8, 460, 34), text, banner);
+        }
+
+        static string Order(RaceDirector d)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("<b>Pos  #    Driver      Laps  Gap     Last   Best</b>");
+            var order = d.RunningOrder();
+            var lead = order.Count > 0 ? order[0] : null;
+            for (int i = 0; i < order.Count; i++)
+            {
+                var e = order[i];
+                string gap = i == 0 ? "—" : e.finished || e.outOfRace ? "" : $"{(lead.ai.raceDist - e.ai.raceDist) / Mathf.Max(5f, e.kart.ForwardSpeed):F2}s";
+                if (e.outOfRace) gap = "<color=#ff6060>OUT " + e.outReason + "</color>";
+                else if (e.finished) gap = "<color=#bbbbbb>fin</color>";
+                string last = e.laps.Count > 0 ? e.laps[e.laps.Count - 1].ToString("F2") : "—";
+                float b = d.BestLap(e); string best = float.IsInfinity(b) ? "—" : b.ToString("F2");
+                string tier = e.driver.tier == "fast" ? "★" : e.driver.tier == "new" ? "·" : " ";
+                sb.AppendLine($"{i + 1,2}.  #{e.driver.number,-3}{tier} {e.driver.name,-10} {e.lapsDone,3}   {gap,-7} {last,6} {best,6}");
+            }
+            sb.AppendLine($"on-track passes {d.passes}   incidents {d.Incidents} (M2: logged, no cautions yet)");
+            return sb.ToString();
+        }
     }
 }

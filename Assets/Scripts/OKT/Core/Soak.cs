@@ -1,0 +1,106 @@
+// SOAK mode (Muse's 18:00 M2 request): run N races unattended at high step rate and write
+// soak-results.txt with, per race: cautions, wall breaches (checked every physics step),
+// clean-air best laps per kart, finish order, DNF count — plus the M2 incident stub counts.
+// Used by the HUD's Soak button (play mode) and by OKT.EditorTools.M2Soak (batch mode).
+using System.Collections.Generic;
+using System.Text;
+using UnityEngine;
+
+namespace OKT
+{
+    public class SoakStats
+    {
+        public int races, finished, cautions, breaches, incidents, dnfs;
+        public readonly List<float> cleanBest = new List<float>();
+        public readonly List<float> winnerTimes = new List<float>();
+        public float minClean = float.PositiveInfinity, maxClean;
+        public int offTrackSteps;
+        public int passes; public float moved;
+        public readonly List<int> winGrid = new List<int>(), winPace = new List<int>();
+    }
+
+    public static class Soak
+    {
+        public const float MaxRaceSeconds = 420f;
+        public static bool TraceFirstGreen;
+
+        /// <summary>Run one race to completion (or the time cap). Returns the director's world; caller destroys it.</summary>
+        public static World RunRace(string json, int seed, RaceConfig rc = null)
+        {
+            var w = World.BuildRace(json, seed, rc);
+            if (TraceFirstGreen) w.director.trace = new StringBuilder();
+            w.director.Start();
+            int cap = Mathf.RoundToInt(MaxRaceSeconds / World.FixedDt);
+            for (int i = 0; i < cap && w.director.phase != RacePhase.Done; i++) w.StepOnce();
+            return w;
+        }
+
+        /// <summary>Append one race's block to the report and fold it into the totals.</summary>
+        public static void Record(World w, int seed, StringBuilder sb, SoakStats st)
+        {
+            var d = w.director;
+            st.races++;
+            bool done = d.phase == RacePhase.Done;
+            if (done) st.finished++;
+            st.cautions += d.cautions; st.breaches += d.WallBreaches; st.incidents += d.Incidents; st.dnfs += d.Dnfs;
+            foreach (var e in d.field) st.offTrackSteps += e.ai.offTrackSteps;
+            var order = d.RunningOrder();
+            var win = order.Count > 0 ? order[0] : null;
+            if (win != null && win.finished)
+            {
+                st.winnerTimes.Add(win.finishTime - d.greenTime);
+                st.winGrid.Add(win.gridPos + 1);
+                // feature-pace rank of the winner (grid is qualifying order, which can differ)
+                var byPace = new List<RaceDirector.Entry>(d.field); byPace.Sort((x, y) => x.driver.paceOffsetSec.CompareTo(y.driver.paceOffsetSec));
+                st.winPace.Add(byPace.IndexOf(win) + 1);
+            }
+
+            sb.AppendLine($"Race {st.races} (seed {seed}): {(done ? "complete" : "TIME CAP (did not finish)")}, " +
+                          $"sim {d.raceTime:F0} s, green {(d.greenTime >= 0 ? (d.raceTime - d.greenTime) : 0):F0} s");
+            sb.AppendLine($"  cautions {d.cautions} (M2: no caution system — incidents below are logged, not judged)   " +
+                          $"wall breaches {d.WallBreaches}   incidents {d.Incidents} (spins/flips/stops)   DNF {d.Dnfs}   " +
+                          $"on-track passes {d.passes}   mean positions moved vs grid {d.MeanPositionsMoved:F1}");
+            st.passes += d.passes; st.moved += d.MeanPositionsMoved;
+            sb.Append("  finish: ");
+            for (int i = 0; i < order.Count; i++)
+            {
+                var e = order[i];
+                string st2 = e.finished ? $"{e.lapsDone}L" : e.outOfRace ? $"OUT-{e.outReason}" : $"{e.lapsDone}L running";
+                sb.Append($"{i + 1}. #{e.driver.number}({e.driver.tier[0]},g{e.gridPos + 1}) {st2}  ");
+            }
+            sb.AppendLine();
+            sb.Append("  clean-air best laps: ");
+            foreach (var e in d.field)
+            {
+                float b = d.BestCleanLap(e);
+                if (!float.IsInfinity(b))
+                {
+                    st.cleanBest.Add(b); st.minClean = Mathf.Min(st.minClean, b); st.maxClean = Mathf.Max(st.maxClean, b);
+                    sb.Append($"#{e.driver.number} {b:F2}  ");
+                }
+                else sb.Append($"#{e.driver.number} —  ");
+            }
+            sb.AppendLine();
+            if (d.trace != null) sb.Append(d.trace);
+            foreach (var ev in d.events) if (ev.Contains("SPIN") || ev.Contains("FLIP") || ev.Contains("STOPPED") || ev.Contains("OUT:") || ev.Contains("WALL BREACH")) sb.AppendLine("  " + ev);
+        }
+
+        public static string Summary(SoakStats st)
+        {
+            float mean = 0; foreach (var x in st.cleanBest) mean += x; mean = st.cleanBest.Count > 0 ? mean / st.cleanBest.Count : 0;
+            float win = 0; foreach (var x in st.winnerTimes) win += x; win = st.winnerTimes.Count > 0 ? win / st.winnerTimes.Count : 0;
+            return $"SOAK SUMMARY: {st.races} races, {st.finished} completed. Cautions {st.cautions} total ({(st.races > 0 ? (float)st.cautions / st.races : 0):F1}/race; M2 stub). " +
+                   $"Wall breaches {st.breaches}. Incidents {st.incidents} ({(st.races > 0 ? (float)st.incidents / st.races : 0):F1}/race). DNFs {st.dnfs}. " +
+                   $"Clean-air best laps: {st.cleanBest.Count} karts, mean {mean:F2} s, range {(st.cleanBest.Count > 0 ? st.minClean : 0):F2}–{st.maxClean:F2} s (Clone band 10.5–11.5). " +
+                   $"Mean winner race time {win:F1} s. Off-track steps {st.offTrackSteps}. " +
+                   $"On-track passes {(st.races > 0 ? (float)st.passes / st.races : 0):F1}/race; mean positions moved vs grid {(st.races > 0 ? st.moved / st.races : 0):F1}. " +
+                   $"Winners' starting spots: {string.Join(", ", st.winGrid)}; winners' feature-pace rank: {string.Join(", ", st.winPace)}.";
+        }
+
+        public static string Header(int n, RaceConfig rc)
+        {
+            return $"OKT M2 soak — {n} races, {rc.fieldSize} karts, {rc.featureLaps}-lap features, {Mathf.RoundToInt(1f / World.FixedDt)} Hz physics, " +
+                   $"corner factor {DriverConfig.DefaultCornerSlow:F2}, Unity {Application.unityVersion}\n";
+        }
+    }
+}

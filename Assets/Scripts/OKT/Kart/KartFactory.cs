@@ -52,6 +52,26 @@ namespace OKT
             Tube(tubes, "RearBumperLow", new Vector3(-rw, yb, rz), new Vector3(rw, yb, rz), r, tubeMat, bodyMat);
             Tube(tubes, "RearBumperTop", new Vector3(-rw, setup.rearBumperTopIn * U.In, rz), new Vector3(rw, setup.rearBumperTopIn * U.In, rz), r, tubeMat, bodyMat);
 
+            // --- tire bodies: solid blocks so karts shove off each other's tires instead of overlapping
+            // (a ray-only tire could sit inside a rival's nerf bar and "stand" on it — climbs and flips).
+            // They touch karts and rails, not the dirt: the wheel rays own the ground (World ignores
+            // tire-vs-track collisions). Bottom 1 in off the ground at rest, top = top of tire.
+            var tireBodyMat = new PhysicsMaterial("TireBody") { dynamicFriction = setup.tireContactFriction, staticFriction = setup.tireContactFriction,
+                bounciness = 0f, frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Minimum };
+            var tireBodies = new GameObject("TireBodies").transform; tireBodies.SetParent(go.transform, false);
+            for (int i = 0; i < 4; i++)
+            {
+                var m = setup.WheelMount((Corner)i);
+                float wr = setup.WheelRadius(i), tw = setup.TireWidth(i);
+                float bottom = 1f * U.In, top = 2f * wr;
+                var tb = new GameObject("TireBody_" + (Corner)i);
+                tb.transform.SetParent(tireBodies, false);
+                tb.transform.localPosition = new Vector3(m.x, (bottom + top) * 0.5f, m.z);
+                var bc = tb.AddComponent<BoxCollider>();
+                bc.size = new Vector3(tw, top - bottom, 2f * wr * 0.9f);
+                bc.sharedMaterial = tireBodyMat;
+            }
+
             var kp = go.AddComponent<KartPhysics>();
             kp.Init(setup);
 

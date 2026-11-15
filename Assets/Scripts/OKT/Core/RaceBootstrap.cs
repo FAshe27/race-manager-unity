@@ -1,5 +1,6 @@
-// Scene entry point for M1: builds the world from the track JSON, sets up the
-// whole-track camera and light, drives the SimClock, and draws the debug HUD.
+// Scene entry point: builds the M2 race (12 karts on the grid, race director) from the
+// track JSON, sets up the whole-track camera and light, drives the SimClock (game speed =
+// extra physics steps, never Time.timeScale), runs SOAK batches, and draws the debug HUD.
 using UnityEngine;
 
 namespace OKT
@@ -19,6 +20,15 @@ namespace OKT
         public World world;
         public SimClock clock = new SimClock();
         WholeTrackCamera cam;
+        public int seed;
+        public RaceConfig raceCfg = new RaceConfig();
+
+        // SOAK (Muse's M2 request): run N races unattended at high step rate, write soak-results.txt.
+        [System.NonSerialized] public bool soakRunning;
+        [System.NonSerialized] public int soakTotal, soakDone;
+        [System.NonSerialized] public string soakStatus = "";
+        System.Text.StringBuilder soakSb; SoakStats soakStats;
+        const int SoakStepsPerFrame = 3000;
 
         void Start()
         {
@@ -37,7 +47,8 @@ namespace OKT
 #endif
             if (trackJson == null) { Debug.LogError("[OKT] RaceBootstrap: no track JSON (expected Assets/Data/" + CurrentTrackName + ".json)"); enabled = false; return; }
             Debug.Log("[OKT] Racing track file: " + trackJson.name);
-            world = World.Build(trackJson.text, surface, kartSetup, driver);
+            seed = Random.Range(1, 1000000);
+            world = World.BuildRace(trackJson.text, seed, raceCfg, surface);
             cam = WholeTrackCamera.Ensure(world.track);
             EnsureLight();
             var hud = gameObject.AddComponent<DebugHud>();
@@ -47,16 +58,62 @@ namespace OKT
         void Update()
         {
             if (world == null) return;
+            if (soakRunning) { SoakTick(); return; }
             clock.Tick(world, Time.deltaTime);
-            world.UpdateVisuals(Time.deltaTime * clock.speed);
+            world.UpdateVisuals(Time.deltaTime * Mathf.Max(1, clock.speed));
         }
 
-        public void ResetWorld()
+        /// <summary>Rebuild the grid. newField = a fresh field (new seed); otherwise the same drivers again.</summary>
+        public void ResetWorld(bool newField = false)
         {
             int sp = clock.speed;
             world.Destroy();
-            world = World.Build(trackJson.text, surface, kartSetup, driver);
+            if (newField) seed = Random.Range(1, 1000000);
+            surface = new SurfaceConfig();
+            world = World.BuildRace(trackJson.text, seed, raceCfg, surface);
             clock = new SimClock { speed = sp };
+        }
+
+        public void StartRace() { if (world?.director != null && world.director.phase == RacePhase.Grid) world.director.Start(); }
+
+        public void StartSoak(int n)
+        {
+            soakRunning = true; soakTotal = n; soakDone = 0;
+            soakSb = new System.Text.StringBuilder(Soak.Header(n, raceCfg)); soakStats = new SoakStats();
+            BeginSoakRace();
+        }
+
+        void BeginSoakRace()
+        {
+            world.Destroy();
+            seed = 1001 + soakDone;
+            world = World.BuildRace(trackJson.text, seed, raceCfg, new SurfaceConfig());
+            world.director.Start();
+        }
+
+        void SoakTick()
+        {
+            var d = world.director;
+            int cap = Mathf.RoundToInt(Soak.MaxRaceSeconds / World.FixedDt);
+            for (int i = 0; i < SoakStepsPerFrame && d.phase != RacePhase.Done && world.steps < cap; i++) world.StepOnce();
+            world.UpdateVisuals(0f);
+            soakStatus = $"SOAK race {soakDone + 1}/{soakTotal} — {d.phase}, sim {d.raceTime:F0} s";
+            if (d.phase == RacePhase.Done || world.steps >= cap)
+            {
+                Soak.Record(world, seed, soakSb, soakStats);
+                soakDone++;
+                if (soakDone >= soakTotal)
+                {
+                    soakSb.AppendLine().AppendLine(Soak.Summary(soakStats));
+                    string path = System.IO.Path.Combine(Application.dataPath, "..", "soak-results.txt");
+                    System.IO.File.WriteAllText(path, soakSb.ToString());
+                    soakRunning = false;
+                    soakStatus = "SOAK done — wrote soak-results.txt. " + Soak.Summary(soakStats);
+                    Debug.Log("[OKT] " + soakStatus);
+                    ResetWorld(true);
+                }
+                else BeginSoakRace();
+            }
         }
 
         static void EnsureLight()
