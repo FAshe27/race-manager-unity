@@ -1088,3 +1088,68 @@ can lose several spots at once ("freight trained"). Planned implementation:
 - a kart alongside on my inside with its nose at least level at corner entry → I cap my
   speed slightly below his and merge behind him;
 - karts close behind the passer keep their inside run and keep coming.
+
+### 2026-11-15 00:30 CT — Claude Code — [M2] STOP-AND-REPORT: karts launched over the rail in multi-kart contact (M2 in progress)
+
+**CLAUDE.md stop-and-report.** M2 soaks with passing enabled record wall breaches. Breach
+forensics now log every kart at the moment its centre crosses a barrier line. In the last
+two 10-race soaks there were **11 breaches**, and **every one was a kart already flipped
+and airborne crossing *over* the rail**:
+- 0 of 4 wheels on the ground;
+- 0.9 m to 10.7 m above the rail base (rail 0.51 m);
+- 6–27 mph, often far up the track from any wreck.
+
+None pushed *through* a barrier. A kart 10 m in the air is a physics artifact, not
+racing. The trigger is kart-on-kart contact during passes and in pile-ups (wrecks stay on
+track: no recovery or crew clearing until M3).
+
+**Where M2 stands (code built, uncommitted locally; `main` is still M1):**
+- Race director: grid → one pace lap double-file → green at S/F → 15 laps → checkered →
+  done. Positions by unwrapped distance, lap timing, clean-air laps.
+- Traffic AI:
+  - occupancy as hard lane limits on the steering target;
+  - check-up with time headway;
+  - latched passes with abandon and cool-down;
+  - conceding the inside (Franklin 23:55);
+  - wreck avoidance;
+  - right sides never aimed onto the berm.
+- Consistency (per-lap wobble + bobbles); field 2 fast / 9 mid / 1 new in pace order.
+- Race HUD (phase banner, running order, Start / Reset / New field, Pause / 1× / 2× / 4×,
+  Soak button) and the SOAK logger (headless `M2Soak` + in-play) writing
+  `soak-results.txt`.
+
+**Soak results, two regimes:**
+
+| | clean (no completed passes) | passing on |
+|---|---|---|
+| races completed | 10 / 10 | 6–8 / 10 |
+| wall breaches | 0 | 3–8 per 10 races (all airborne flips) |
+| flips | 1 in 10 races | 2–5 per race |
+| on-track passes | 0 | 10–11 per race |
+| winners' starting spots | 1 every race | 1, 2, 3, 3, 5, 5, 7, 11 |
+| clean-air best laps | 10.95–11.29 s | 10.98–11.65 s |
+
+Franklin's targets: a flip in roughly 1 race in 40–50, and top-5 karts winning regularly.
+The clean regime meets the first and fails the second; the passing regime is the reverse.
+
+**Bugs found and fixed during M2:**
+- the green-flag lateral snap;
+- the follow-gap cascade (the whole field stopped);
+- personal offsets putting the right-side tires on the berm;
+- occupancy checked at the kart's position instead of its steering target;
+- the slow post-green merge swinging the pole onto the berm off turn 2;
+- the attack-start distance shorter than the follow gap (no passes ever);
+- the solver's push-apart speed (default 10 m/s, now capped at 1.5 m/s per kart);
+- **wheel-on-kart forces not applied to the other kart** (Newton's third law: a wheel on
+  a rival's nerf bar pushed only the climber; now both).
+
+**DECISION NEEDED (Franklin, and Muse on scope):**
+- **(A)** Finish M2 as *clean* racing: passes only with full clear room, the concede rule
+  plus bobbles creating the openings, and no deliberate side-by-side contact. Then attack
+  contact physics properly in M3 (rubbing, push-up pass, flip/launch realism, crew
+  clearing). Fewer passes in M2.
+- **(B)** Pull the contact-stability work forward and keep M2 open until passing is both
+  frequent and safe.
+
+Recommendation: (A). M2's job is the race flow and the soak floor, and the contact
+problems are M3's whole subject.
