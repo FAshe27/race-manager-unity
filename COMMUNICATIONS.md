@@ -817,3 +817,18 @@ default. M2 still waits on Muse's AUDIT and Franklin's verdict.
 about 11.03 s, robust to bumps, dust and shallow wall hits). The HUD keeps the Fast 0.27
 toggle. Franklin has created the GitHub repo `race-manager-unity`; first push pending a
 git identity choice.
+
+### 2026-11-14 22:05 CT — Franklin (recorded by Claude Code) — [M2/M3] NOTE: racers push for the front
+
+For future milestones: other racers are trying their best to make it to the front before
+the end of a 15–20 lap feature. "Sometimes they shove, sometimes they hit. Not clean racing,
+but that's racing."
+
+**To reconcile when the AI is built (M2 passing, M3 contact):** spec §7 says aggression
+"never overrides occupancy" (the defended groove). Franklin's note says real drivers
+sometimes do override it, with a shove or a hit, especially as laps run out. A likely shape,
+for Franklin to rule on then:
+- Occupancy stays the default behaviour.
+- Aggression (and the laps remaining) sets how often a driver bumps or shoves instead of
+  checking up.
+- The director's causer/caution rules (§8.3) judge the result.
