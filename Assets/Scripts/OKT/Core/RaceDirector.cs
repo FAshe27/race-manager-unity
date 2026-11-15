@@ -35,12 +35,16 @@ namespace OKT
         // Traffic geometry [TEST VALUEs]
         public float alongsideFt = 7.5f;           // longitudinal window that counts as "alongside" (≈ kart length + margin)
         public float sideRoomIn = 53f;             // centre-to-centre side by side: about body width — rubbing is normal (Franklin) [TEST VALUE]
-        public float followGapFt = 3.0f;           // bumper-to-bumper gap a kart settles at when it checks up
+        public float followGapFt = 2.0f;           // bumper-to-bumper gap a kart settles at when it checks up (Franklin's video: nose to tail, ~a kart length) [TEST VALUE]
         public float lookAheadTime = 0.5f;         // spec §7: slot projected ~0.5 s ahead
         public float passStartGapFt = 20f;         // a pass can start inside this gap (browser 0.038 lap ≈ 25 ft)
         public float passHoldGapFt = 30f;          // ...and stays latched inside this gap (browser 0.055 lap)
         public float passAbandonSec = 3f;          // browser sim
         public float passCooldownSec = 2.5f;       // browser sim
+        // The exit-run pass (Franklin, 2026-11-15): a faster kart times a run off the corner, pulls to the inside of the
+        // leader on the straight and owns the inside line into the next corner; the leader lifts and files in behind.
+        public float runRoomFt = 4f;               // extra gap the follower leaves mid-corner so he can carry speed off it [TEST VALUE]
+        public float runAbandonSec = 5f;           // straight + entry take longer than a dive [TEST VALUE]
         public float fasterBy = 1.005f;            // needs a pace edge (like-for-like free speed) to start a pass [TEST VALUE]
         // Conceding the inside (Franklin, 23:55): established inside me at corner entry -> drag the brakes, file in behind.
         public float concedeEntryCorner = 0.25f;    // corner value at my speed-lookahead that counts as "entry" [TEST VALUE]
@@ -49,7 +53,8 @@ namespace OKT
         public float concedeHoldSec = 1.2f;         // how long the concession lasts once made [TEST VALUE]
         public float hazardYawDeg = 30f;            // off-line angle that makes a kart a hazard [TEST VALUE]
         public float hazardYawRate = 1.8f;          // rad/s of rotation that makes a kart a hazard [TEST VALUE]
-        public float hazardLookSeconds = 2.0f;      // how far ahead (in time) drivers watch for trouble [TEST VALUE]
+        public float hazardLookSeconds = 2.0f;
+        public float crawlMph = 4f;                 // speed a blocked kart creeps through a jam at [TEST VALUE]      // how far ahead (in time) drivers watch for trouble [TEST VALUE]
         public float outsidePassMargin = 0.6f;
         public float insidePassMargin = 0.3f;       // m of spare room above the inside edge to dive [TEST VALUE]
         // The push-up pass (Franklin 22:10 / 23:20): nose on his bumper at corner entry, push him in slightly hot,
@@ -63,7 +68,7 @@ namespace OKT
         public float pushedSeconds = 1.2f;          // how long the drift lasts after the push [TEST VALUE]      // m of spare room needed to try the outside [TEST VALUE]
         public float freeMergeRate = 2.5f;          // m/s lateral offset change with nobody alongside [TEST VALUE]
         public float trafficMergeRate = 1.0f;       // m/s when side by side / passing (browser sim's capped arc) [TEST VALUE]
-        public float followHeadway = 0.3f;         // s of extra following gap at speed [TEST VALUE]
+        public float followHeadway = 0.08f;        // s of extra following gap at speed (was 0.3: ~20 ft back at speed, real karts run nose to tail) [TEST VALUE]
         public float followGain = 1.5f;            // check-up: m/s of speed per m of gap error [TEST VALUE]
         public float cleanAirSeconds = 1.0f;       // a lap is clean-air if the kart ahead was always > this far in time [TEST VALUE]
         // Consistency (browser sim stat; Franklin: winners aren't predetermined) [TEST VALUEs]
@@ -158,9 +163,10 @@ namespace OKT
             public readonly List<bool> lapClean = new List<bool>();
             public bool cleanThisLap = true;
             // passing state
-            public int attackTarget = -1; public float attackT, attackCool; public int attackSide;
+            public int attackTarget = -1; public float attackT, attackCool; public int attackSide; public bool attackRun;
             // incident stub
             public bool inIncident; public int spins, flips; public float stoppedT;
+            public bool blocked;   // a kart right in front of me: stopped here means waiting in a jam, not wrecked
             public float bobbleT;
             public float concedeT; public int concedeTo = -1;
             public int breachesSeen;
@@ -292,7 +298,10 @@ namespace OKT
             float yawRate = Mathf.Abs(Vector3.Dot(k.Body.angularVelocity, Vector3.up));
             return yaw > cfg.hazardYawDeg || yawRate > cfg.hazardYawRate || k.GroundedCount == 0;
         }
-        bool Hazard(Entry o) => (o.outOfRace && !o.cleared) || o.inIncident || o.recovering || Unsettled(o) || (phase == RacePhase.Green && raceTime - greenTime > cfg.packedStartSeconds && o.kart.ForwardSpeed < 5f * U.Mph);
+        // A kart that's merely slow in a queue is NOT a hazard — the karts behind just follow it. Counting every slow
+        // kart made a jam behind a wreck spread backwards: each stopped kart became a wreck to the ones behind, and
+        // the whole field gridlocked (Franklin's video: karts thread through and it clears in seconds).
+        bool Hazard(Entry o) => (o.outOfRace && !o.cleared) || o.inIncident || o.recovering || Unsettled(o);
 
         void Traffic(Entry e, float dt, float kartLen, float room, bool packed)
         {
@@ -342,6 +351,7 @@ namespace OKT
 
             bool attacking = false;
             if (haz != null && (ahead == null || gapH < gapA)) { ahead = haz; gapA = gapH; }
+            e.blocked = ahead != null && gapA < kartLen * 1.8f;
 
             // ---- a latched pass tracks ITS target until done — diving inside leaves his lane, so "the kart ahead in
             // my lane" stopped being him and the move was cancelled the moment it started.
@@ -351,8 +361,8 @@ namespace OKT
                 float gt = Gap(tg, e);
                 e.attackT += dt;
                 if (tg.outOfRace || tg.finished || Hazard(tg)) { e.attackTarget = -1; }
-                else if (gt < -kartLen * 0.6f) { e.attackTarget = -1; e.attackCool = 0.9f; dbgCompleted++; }     // cleared him: pass done
-                else if (gt > cfg.passHoldGapFt * U.Ft + kartLen || (e.attackT > cfg.passAbandonSec && gt > kartLen * 0.3f))
+                else if (gt < -kartLen * 0.6f) { if (e.attackRun) dbgRunDone++; e.attackTarget = -1; e.attackCool = 0.9f; dbgCompleted++; }     // cleared him: pass done
+                else if (gt > cfg.passHoldGapFt * U.Ft + kartLen || (e.attackT > AbandonSec(e) && gt > kartLen * 0.3f))
                 { e.attackTarget = -1; e.attackCool = cfg.passCooldownSec; }                                         // didn't come off: fall back in line
                 else if (e.attackSide > 0 && GrooveClimbing(ai)) { e.attackTarget = -1; e.attackCool = cfg.passCooldownSec; }
                 else
@@ -377,7 +387,11 @@ namespace OKT
                 }
                 // brake for it too: never faster than what stops short of it (or 60% of free speed while dodging)
                 float stopV = Mathf.Sqrt(Mathf.Max(0f, 2f * ai.kart.setup.brakeCap * 0.8f * Mathf.Max(0f, gapA - kartLen)));
-                ai.speedCap = Mathf.Min(ai.speedCap, (upOk || downOk) ? Mathf.Max(stopV, ai.freeSpeed * 0.6f) : stopV);
+                // No room either side: don't park — creep up at walking pace and nose through (contact at a walking
+                // pace is a nudge, and it's how real karts get out of a jam).
+                // (a kart that's itself recovering noses closer — two recovering karts braking for each other deadlocked)
+                float crawl = gapA > kartLen * (e.recovering ? 0.6f : 0.9f) ? cfg.crawlMph * U.Mph : 0f;
+                ai.speedCap = Mathf.Min(ai.speedCap, (upOk || downOk) ? Mathf.Max(stopV, ai.freeSpeed * 0.6f) : Mathf.Max(stopV, crawl));
                 ai.trafficRate = cfg.freeMergeRate; // swerve briskly
             }
             else if (!attacking && !packed && !e.finished && ahead != null && e.attackCool <= 0f && e.attackTarget < 0)
@@ -393,6 +407,13 @@ namespace OKT
                 bool latched = e.attackTarget == field.IndexOf(ahead);
                 bool want = latched ? (gapA < startGap + 3f && (faster || e.attackT < 1.2f))
                                     : (gapA < startGap && faster);
+                // exit run: off the corner, faster on pace, carrying more speed than him, within a run's distance
+                // (pace compared like for like: free speed is read at each kart's own look-ahead point, and off a corner
+                // the follower's point is still further back in the turn, so he always looked slower than the leader)
+                bool run = !latched && ExitRun(ai) && ai.cfg.pace > ahead.ai.cfg.pace * cfg.fasterBy
+                           && gapA < SettleGap(e, v, kartLen, false) + cfg.runRoomFt * U.Ft + 3f
+                           && v > ahead.kart.ForwardSpeed + 0.2f;
+                if (run) { want = true; dbgRuns++; }
                 if (gapA < startGap) dbgClose++; if (faster) dbgFaster++; if (heldUp) dbgHeld++; if (want) dbgWant++;
                 if (want)
                 {
@@ -404,9 +425,9 @@ namespace OKT
                         float od = ahead.ai.d;
                         bool insideOk = od - room >= loLim + cfg.insidePassMargin;
                         bool outsideOk = od + room <= hiLim - cfg.outsidePassMargin && !GrooveClimbing(ai);
-                        int side = insideOk ? -1 : (outsideOk ? 1 : 0);
+                        int side = insideOk ? -1 : (outsideOk && !run ? 1 : 0); // a run goes to the inside only
                         if (insideOk) dbgInsideOk++; if (outsideOk) dbgOutsideOk++; if (side != 0) dbgStarted++;
-                        if (side != 0) { e.attackTarget = field.IndexOf(ahead); e.attackT = 0f; e.attackSide = side; }
+                        if (side != 0) { e.attackTarget = field.IndexOf(ahead); e.attackT = 0f; e.attackSide = side; e.attackRun = run; if (run) dbgRunStarted++; }
 
                     }
                     if (e.attackTarget == field.IndexOf(ahead) && e.attackSide > 0 && GrooveClimbing(ai))
@@ -415,7 +436,7 @@ namespace OKT
                     {
                         e.attackT += dt; attacking = true;
                         goalAbs = ahead.ai.d + e.attackSide * room;
-                        if (e.attackT > cfg.passAbandonSec) { e.attackCool = cfg.passCooldownSec; e.attackTarget = -1; attacking = false; goalAbs = line + personal; }
+                        if (e.attackT > AbandonSec(e)) { e.attackCool = cfg.passCooldownSec; e.attackTarget = -1; attacking = false; goalAbs = line + personal; }
                     }
                 }
             }
@@ -504,7 +525,7 @@ namespace OKT
                 && gapA < SettleGap(e, v, kartLen, false) + 3f && EntryAhead(ai)
                 && rng.NextDouble() < e.driver.aggression * dt * 3.0)
             { e.pushTarget = field.IndexOf(ahead); e.pushT = 0f; dbgPushes++;
-              if (traceAtk < 0 && diveTraces < 4) { traceAtk = field.IndexOf(e); traceTgt = e.pushTarget; traceT0 = raceTime; traceAcc = 0f; diveTraces++; events.Add($"DIVE TRACE {diveTraces} (push): #{e.driver.number} on #{ahead.driver.number}"); } }
+              if (traceAtk < 0 && diveTraces < 0) { traceAtk = field.IndexOf(e); traceTgt = e.pushTarget; traceT0 = raceTime; traceAcc = 0f; diveTraces++; events.Add($"DIVE TRACE {diveTraces} (push): #{e.driver.number} on #{ahead.driver.number}"); } }
             bool pushing = false;
             if (e.pushTarget >= 0)
             {
@@ -520,7 +541,7 @@ namespace OKT
                     if (gp < kartLen + 0.8f && od - room >= loLim + cfg.insidePassMargin && e.attackTarget < 0) // nose on his bumper and he's drifted up: the bottom is open
                     {
                         e.attackTarget = e.pushTarget; e.attackT = 0f; e.attackSide = -1; e.pushTarget = -1; dbgPushPasses++;
-                        if (traceAtk < 0 && diveTraces < 4) { traceAtk = field.IndexOf(e); traceTgt = e.attackTarget; traceT0 = raceTime; traceAcc = 0f; diveTraces++; events.Add($"DIVE TRACE {diveTraces}: #{e.driver.number} under #{field[traceTgt].driver.number}"); }
+                        if (traceAtk < 0 && diveTraces < 0) { traceAtk = field.IndexOf(e); traceTgt = e.attackTarget; traceT0 = raceTime; traceAcc = 0f; diveTraces++; events.Add($"DIVE TRACE {diveTraces}: #{e.driver.number} under #{field[traceTgt].driver.number}"); }
                     }
                     // close up briskly in HIS tracks (a wider lane loses ground in the corner and never closes),
                     // then lean on him: a touch faster once the noses meet
@@ -546,8 +567,9 @@ namespace OKT
                 float va = ahead.kart.ForwardSpeed;
                 // Packed start: hold the grid spacing (nose to tail). Otherwise: follow gap + time headway —
                 // shortened to striking distance when I'm faster on pace and want by.
-                bool wantBy = ai.freeSpeed > ahead.ai.freeSpeed * cfg.fasterBy && !Hazard(ahead);
+                bool wantBy = ai.cfg.pace > ahead.ai.cfg.pace * cfg.fasterBy && !Hazard(ahead);
                 float settle = packed ? cfg.rowGapFt * U.Ft : SettleGap(e, v, kartLen, wantBy);
+                if (wantBy && !packed && fr.corner > 0.5f) settle += cfg.runRoomFt * U.Ft; // time the run: a little room mid-corner
                 float cap = va + cfg.followGain * (gapA - settle);
                 // Never demand far below the kart ahead's speed unless contact is imminent — a check-up eases
                 // back to his pace; it doesn't collapse (a hard cap cascaded the whole field to a stop).
@@ -567,6 +589,16 @@ namespace OKT
                 }
                 if (front != null) ai.speedCap = Mathf.Min(ai.speedCap, front.kart.ForwardSpeed + 0.15f);
             }
+        }
+
+        float AbandonSec(Entry e) => e.attackRun ? cfg.runAbandonSec : cfg.passAbandonSec;
+
+        /// <summary>Coming off a corner: it was a corner just behind me and it's opening up here.</summary>
+        bool ExitRun(KartAI ai)
+        {
+            float cb = w.track.Frame(w.track.WrapS(ai.s - 8f / w.track.centerLength * w.track.N)).corner;
+            float c0 = w.track.Frame(ai.s).corner;
+            return cb > 0.5f && c0 < cb && c0 < 0.85f;
         }
 
         /// <summary>Is a corner coming up (entry), at the speed-lookahead point?</summary>
@@ -668,16 +700,18 @@ namespace OKT
                 bool spun = yaw > cfg.spinAngleDeg, flipped = e.kart.UpsideDown;
                 bool stopped = phase == RacePhase.Green && e.kart.ForwardSpeed < 2f * U.Mph && !e.finished;
                 e.stoppedT = stopped ? e.stoppedT + dt : 0f;
-                bool incident = spun || flipped || e.stoppedT > cfg.stoppedSeconds;
+                bool stuck = e.stoppedT > cfg.stoppedSeconds && !e.blocked; // stopped behind a kart = waiting in a jam
+                bool incident = spun || flipped || stuck;
+                bool wasRecovering = e.recovering;
                 bool newEpisode = incident && !e.inIncident && !e.recovering;
                 // Spin recovery: a spun or stuck kart (not flipped) drives itself out; it's done when it's
                 // pointed the right way and rolling. Can't get going in recoverMaxSeconds -> out.
-                bool startRecover = !flipped && (spun || e.stoppedT > cfg.stoppedSeconds) && phase == RacePhase.Green && !e.finished && !e.recovering;
+                bool startRecover = !flipped && (spun || stuck) && phase == RacePhase.Green && !e.finished && !e.recovering;
                 if (startRecover) { e.recovering = true; e.recoverT = 0f; }
                 if (e.recovering)
                 {
                     e.recoverT += dt;
-                    if (!spun && e.kart.ForwardSpeed > 6f * U.Mph) { e.recovering = false; Event($"RECOVERED: {Tag(e)} rejoins."); }
+                    if (!spun && e.kart.ForwardSpeed > 3f * U.Mph) { e.recovering = false; Event($"RECOVERED: {Tag(e)} rejoins."); }
                     else if (e.recoverT > cfg.recoverMaxSeconds) { e.recovering = false; e.outOfRace = true; e.outReason = "couldn't restart"; Event($"OUT: {Tag(e)} (couldn't get going)."); }
                 }
                 if (newEpisode || (flipped && !e.inIncident))
@@ -687,11 +721,11 @@ namespace OKT
                     bool contact = kc != null && w.simTime - kc.lastContactTime < 1.5f;
                     if (contact) { if (flipped) contactFlips++; else contactSpins++; } else { if (flipped) selfFlips++; else selfSpins++; }
                     string who = contact && kc.lastOther != null ? $" after contact with #{field.Find(x => x.kart == kc.lastOther)?.driver.number} ({kc.lastImpulse:F0} N·s, {w.simTime - kc.lastContactTime:F1} s before)" : " (no kart contact — self)";
-                    Event($"{(flipped ? "FLIP" : spun ? "SPIN" : "STOPPED")}: {Tag(e)} at lap {e.lapsDone + 1}, u={ai.s / w.track.N:F2}, {e.kart.ForwardSpeed / U.Mph:F0} mph{who}{(e.recovering ? " [while recovering]" : "")}.");
-                    if (!contact && !e.recovering) foreach (var h in e.hist) events.Add("      before: " + h);
+                    Event($"{(flipped ? "FLIP" : spun ? "SPIN" : "STOPPED")}: {Tag(e)} at lap {e.lapsDone + 1}, u={ai.s / w.track.N:F2}, {e.kart.ForwardSpeed / U.Mph:F0} mph{who}{(wasRecovering ? " [while recovering]" : "")}.");
+                    if (!contact && !wasRecovering) foreach (var h in e.hist) events.Add("      before: " + h);
                 }
                 e.inIncident = incident;
-                if (!e.finished && !e.recovering && (flipped || e.stoppedT > cfg.dnfStoppedSeconds))
+                if (!e.finished && !e.recovering && (flipped || (e.stoppedT > cfg.dnfStoppedSeconds && !e.blocked)))
                 {
                     e.outOfRace = true; e.outReason = flipped ? "flipped" : "stopped";
                     Event($"OUT: {Tag(e)} ({e.outReason}).");
@@ -787,7 +821,7 @@ namespace OKT
         }
 
         public int contactSpins, selfSpins, contactFlips, selfFlips;
-        public long dbgPushes, dbgPushPasses, dbgCompleted;
+        public long dbgPushes, dbgPushPasses, dbgCompleted, dbgRuns, dbgRunStarted, dbgRunDone;
         public int diveTraces; int traceAtk = -1, traceTgt = -1; float traceT0, traceAcc;
         public long dbgAhead, dbgClose, dbgFaster, dbgHeld, dbgWant, dbgInsideOk, dbgOutsideOk, dbgStarted, dbgHaz;
         public int Contacts { get { int n = 0; foreach (var e in field) { var c = e.kart.GetComponent<KartContact>(); if (c) n += c.contacts; } return n / 2; } }

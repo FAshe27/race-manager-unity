@@ -61,7 +61,7 @@ namespace OKT
             sb.AppendLine($"  cautions {d.cautions} (M2: no caution system — incidents below are logged, not judged)   " +
                           $"wall breaches {d.WallBreaches}   incidents {d.Incidents} (spins/flips/stops)   DNF {d.Dnfs}   " +
                           $"on-track passes {d.passes}   mean positions moved vs grid {d.MeanPositionsMoved:F1}");
-            sb.AppendLine($"  pass logic (kart-steps): ahead {d.dbgAhead} close {d.dbgClose} faster {d.dbgFaster} heldUp {d.dbgHeld} want {d.dbgWant} insideOk {d.dbgInsideOk} outsideOk {d.dbgOutsideOk} started {d.dbgStarted} hazardAhead {d.dbgHaz} pushes {d.dbgPushes} push->dive {d.dbgPushPasses} completed {d.dbgCompleted}");
+            sb.AppendLine($"  pass logic (kart-steps): ahead {d.dbgAhead} close {d.dbgClose} faster {d.dbgFaster} heldUp {d.dbgHeld} want {d.dbgWant} insideOk {d.dbgInsideOk} outsideOk {d.dbgOutsideOk} started {d.dbgStarted} hazardAhead {d.dbgHaz} pushes {d.dbgPushes} push->dive {d.dbgPushPasses} completed {d.dbgCompleted} | exit runs: seen {d.dbgRuns} started {d.dbgRunStarted} done {d.dbgRunDone}");
             sb.AppendLine($"  contacts {d.Contacts} (hard {d.HardContacts})   spins: contact {d.contactSpins} / self {d.selfSpins}   flips: contact {d.contactFlips} / self {d.selfFlips}");
             st.cSpin += d.contactSpins; st.sSpin += d.selfSpins; st.cFlip += d.contactFlips; st.sFlip += d.selfFlips; st.contacts += d.Contacts; st.hard += d.HardContacts;
             st.passes += d.passes; st.moved += d.MeanPositionsMoved;
