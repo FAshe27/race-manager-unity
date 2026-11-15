@@ -91,6 +91,8 @@ namespace OKT
         public float maxAngularVelocity = 25f;    // rad/s
         public int solverIterations = 4;          // position
         public int solverVelocityIterations = 8;  // velocity
+        public float maxTireForceLbf = 900f;        // ceiling on one tire's spring force (~10x its static load) [TEST VALUE]
+        public float maxTireForceN => maxTireForceLbf * 4.4482216f;
         public float tireContactFriction = 0.35f;    // tire body vs kart/rail rubbing friction [TEST VALUE]
         public float maxDepenetrationVelocity = 1.5f; // m/s, solver push-apart cap (Unity default 10) [TEST VALUE]
 

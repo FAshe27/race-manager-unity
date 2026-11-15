@@ -140,6 +140,7 @@ namespace OKT
             };
             kp.surface = surfaceCfg;
             IgnoreTireBodiesVsGround(kp);
+            kp.gameObject.AddComponent<KartContact>().world = this;
             var ai = kp.gameObject.AddComponent<KartAI>();
             ai.Init(kp, track, driver);
             karts.Add(kp); drivers.Add(ai);

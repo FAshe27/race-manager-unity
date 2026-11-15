@@ -16,6 +16,7 @@ namespace OKT
         public float minClean = float.PositiveInfinity, maxClean;
         public int offTrackSteps;
         public int passes; public float moved;
+        public int cSpin, sSpin, cFlip, sFlip, contacts, hard;
         public readonly List<int> winGrid = new List<int>(), winPace = new List<int>();
     }
 
@@ -60,6 +61,9 @@ namespace OKT
             sb.AppendLine($"  cautions {d.cautions} (M2: no caution system — incidents below are logged, not judged)   " +
                           $"wall breaches {d.WallBreaches}   incidents {d.Incidents} (spins/flips/stops)   DNF {d.Dnfs}   " +
                           $"on-track passes {d.passes}   mean positions moved vs grid {d.MeanPositionsMoved:F1}");
+            sb.AppendLine($"  pass logic (kart-steps): ahead {d.dbgAhead} close {d.dbgClose} faster {d.dbgFaster} heldUp {d.dbgHeld} want {d.dbgWant} insideOk {d.dbgInsideOk} outsideOk {d.dbgOutsideOk} started {d.dbgStarted} hazardAhead {d.dbgHaz} pushes {d.dbgPushes} push->dive {d.dbgPushPasses} completed {d.dbgCompleted}");
+            sb.AppendLine($"  contacts {d.Contacts} (hard {d.HardContacts})   spins: contact {d.contactSpins} / self {d.selfSpins}   flips: contact {d.contactFlips} / self {d.selfFlips}");
+            st.cSpin += d.contactSpins; st.sSpin += d.selfSpins; st.cFlip += d.contactFlips; st.sFlip += d.selfFlips; st.contacts += d.Contacts; st.hard += d.HardContacts;
             st.passes += d.passes; st.moved += d.MeanPositionsMoved;
             sb.Append("  finish: ");
             for (int i = 0; i < order.Count; i++)
@@ -82,7 +86,7 @@ namespace OKT
             }
             sb.AppendLine();
             if (d.trace != null) sb.Append(d.trace);
-            foreach (var ev in d.events) if (ev.Contains("SPIN") || ev.Contains("FLIP") || ev.Contains("STOPPED") || ev.Contains("OUT:") || ev.Contains("WALL BREACH")) sb.AppendLine("  " + ev);
+            foreach (var ev in d.events) if (ev.Contains("SPIN") || ev.Contains("FLIP") || ev.Contains("STOPPED") || ev.Contains("OUT:") || ev.Contains("WALL BREACH") || ev.Contains("before:") || ev.Contains("DIVE") || ev.Contains("dive ")) sb.AppendLine("  " + ev);
         }
 
         public static string Summary(SoakStats st)
@@ -94,7 +98,8 @@ namespace OKT
                    $"Clean-air best laps: {st.cleanBest.Count} karts, mean {mean:F2} s, range {(st.cleanBest.Count > 0 ? st.minClean : 0):F2}–{st.maxClean:F2} s (Clone band 10.5–11.5). " +
                    $"Mean winner race time {win:F1} s. Off-track steps {st.offTrackSteps}. " +
                    $"On-track passes {(st.races > 0 ? (float)st.passes / st.races : 0):F1}/race; mean positions moved vs grid {(st.races > 0 ? st.moved / st.races : 0):F1}. " +
-                   $"Winners' starting spots: {string.Join(", ", st.winGrid)}; winners' feature-pace rank: {string.Join(", ", st.winPace)}.";
+                   $"Winners' starting spots: {string.Join(", ", st.winGrid)}; winners' feature-pace rank: {string.Join(", ", st.winPace)}. " +
+                   $"Per race: contacts {(float)st.contacts / Mathf.Max(1, st.races):F1} (hard {(float)st.hard / Mathf.Max(1, st.races):F1}), spins contact {(float)st.cSpin / Mathf.Max(1, st.races):F1} / self {(float)st.sSpin / Mathf.Max(1, st.races):F1}, flips contact {(float)st.cFlip / Mathf.Max(1, st.races):F2} / self {(float)st.sFlip / Mathf.Max(1, st.races):F2}.";
         }
 
         public static string Header(int n, RaceConfig rc)

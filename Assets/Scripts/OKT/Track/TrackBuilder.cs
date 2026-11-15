@@ -66,7 +66,7 @@ namespace OKT
                     verts[r * cols + j] = new Vector3(p.x, t.SurfaceHeightSD(s, d), p.y);
                     // u: distance from the groove (texture paints the darker worn strip); v: along the lap.
                     // Off the dirt (run-off bank) u is pushed to the texture's grass end.
-                    float u = d > f.halfWidth + 0.01f ? 1f : Mathf.Clamp((d - f.LineOffset) / 8f + 0.5f, 0f, 0.97f);
+                    float u = (d > f.halfWidth + 0.01f || d < -f.halfWidth - 0.01f) ? 1f : Mathf.Clamp((d - f.LineOffset) / 8f + 0.5f, 0f, 0.97f);
                     uvs[r * cols + j] = new Vector2(u, arc / 4f);
                 }
             }
@@ -104,13 +104,16 @@ namespace OKT
             return go;
         }
 
-        public static int ColumnCount(SurfaceConfig cfg) => cfg.surfaceCols + cfg.bermCols + 1 + 4;
+        public static int ColumnCount(SurfaceConfig cfg) => 2 + cfg.surfaceCols + cfg.bermCols + 1 + 4; // + 2 inside apron columns
 
         /// <summary>Lateral offset of mesh column j: inside edge .. berm start .. outside edge .. flat .. bank.</summary>
         public static float ColumnOffset(in TrackFrame f, SurfaceConfig cfg, int j)
         {
             float hw = f.halfWidth;
             float bermStart = hw - cfg.bermWidth;
+            if (j == 0) return -hw - cfg.insideApron - 1.0f;   // flat infield edge of the mesh
+            if (j == 1) return -hw - cfg.insideApron;          // bottom of the apron
+            j -= 2;
             if (j <= cfg.surfaceCols) return Mathf.Lerp(-hw, bermStart, (float)j / cfg.surfaceCols);
             int jb = j - cfg.surfaceCols;
             if (jb <= cfg.bermCols) return Mathf.Lerp(bermStart, hw, (float)jb / cfg.bermCols);
@@ -213,7 +216,7 @@ namespace OKT
             g.name = "Ground";
             g.transform.SetParent(parent, false);
             g.transform.localScale = new Vector3(160f, 1f, 110f);
-            g.transform.position = new Vector3(0f, -0.5f - 0.005f, 0f);
+            g.transform.position = new Vector3(0f, -0.5f - 0.005f + t.InfieldHeight, 0f);
             g.GetComponent<MeshRenderer>().sharedMaterial = Materials.Solid(new Color(0.30f, 0.40f, 0.20f), 0.05f);
             g.GetComponent<BoxCollider>().sharedMaterial = DirtMaterial();
             g.isStatic = true;

@@ -73,6 +73,12 @@ namespace OKT
         public float barrierThicknessIn = 12f; // build value [TEST VALUE]
         public float barrierFriction = 0.10f;  // steel rail vs bodywork: shallow hits skim [TEST VALUE]
 
+        // Inside apron (M2): the bank's slope continues past the inside edge onto the grass for this far, so a kart
+        // dropping a wheel off the inside doesn't meet a buried step where the banked dirt meets flat infield
+        // (the low-side nerf bar caught that crease and tripped karts into flips). [TEST VALUE — Franklin to confirm]
+        public float insideApronFt = 3f;
+        public float insideApron => insideApronFt * U.Ft;
+
         // Outside run-off behind the barrier/openings: flat, then a grass bank down to infield level.
         public float outerFlatFt = 3f;
         public float outerBankFt = 20f;
@@ -261,6 +267,17 @@ namespace OKT
             return f;
         }
 
+        /// <summary>Signed curvature of the centerline at s (1/m, + = turning toward the inside / left).</summary>
+        public float CurvatureAt(float s)
+        {
+            const float ds = 0.5f; // samples
+            var a = Frame(s - ds).tan; var b = Frame(s + ds).tan;
+            float ang = Mathf.Atan2(a.x * b.y - a.y * b.x, Vector2.Dot(a, b)) * outSign;
+            float len = ArcAt(WrapS(s + ds)) - ArcAt(WrapS(s - ds));
+            if (len < 0f) len += centerLength;
+            return ang / Mathf.Max(1e-3f, len);
+        }
+
         /// <summary>Centerline arc length (m) at s.</summary>
         public float ArcAt(float s)
         {
@@ -360,8 +377,13 @@ namespace OKT
                 float t = Mathf.Clamp01((d - f.halfWidth - cfg.outerFlat) / cfg.outerBank);
                 return edge * (1f - t * t * (3f - 2f * t));
             }
+            if (d < -f.halfWidth)
+                return -Mathf.Min(-f.halfWidth - d, cfg.insideApron) * tanBank; // apron: the bank continues down, then flat
             return LayerBanking(f, d) + LayerGroove(f, d) + LayerRoughness(s, f, d) + LayerBerm(f, d);
         }
+
+        /// <summary>Height of the flat infield beyond the apron.</summary>
+        public float InfieldHeight => -cfg.insideApron * tanBank;
 
         /// <summary>
         /// What the ground at (s, d) does to a tire (Franklin): grass has 50% grip;

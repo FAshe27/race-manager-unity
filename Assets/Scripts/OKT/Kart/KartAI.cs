@@ -95,8 +95,16 @@ namespace OKT
 
         /// <summary>When true (dodging a wreck) the kart may use the berm; otherwise its right-side tires stay off it.</summary>
         [System.NonSerialized] public bool allowBerm;
+        /// <summary>Gap kept between the right-side tires and the berm when aiming (in). 1 in = right up to it.</summary>
+        [System.NonSerialized] public float bermBufferIn = 4f; // [TEST VALUE] (M2: 1 in let karts in traffic dust up and hit the rail at the T2 exit)
         /// <summary>Spin recovery (spec §8.3): turn the kart back to the racing direction and rejoin slowly.</summary>
         [System.NonSerialized] public bool recovering;
+        /// <summary>On an inside pass: brake earlier/deeper (rear-only brakes + a tighter line spin the kart otherwise).</summary>
+        [System.NonSerialized] public bool diving;
+        [System.NonSerialized] public float divingSpeedFactor = 1.0f; // [TEST VALUE]
+        /// <summary>Director: driving harder than safe pace while pushing or passing — cornerSlow is reduced by this
+        /// (0.30 Safe -> 0.27 Fast at most). Closer to the grip limit, so a spin is more likely: honest physics.</summary>
+        [System.NonSerialized] public float attackBoost;
         [System.NonSerialized] public float recoverySpeed = 8f * U.Mph;
         /// <summary>Lane limits from karts alongside (absolute lateral m), set by the director each step.</summary>
         [System.NonSerialized] public float latMin = float.NegativeInfinity, latMax = float.PositiveInfinity;
@@ -111,7 +119,7 @@ namespace OKT
             float wall = f.halfWidth - kart.setup.FootRight - 2f * U.In;
             if (allowBerm) return wall;
             float rightTire = kart.setup.TireOuter(true);
-            return Mathf.Min(wall, f.halfWidth - track.cfg.bermWidth - rightTire - 1f * U.In);
+            return Mathf.Min(wall, f.halfWidth - track.cfg.bermWidth - rightTire - bermBufferIn * U.In);
         }
 
         /// <summary>Lateral offset (m) of Franklin's groove at this kart's current position.</summary>
@@ -132,7 +140,8 @@ namespace OKT
             // Leaving through an opening or onto the infield is off-track, not a breach — and a kart
             // already off-track (e.g. out an opening, behind the next rail) is not re-counted.
             bool outside = ratio > 1f;
-            if (outside)
+            if (kart.Body.isKinematic) { wasOutside = outside; breachedNow = false; } // being moved by the crew: not racing
+            if (outside && !kart.Body.isKinematic)
             {
                 if (!wasOutside) { if (d > 0f && barrierHere) { bandBreaches++; breachedNow = true; } else breachedNow = false; }
                 if (breachedNow) bandBreachSteps++; else offTrackSteps++;
@@ -195,15 +204,31 @@ namespace OKT
             if (steerOverride) kart.steerDeg = steerOverrideDeg; // debug/test only: a driver error
 
             // Speed is read further ahead (spec: ≈0.6 s) so braking anticipates the corner.
+            var tfSteer = tf; int si0 = ti;
             if (cfg.speedLookaheadTime != cfg.lookaheadTime)
             {
                 int si = track.LineAdvance(lineHint, Mathf.Max(cfg.minLookahead, v * cfg.speedLookaheadTime));
-                tf = track.Frame(track.LineS(si));
+                tf = track.Frame(track.LineS(si)); si0 = si;
             }
 
             // --- speed: corner profile read at the lookahead point
-            freeSpeed = cfg.vMax * cfg.pace * (1f - cfg.cornerSlow * tf.corner);
+            freeSpeed = cfg.vMax * cfg.pace * (1f - Mathf.Max(0f, cfg.cornerSlow - attackBoost) * tf.corner);
+            // Off-line corner speed: the profile is tuned for Franklin's groove. A tighter line (an inside dive,
+            // a kart pushed low) can't carry groove speed — scale by sqrt(path radius / groove radius), the grip
+            // limit. Wider lines keep groove speed (the outside costs distance, not grip, here).
+            if (!formation)
+            {
+                float kap = track.CurvatureAt(track.LineS(si0));
+                if (kap > 1f / 150f)
+                {
+                    float rC = 1f / kap;
+                    float offFromLine = dT - tfSteer.LineOffset;
+                    float rLine = rC + tf.LineOffset, rPath = rC + tf.LineOffset + offFromLine;
+                    if (rPath < rLine && rPath > 1f) freeSpeed *= Mathf.Sqrt(rPath / rLine);
+                }
+            }
             targetSpeed = paceMode ? Mathf.Lerp(paceStraight, paceCorner, tf.corner) : freeSpeed;
+            if (diving && !paceMode) targetSpeed *= divingSpeedFactor;
             if (recovering) targetSpeed = recoverySpeed;
             targetSpeed = Mathf.Min(targetSpeed, speedCap);
             kart.accelCmd = (targetSpeed - kart.ForwardSpeed) * cfg.speedGain;

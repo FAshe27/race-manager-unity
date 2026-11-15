@@ -84,7 +84,7 @@ namespace OKT
                     prevX[i] = x;
                     float f = k * x + c * xdot;
                     if (x > s.travel) f += k * s.bumpStopScale * (x - s.travel);
-                    f = Mathf.Max(0f, f);
+                    f = Mathf.Clamp(f, 0f, s.maxTireForceN); // no deep compression may become a launch
                     grounded[i] = true;
                     compression[i] = x;
                     load[i] = f * Mathf.Max(0f, Vector3.Dot(up, hits[i].normal));
@@ -215,6 +215,10 @@ namespace OKT
             {
                 var h = rayBuf[j];
                 if (h.rigidbody == Body) continue;
+                // Wheel rays stand on the TRACK only. On another kart's tire/body the stiff tire spring + bump stop
+                // saw "ground" inches high and produced tens of kN — launches at 58 mph (M2 soak forensics). Kart-on-kart
+                // contact (shoving, a tire riding up a rival) belongs to the tire/tube colliders.
+                if (h.rigidbody != null && h.rigidbody.GetComponent<KartPhysics>() != null) continue;
                 if (h.distance < bd) { bd = h.distance; best = h; found = true; }
             }
             return found;
