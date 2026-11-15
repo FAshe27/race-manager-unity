@@ -1030,3 +1030,20 @@ field-wide), and a given kart flipping far less often still. That makes spec §1
 "order of one per several races" an upper bound, and puts the real number lower. Early M2
 traffic runs flip karts in most races, so that's a bug to fix, not a tuning band. The M2
 REPORT's soak numbers will be held to this.
+
+### 2026-11-14 23:20 CT — Franklin (recorded by Claude Code) — [M3] NOTE: the push-up pass is the standard move
+
+"Faster karts are quick to put the nose to a slower kart's bumper and push them up the track
+to get under them. It's usually not the cleanest, but you gotta do what you gotta do."
+
+**For M3:** the bumper push (22:10 note) is the **primary** passing move for a faster kart,
+not a rare one:
+1. Close to nose-on-bumper.
+2. Push the slower kart up the track, usually at corner entry, where he arrives slightly
+   hot.
+3. Take the bottom.
+
+In M2 (clean, per Franklin's ruling) passing has to happen without contact, so M2 will
+**under-pass** relative to real racing. Expect the M2 soak's on-track pass counts to be low;
+the push-up pass is how M3 should close that gap. The director should treat it as racing
+(light, sustained contact), not an incident.
