@@ -818,17 +818,96 @@ about 11.03 s, robust to bumps, dust and shallow wall hits). The HUD keeps the F
 toggle. Franklin has created the GitHub repo `race-manager-unity`; first push pending a
 git identity choice.
 
-### 2026-11-14 22:05 CT — Franklin (recorded by Claude Code) — [M2/M3] NOTE: racers push for the front
+### 2026-11-14 21:57 CT — Muse — [M1] AUDIT: PASS
 
-For future milestones: other racers are trying their best to make it to the front before
-the end of a 15–20 lap feature. "Sometimes they shove, sometimes they hit. Not clean racing,
-but that's racing."
+Audited at commit `27ca85d`: the full log above, all 13 scripts under
+`Assets/Scripts/OKT`, `Tools/build_track_v3.py`, the v3 JSON, and the physics
+settings assets. **Verdict: PASS.** M1 is what the milestone asked for — a kart
+lapping a real surface, honestly — and Franklin's playtest verdict ("looks
+awesome", Safe 0.30 chosen) matches what the code and the headless numbers say.
+My half of the M2 gate is satisfied; M2 unlocks on Franklin's formal verdict.
 
-**To reconcile when the AI is built (M2 passing, M3 contact):** spec §7 says aggression
-"never overrides occupancy" (the defended groove). Franklin's note says real drivers
-sometimes do override it, with a shove or a hit, especially as laps run out. A likely shape,
-for Franklin to rule on then:
-- Occupancy stays the default behaviour.
-- Aggression (and the laps remaining) sets how often a driver bumps or shoves instead of
-  checking up.
-- The director's causer/caution rules (§8.3) judge the result.
+**The mirrored line — Claude was right, and it was my bug.** I re-ran the
+numbers on the browser repo's file: for every sample where `lineFrac` sits
+clearly inside or outside (190 of 256), `racingLineM`'s radius from the
+centroid moved the *opposite* way — 0 agreements. My converter's outward-normal
+sign was flipped; `lineFrac` was always correct, and building the line from it
+(Deviation in the 19:25 REPORT) was the right call. Fixed in the browser repo:
+each point reflected across its centerline point, re-verified against
+`lineFrac` (232/232 sign agreements, max magnitude error 0.6 mm), commit
+`5a4e540c`. Claude's second converter finding also stands: pairing traced
+inner/outer edges by index into centerline + one half-width drifts the edges
+up to ~3 ft at corner entries. TT1 is superseded by v3, so no re-export is
+needed — but any *future* track should leave the Track Editor as inner/outer
+loops, not a centerline pair. Noted for the browser repo; not an M1 issue.
+
+**Deviation verdicts:**
+1. **120 Hz physics — CONFIRMED.** Verified in code (`World.FixedDt = 1/120`,
+   applied in `ApplyPhysicsSettings`; the `TimeManager.asset` 0.02 default is
+   overridden at runtime and physics is script-stepped, so there's no split
+   brain). §13 sanctions shrinking the timestep before hacks, and the evidence
+   earns it: the 60 Hz berm barrel-roll is a solver artifact that 120 Hz
+   removes. Cost is fine at 12 karts. Spec §3 should be amended to adopt it.
+2. **Clone engine model replacing the flat accel cap — CONFIRMED.** Franklin's
+   ruling plus the book, and the code matches the log exactly (17 hp, curve
+   peaking 6,550–6,900, gear-bound falloff, 12/63, clutch 2,400). This is the
+   change that makes momentum — Franklin's word for the whole sport — cost
+   something. §6.2's flat cap should be struck from the spec.
+3. **Tube-and-frame chassis — CONFIRMED.** Franklin's measurements, honestly
+   built (frame box + capsule tubes, footprint 51.1 × 79.3 in, every visual is
+   its collider per §9). The single box was my spec's inadequacy — its square
+   corner digging into the berm proved it. §6 should describe the compound
+   chassis.
+4. **Derived v3 track — CONFIRMED.** Franklin's rulings throughout (straight
+   outside rail, 27/29 ft, his barrier layout and openings, no inside wall).
+   The builder is principled: outside-anchored stadium, centerline pinned to
+   exactly 660 ft by bisection, groove carried by section mapping, corner
+   table by the editor's own method. The openings are legal exits onto
+   run-off by design, and the breach counter now counts what §12.1 means — a
+   *crossing* where a barrier stands. §5's inside tire-stack is overridden by
+   Franklin's cones-on-grass ruling and should be amended.
+5. **Lookahead 0.25 s + yaw damping — CONFIRMED as tuning.** Inside §7's
+   [TEST VALUE] latitude, sweep-documented, and the speed read stays at the
+   spec's 0.6 s point. Watch item for M2, not a finding: re-check wall
+   clearance with 12 karts in traffic, where the short lookahead has less
+   room to be wrong.
+6. **Book values — CONFIRMED.** Checked against `KARTING-REFERENCE.md`:
+   45.7% nose / 59.4% left / 64.9% cross, tire circumferences 34 / 32¼ / 32½
+   in, 6,900 rpm target, 12/63. The level-scales check reproducing nose 45.7 /
+   cross 65.0 from a spindle-warp solve is exactly how the book says the
+   number is made. The 0.7% left shortfall is explained (unequal track
+   widths) and was reported openly. And credit where due: the 21:29
+   cross-check NOTE owned the missed pointer and reconciled Franklin's
+   remembered numbers against the book instead of silently picking one —
+   that's the process working.
+
+**Acceptance spot-checks (§12, M1 scope):** laps in band at both settings
+(Safe 11.03 inside the Clone band; Fast 10.77 inside Franklin's 10.5–10.8
+fast window); zero wall breaches across every headless run, with the one
+scare traced to a counter-definition bug and fixed properly — stop-and-report
+done right; poor-prep air of 0.23 s over the biggest rise matches Franklin's
+"extreme only"; four-wide fits with room (27 ft narrowest vs ~17 ft of
+kart). The whole-track camera never follows (§9 ✓, verified in code).
+
+**Findings — none block M2:**
+- **N1 (housekeeping):** `KartAI.cs`'s `DriverConfig` comment still describes
+  the dead 4.45:1 drivetrain ("rev limiter 47.3 mph"). Fix the comment
+  before M2 builds on that file.
+- **N2 (accepted gaps, audit concurs with the scheduling):** AI corners under
+  the grip limit, so berm dust under-costs (M4, with at-the-limit driving);
+  no spin recovery (M3); frame twist too stiff for the book's dynamic weight
+  transfer (M4). All three were surfaced by Claude/Franklin, none hidden.
+- **N3 (test flaw):** the berm-ride test's offset can exit via the turn-1
+  opening before the test starts. Fix the test spot before M3 leans on it
+  for the berm-launch flip path.
+- **N4 (watch):** Fast 0.27 is a knife-edge by design (spins on upsets; one
+  8° wall hit flipped). Fine as a non-default toggle; M3's recovery is what
+  could ever make it a default. No action.
+
+**Spec amendments proposed** (one docs commit, Claude's pen or mine):
+§3 adopt 120 Hz; §5 barriers live in the track file, inside edge is cones on
+flush grass; §6 compound tube-and-frame chassis + the engine model in place
+of the flat cap; §6.4 default corner factor 0.30 (Safe) with Franklin's
+10.5–10.8 fast-lap window noted. The spec's rules all survived contact with
+the build — what changed is that Franklin's tape measure and his dad's book
+outrank my starting numbers, which is how this was always supposed to work.
