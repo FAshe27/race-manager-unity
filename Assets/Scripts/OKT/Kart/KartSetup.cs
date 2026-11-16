@@ -25,7 +25,7 @@ namespace OKT
         // ---- geometry (spec §6.2; Franklin: "sounds decent enough")
         public float wheelbaseIn = 41.3f;         // 1.05 m
         public float trackFrontIn = 39.4f;        // 1.0 m
-        public float trackRearIn = 43.3f;         // 1.1 m
+        public float trackRearIn = 42.0f;         // WKA 401.5: overall width 50 in max -> 49.9 in with the side panels 1/4 in outside the rights (was 43.3 = spec 1.1 m) [WKA cap]
         // ---- chassis shape (Franklin, 2026-11-14, with photos; body not mounted).
         // Collider = frame/cockpit box + ROUND TUBES for the bumpers and nerf bars (a round tube
         // rides up a dirt slope; the old single box's square corner dug into the berm).
@@ -36,14 +36,26 @@ namespace OKT
         public float cockpitFrontIn = 23.6f;           // ahead of centre [TEST VALUE]
         public float cockpitRearIn = 23.6f;            // behind centre [TEST VALUE]
         public float cockpitTopIn = 15.4f;             // seat back / engine height [TEST VALUE]
-        public float frontBumperAheadIn = 14f;         // Franklin: ~14 in ahead of the front tires' leading edge
+        public float frontBumperAheadIn = 10f;         // inside the nose; WKA 401.6 length cap (74 in) forced it in from Franklin's ~14 [TEST VALUE]
         public float frontBumperHalfWidthIn = 13f;     // [TEST VALUE, from photos]
-        public float frontBumperTopIn = 7f;            // top tube height [TEST VALUE, from photos]
+        public float frontBumperTopIn = 7.75f;         // top of the upper hoop: WKA 409.1 minimum 7.75 in
         public float nerfOutsideTireIn = 0.125f;       // Franklin: 1/8 in outside the tires' outer edge
         public float nerfTopIn = 8f;                   // top tube height [TEST VALUE, from photos]
-        public float rearBumperBehindIn = 12f;         // Franklin: ~12 in behind the rear tires
+        public float rearBumperBehindIn = 8f;          // WKA 401.6 length cap (74 in) with the nose: was Franklin's ~12 [TEST VALUE, split of the 74 in]
         public float rearBumperHalfWidthIn = 19.7f;    // [TEST VALUE, from photos]
-        public float rearBumperTopIn = 8f;             // Franklin (Pit Board 2026-11-15): ~8 in at the top; bottom ~1/2 in confirmed
+        // ---- body (Franklin, Pit Board 2026-11-16; WKA Dirt rulebook 2025 §404). Fiberglass; "generally they slide
+        // pretty freely against each other". In side-by-side contact the panels are what touch.
+        public bool bodyOn = true;
+        public float panelOutsideTireIn = 0.25f;     // Franklin: outside edge of the tires tucked in ~1/4 in
+        public float panelBottomIn = 0.5f;           // Franklin: ~1/2 in off the ground
+        public float panelTopIn = 14f;               // WKA 404.7: no higher than 14 in (Franklin guessed 15; measuring) [TEST VALUE]
+        public float panelThickIn = 0.75f;           // collider thickness (the shell is thin; thicker keeps the solver honest) [TEST VALUE]
+        public float noseAheadOfTiresIn = 13f;       // WKA 401.6: overall length 74 in max -> 73.1 in with the rear bumper 8 in back (Franklin's ~2 ft overshot the cap) [TEST VALUE, split of the 74 in]
+        public float noseBottomIn = 2f;              // [TEST VALUE]
+        public float noseTopIn = 10f;                // WKA 404.4: nose 8-17 in tall [TEST VALUE]
+        public float bodyFriction = 0.15f;           // fiberglass on fiberglass, slides freely [TEST VALUE]
+        public float rearBumperTopIn = 7.5f;           // top of the bumper: WKA 409.3.1 max 7.5 in; lowest bar no lower than the bottom of the rear axle (409.3.2)
+        public float rearAxleDiaIn = 1.0f;             // WKA: 1 in min (40 mm max) [TEST VALUE]
 
         // ---- tires. Sizes (Franklin): LF 10.5x4.50-6, LR 11x6.00-6, RF/RR 12x9.00-6 — nominal labels.
         // ROLLING size = measured circumference at race pressure (book Ch 25/28, 6/5 psi): rights 34",
@@ -116,11 +128,17 @@ namespace OKT
         public float RearTireTrail => wheelbase * 0.5f + Mathf.Max(WheelRadius(2), WheelRadius(3));
         public float FrontBumperZ => FrontTireLead + frontBumperAheadIn * U.In - TubeRadius;
         public float RearBumperZ => -(RearTireTrail + rearBumperBehindIn * U.In - TubeRadius);
+        /// <summary>Rear bumper low bar centre height: its bottom level with the bottom of the rear axle (WKA 409.3.2).</summary>
+        public float RearBumperLowCentre => RearRadius - rearAxleDiaIn * 0.5f * U.In + TubeRadius;
 
         // Plan-view footprint (outer surfaces) — walls, AI clearance, four-wide checks.
-        public float FootRight => NerfX(true) + TubeRadius;
-        public float FootLeft => -NerfX(false) + TubeRadius;
-        public float FootFront => FrontBumperZ + TubeRadius;
+        /// <summary>Outer face of the side panel (m from centre).</summary>
+        public float PanelOuter(bool right) => TireOuter(right) + panelOutsideTireIn * U.In;
+        /// <summary>Front face of the nose (m ahead of centre).</summary>
+        public float NoseFrontZ => FrontTireLead + noseAheadOfTiresIn * U.In;
+        public float FootRight => bodyOn ? Mathf.Max(NerfX(true) + TubeRadius, PanelOuter(true)) : NerfX(true) + TubeRadius;
+        public float FootLeft => bodyOn ? Mathf.Max(-NerfX(false) + TubeRadius, PanelOuter(false)) : -NerfX(false) + TubeRadius;
+        public float FootFront => bodyOn ? Mathf.Max(FrontBumperZ + TubeRadius, NoseFrontZ) : FrontBumperZ + TubeRadius;
         public float FootRear => -RearBumperZ + TubeRadius;
         public float FootWidth => FootLeft + FootRight;
         public float WheelRadius(int i) => tireCircumferenceIn[i] / (2f * Mathf.PI) * U.In;

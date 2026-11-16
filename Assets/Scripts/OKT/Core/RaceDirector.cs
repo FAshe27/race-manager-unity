@@ -29,11 +29,11 @@ namespace OKT
         public float paceStraightMph = 25f;        // Franklin: ~20–25 mph [TEST VALUE]
         public float paceCornerMph = 20f;
         public float gridLeaderU = 0.95f;          // front row: front straight, just past the grid entrance (top of T4) [TEST VALUE]
-        public float rowGapFt = 6.7f;              // centre to centre: bumpers ~1 in apart (Franklin: no daylight between karts in a line) [TEST VALUE]
+        public float rowGapFt = 6.3f;              // centre to centre: nose ~2.5 in off the kart ahead (Franklin: no daylight between karts in a line); kart 73.1 in (6.1 ft) nose to rear bumper [TEST VALUE]
         public float laneFrac = 0.16f;             // double-file lanes at ±0.16 half-width ≈ 53 in apart: the two lines nearly touching (Franklin) [TEST VALUE]
         public float packedStartSeconds = 4f;      // browser sim (Franklin) [TEST VALUE]
         // Traffic geometry [TEST VALUEs]
-        public float alongsideFt = 7.5f;           // longitudinal window that counts as "alongside" (≈ kart length + margin)
+        public float alongsideFt = 7.1f;           // longitudinal window that counts as "alongside" (≈ kart length 6.1 ft + 1 ft)
         public float sideRoomIn = 50f;             // centre-to-centre side by side: nerfs are 51 in apart, so side by side means rubbing (Franklin: contact is commonplace) [TEST VALUE]
         public float followGapFt = 1.0f;           // bumper-to-bumper gap a kart settles at when it checks up (Franklin's video: nose to tail, ~a kart length) [TEST VALUE]
         public float lookAheadTime = 0.5f;         // spec §7: slot projected ~0.5 s ahead
@@ -93,6 +93,7 @@ namespace OKT
         // Infield track workers (Franklin, 2026-11-15): two of them, one covering turns 1-2 and one turns 3-4, standing
         // "a good ten feet or so away from the racing surface" (they also wave the yellow with the flagman at S/F).
         public float workerBackFt = 10f;
+        public float driverSelfHelpSec = 15f;            // waiting on a busy worker this long, the driver hops out himself [TEST VALUE]
         public float[] workerPostU = { 0.25f, 0.75f };   // mid turns 1-2 and 3-4 on this track [TEST VALUE: read off the groove apexes]
         // Stub incident detection (M2): spins / flips / stops are logged, not judged (M3).
         public float spinAngleDeg = 75f;
@@ -592,7 +593,7 @@ namespace OKT
                 if (o == e || o.pushTarget != field.IndexOf(e)) continue;
                 float g = Gap(e, o); // how far I am ahead of the pusher
                 var sp = e.kart.setup; // only once his nose is actually on my bumper (within ~6 in)
-                if (g > 0f && g < sp.FrontBumperZ - sp.RearBumperZ + 2f * sp.TubeRadius + 0.15f) e.pushedT = cfg.pushedSeconds;
+                if (g > 0f && g < (sp.FootFront + sp.FootRear) + 0.15f) e.pushedT = cfg.pushedSeconds;
             }
             // Franklin: "juuuust up against their bumper, where they don't even feel you there... make them enter the
             // corner 1–2 mph faster than they want to. They won't know they were pushed until they slide up just
@@ -663,7 +664,7 @@ namespace OKT
                             float follow = Mathf.Clamp(pt.ai.d, Mathf.Max(loLim, ai.latMin), Mathf.Min(hiLim, ai.latMax));
                             ai.trafficGoal = follow - line - personal; ai.trafficRate = cfg.trafficMergeRate;
                         }
-                        { var stp = ai.kart.setup; float bl = stp.FrontBumperZ - stp.RearBumperZ + 2f * stp.TubeRadius;
+                        { var stp = ai.kart.setup; float bl = (stp.FootFront + stp.FootRear);
                           ai.speedCap = Mathf.Min(ai.speedCap, pt.kart.ForwardSpeed + Mathf.Max(cfg.pushSpeedDelta, 0.8f * (gp - bl))); }
                     }
                 }
@@ -687,7 +688,7 @@ namespace OKT
                 // straight a racer (faster, or aggressive enough) closes to bumper contact and leans on him; at
                 // entry the normal settle gap comes back — that's the lift.
                 var st = ai.kart.setup;
-                float bumperLen = st.FrontBumperZ - st.RearBumperZ + 2f * st.TubeRadius; // centre to centre at bumper contact
+                float bumperLen = (st.FootFront + st.FootRear); // centre to centre at bumper contact
                 bool straightNow = fr.corner < 0.15f && !EntryAhead(ai);
                 bool bumpDraft = !packed && !e.finished && straightNow && !Hazard(ahead)
                                  && (wantBy || e.driver.aggression > cfg.bumpDraftAggression);
@@ -980,13 +981,25 @@ namespace OKT
                 {
                     float u = ai.s / w.track.N;
                     int wk = Mathf.Abs(Mathf.DeltaAngle(u * 360f, cfg.workerPostU[0] * 360f)) <= Mathf.Abs(Mathf.DeltaAngle(u * 360f, cfg.workerPostU[1] * 360f)) ? 0 : 1;
-                    if (workerBusy[wk] != null && workerBusy[wk] != e) { e.assistWait += dt; return; }
-                    workerBusy[wk] = e; e.worker = wk;
-                    var fp = w.track.Frame(cfg.workerPostU[wk] * w.track.N);
-                    var post = fp.pos - fp.outN * (fp.halfWidth + cfg.workerBackFt * U.Ft);
-                    var fk = w.track.Frame(ai.s); var kp = fk.pos + fk.outN * ai.d;
-                    e.workerArrives = raceTime + Vector2.Distance(post, kp) / (cfg.crewWalkMph * U.Mph);
-                    Event($"CREW: the turns {(wk == 0 ? "1-2" : "3-4")} worker walks out to {Tag(e)} ({Vector2.Distance(post, kp) / U.Ft:F0} ft).");
+                    if (workerBusy[wk] != null && workerBusy[wk] != e)
+                    {
+                        // Franklin: "Drivers will often hop out of their own kart to move when stuck." Kept waiting on a
+                        // busy worker, the driver does it himself (same walking-pace move, no walk-out). A six-kart pile
+                        // fed one at a time to one worker ran the caution past the time cap (soak 2026-11-16).
+                        e.assistWait += dt;
+                        if (e.assistWait < cfg.driverSelfHelpSec) return;
+                        e.worker = 2; e.workerArrives = raceTime;
+                        Event($"CREW: {Tag(e)}'s driver hops out and frees it himself (the worker is busy).");
+                    }
+                    else
+                    {
+                        workerBusy[wk] = e; e.worker = wk;
+                        var fp = w.track.Frame(cfg.workerPostU[wk] * w.track.N);
+                        var post = fp.pos - fp.outN * (fp.halfWidth + cfg.workerBackFt * U.Ft);
+                        var fk = w.track.Frame(ai.s); var kp = fk.pos + fk.outN * ai.d;
+                        e.workerArrives = raceTime + Vector2.Distance(post, kp) / (cfg.crewWalkMph * U.Mph);
+                        Event($"CREW: the turns {(wk == 0 ? "1-2" : "3-4")} worker walks out to {Tag(e)} ({Vector2.Distance(post, kp) / U.Ft:F0} ft).");
+                    }
                 }
                 if (raceTime < e.workerArrives) { e.assistWait += dt; return; }
                 e.assistStarted = true; rb.isKinematic = true; SetKartCollisions(e, false);
@@ -1017,12 +1030,30 @@ namespace OKT
                 if (o == e || o.cleared || o.beingCleared || o.outOfRace) continue;
                 float dist = (o.kart.Body.position - rb.position).magnitude;
                 bool rolling = o.kart.ForwardSpeed > 2f * U.Mph;
+                if (dist < 1.6f && !rolling)
+                {
+                    // parked right beside another stuck kart (a pile): walk it on up the inside edge until it's clear,
+                    // rather than wait on a kart that is itself waiting (the deadlock behind a 300 s caution)
+                    float s2 = w.track.WrapS(ai.s + cfg.crewWalkMph * U.Mph * dt / w.track.centerLength * w.track.N);
+                    var f2 = w.track.Frame(s2);
+                    float g2 = w.track.SurfaceHeightSD(s2, nd);
+                    float sl2 = (w.track.SurfaceHeightSD(s2, nd + 0.5f) - w.track.SurfaceHeightSD(s2, nd - 0.5f)) / 1.0f;
+                    var n2 = (Vector3.up - new Vector3(f2.outN.x, 0f, f2.outN.y) * sl2).normalized;
+                    var p2 = f2.pos + f2.outN * nd;
+                    rb.MovePosition(new Vector3(p2.x, g2, p2.y) + n2 * 0.03f);
+                    rb.MoveRotation(Quaternion.LookRotation(Vector3.ProjectOnPlane(new Vector3(f2.tan.x, 0f, f2.tan.y), n2).normalized, n2));
+                    ai.s = s2;
+                    return;
+                }
                 if (dist < 1.6f || (dist < 2.5f && (rolling || e.assistWait < 8f))) return;
             }
             rb.isKinematic = false; rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero;
             SetKartCollisions(e, true);
             e.crewHelp = false; e.stoppedT = 0f; e.inIncident = false; ai.SnapTrafficOffsetToCurrent();
-            if (e.worker >= 0 && workerBusy[e.worker] == e) workerBusy[e.worker] = null;
+            // drives off like any spun kart: recovery mode (pull away, then rejoin at the tail). As a plain stopped kart it
+            // sat at the inside edge with a zero cap while the queue treated it as a hazard: a 300 s caution (soak 2026-11-16).
+            e.recovering = true; e.recoverT = 0f;
+            if (e.worker >= 0 && e.worker < 2 && workerBusy[e.worker] == e) workerBusy[e.worker] = null;
             Event($"CREW: {Tag(e)} pull-started and rolling{(e.assistWait > 0.5f ? $" ({e.assistWait:F0} s waiting on the worker / traffic)" : "")}.");
         }
 
@@ -1068,7 +1099,7 @@ namespace OKT
         {
             if (phase != RacePhase.Green) return;
             phase = RacePhase.Caution; phaseTime = 0; cautions++;
-            cautionStart = raceTime; oneToGo = false; cautionLeaderLap = -1; goDist = float.MaxValue;
+            cautionStart = raceTime; oneToGo = false; cautionDumped = false; cautionLeaderLap = -1; goDist = float.MaxValue;
             // order from ~2 s before the incident (the spinner has already lost spots by now)
             List<Entry> snap = null;
             foreach (var sn in orderSnaps) if (raceTime - sn.t >= 2f) snap = sn.order;
@@ -1120,7 +1151,7 @@ namespace OKT
             ai.formation = true; ai.paceMode = true; ai.trafficGoal = 0f;
             float lane = cfg.cautionLaneFrac;
             Entry pred = null;
-            var st = ai.kart.setup; float bl = st.FrontBumperZ - st.RearBumperZ + 2f * st.TubeRadius;
+            var st = ai.kart.setup; float bl = (st.FootFront + st.FootRear);
             if (e.dropping)
             {
                 // Out of place (a kart that belongs ahead of me is physically behind me): drop low at a fixed slow speed and
@@ -1183,15 +1214,26 @@ namespace OKT
             for (int i = 1; i < cautionQueue.Count; i++)
             {
                 var a = cautionQueue[i - 1]; var b = cautionQueue[i];
-                float bl = b.kart.setup.FrontBumperZ - b.kart.setup.RearBumperZ + 2f * b.kart.setup.TubeRadius;
+                float bl = (b.kart.setup.FootFront + b.kart.setup.FootRear);
                 float g = QueueGap(a, b);
                 if (g < 0.6f || g > bl + 20f * U.Ft) { notReady = $"{Tag(b)} {(g < 0.6f ? "not behind" : "too far behind")} {Tag(a)} ({g / U.Ft:F0} ft) [#{b.driver.number}: {b.cdbg}] [#{a.driver.number}: {a.cdbg}]"; return false; } // out of order or strung out
             }
             return true;
         }
 
+        bool cautionDumped;
         void CautionStep(float dt)
         {
+            // watchdog: a caution this long is stuck somewhere -- say where, once
+            if (!cautionDumped && raceTime - cautionStart > 150f)
+            {
+                cautionDumped = true;
+                var sb = new StringBuilder("CAUTION WATCHDOG (150 s): ");
+                foreach (var e in field)
+                    if (!e.outOfRace && !e.finished)
+                        sb.Append($"#{e.driver.number} u{e.ai.s / w.track.N:F3} d{e.ai.d:F1} v{e.kart.ForwardSpeed / U.Mph:F0} cap{(float.IsInfinity(e.ai.speedCap) ? -1 : e.ai.speedCap / U.Mph):F0} rec{(e.recovering ? 1 : 0)} help{(e.crewHelp ? 1 : 0)} tail{(e.toTail ? 1 : 0)} drop{(e.dropping ? 1 : 0)} blk{(e.blocked ? 1 : 0)} [{e.cdbg}] | ");
+                Event(sb.ToString());
+            }
             RebuildQueue();
             if (cautionQueue.Count == 0) return;
             // who is out of place: a rolling kart that belongs ahead of me is physically behind (or beside) me

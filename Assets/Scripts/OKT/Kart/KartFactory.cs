@@ -46,11 +46,44 @@ namespace OKT
             // front bumper
             float fz = setup.FrontBumperZ, fw = setup.frontBumperHalfWidthIn * U.In;
             Tube(tubes, "FrontBumperLow", new Vector3(-fw, yb, fz), new Vector3(fw, yb, fz), r, tubeMat, bodyMat);
-            Tube(tubes, "FrontBumperTop", new Vector3(-fw * 0.8f, setup.frontBumperTopIn * U.In, fz - 0.05f), new Vector3(fw * 0.8f, setup.frontBumperTopIn * U.In, fz - 0.05f), r, tubeMat, bodyMat);
+            float fTop = setup.frontBumperTopIn * U.In - r; // the rule measures the TOP of the hoop
+            Tube(tubes, "FrontBumperTop", new Vector3(-fw * 0.8f, fTop, fz - 0.05f), new Vector3(fw * 0.8f, fTop, fz - 0.05f), r, tubeMat, bodyMat);
             // rear bumper
             float rz = setup.RearBumperZ, rw = setup.rearBumperHalfWidthIn * U.In;
-            Tube(tubes, "RearBumperLow", new Vector3(-rw, yb, rz), new Vector3(rw, yb, rz), r, tubeMat, bodyMat);
-            Tube(tubes, "RearBumperTop", new Vector3(-rw, setup.rearBumperTopIn * U.In, rz), new Vector3(rw, setup.rearBumperTopIn * U.In, rz), r, tubeMat, bodyMat);
+            // WKA 409.3: between the bottom of the rear axle and 7.5 in (top of the bumper)
+            float rLow = setup.RearBumperLowCentre, rTop = setup.rearBumperTopIn * U.In - r;
+            Tube(tubes, "RearBumperLow", new Vector3(-rw, rLow, rz), new Vector3(rw, rLow, rz), r, tubeMat, bodyMat);
+            Tube(tubes, "RearBumperTop", new Vector3(-rw, rTop, rz), new Vector3(rw, rTop, rz), r, tubeMat, bodyMat);
+
+            // --- body (Franklin 2026-11-16, WKA §404): fiberglass side panels between the wheels, outer face 1/4 in
+            // outside the tires, 1/2 in off the ground, with a ROUND bottom edge (a square corner caught the inside lip
+            // the way the old box chassis caught the berm); a full-width nose out ahead of the front tires with a round
+            // leading edge. Slippery: panels slide along each other. Ends at the rear tires (the rear bumper stays bare).
+            if (setup.bodyOn)
+            {
+                var panelMat = new PhysicsMaterial("BodyPanel") { dynamicFriction = setup.bodyFriction, staticFriction = setup.bodyFriction,
+                    bounciness = 0f, frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Minimum };
+                var shell = Materials.Solid(bodyColor, 0.5f);
+                var body = new GameObject("Body").transform; body.SetParent(go.transform, false);
+                float th = setup.panelThickIn * U.In, pr = th * 0.5f;
+                float pz0 = -setup.wheelbase * 0.5f + setup.WheelRadius(2), pz1 = setup.wheelbase * 0.5f - setup.WheelRadius(0);
+                float py0 = setup.panelBottomIn * U.In, py1 = setup.panelTopIn * U.In;
+                foreach (bool right in new[] { true, false })
+                {
+                    float xo = setup.PanelOuter(right) * (right ? 1f : -1f), xc = xo - (right ? pr : -pr);
+                    Slab(body, right ? "PanelR" : "PanelL", new Vector3(xc, (py0 + pr + py1) * 0.5f, (pz0 + pz1) * 0.5f),
+                        new Vector3(th, py1 - (py0 + pr), pz1 - pz0), shell, panelMat);
+                    Tube(body, (right ? "PanelR" : "PanelL") + "Edge", new Vector3(xc, py0 + pr, pz0), new Vector3(xc, py0 + pr, pz1), pr, shell, panelMat);
+                }
+                float noseTip = setup.NoseFrontZ;   // trailing edge of the front tires -> nose tip
+                float nx = setup.PanelOuter(true), nxl = setup.PanelOuter(false);
+                float ny0 = setup.noseBottomIn * U.In, ny1 = setup.noseTopIn * U.In, nr = 1.0f * U.In;
+                // nose block ahead of the front tires (wheel openings stay open: it starts at the tires' leading edge)
+                float nzA = setup.FrontTireLead;
+                Slab(body, "Nose", new Vector3((nx - nxl) * 0.5f, (ny0 + ny1) * 0.5f, (nzA + noseTip - nr) * 0.5f),
+                    new Vector3(nx + nxl, ny1 - ny0, noseTip - nr - nzA), shell, panelMat);
+                Tube(body, "NoseEdge", new Vector3(-nxl + nr, ny0 + nr, noseTip - nr), new Vector3(nx - nr, ny0 + nr, noseTip - nr), nr, shell, panelMat);
+            }
 
             // --- tire bodies: solid blocks so karts shove off each other's tires instead of overlapping
             // (a ray-only tire could sit inside a rival's nerf bar and "stand" on it — climbs and flips).
@@ -112,6 +145,18 @@ namespace OKT
             if (font != null) { tm.font = font; num.GetComponent<MeshRenderer>().sharedMaterial = font.material; }
 
             return kp;
+        }
+
+        /// <summary>A box (kart local centre and size): cube primitive = collider and visual.</summary>
+        static void Slab(Transform parent, string name, Vector3 centre, Vector3 size, Material mat, PhysicsMaterial pmat)
+        {
+            var c = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            c.name = name;
+            c.transform.SetParent(parent, false);
+            c.transform.localPosition = centre;
+            c.transform.localScale = size;
+            c.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            c.GetComponent<BoxCollider>().sharedMaterial = pmat;
         }
 
         /// <summary>A round tube from a to b (kart local): capsule primitive = collider and visual.</summary>

@@ -273,7 +273,7 @@ namespace OKT
             foreach (var corner in new[] {
                 new Vector3(st.FootRight, 0.1f, st.wheelbase * 0.5f), new Vector3(st.FootRight, 0.1f, -st.wheelbase * 0.5f),
                 new Vector3(-st.FootLeft, 0.1f, st.wheelbase * 0.5f), new Vector3(-st.FootLeft, 0.1f, -st.wheelbase * 0.5f),
-                new Vector3(st.frontBumperHalfWidthIn * U.In, 0.1f, st.FootFront), new Vector3(-st.frontBumperHalfWidthIn * U.In, 0.1f, st.FootFront),
+                new Vector3(st.FootRight, 0.1f, st.FootFront), new Vector3(-st.FootLeft, 0.1f, st.FootFront),
                 new Vector3(st.rearBumperHalfWidthIn * U.In, 0.1f, -st.FootRear), new Vector3(-st.rearBumperHalfWidthIn * U.In, 0.1f, -st.FootRear) })
             {
                 var w = transform.TransformPoint(corner);
