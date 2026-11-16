@@ -62,6 +62,7 @@ namespace OKT
                           $"wall breaches {d.WallBreaches}   incidents {d.Incidents} (spins/flips/stops)   DNF {d.Dnfs}   " +
                           $"on-track passes {d.passes}   mean positions moved vs grid {d.MeanPositionsMoved:F1}");
             sb.AppendLine($"  pass logic (kart-steps): ahead {d.dbgAhead} close {d.dbgClose} faster {d.dbgFaster} heldUp {d.dbgHeld} want {d.dbgWant} insideOk {d.dbgInsideOk} outsideOk {d.dbgOutsideOk} started {d.dbgStarted} hazardAhead {d.dbgHaz} pushes {d.dbgPushes} push->dive {d.dbgPushPasses} completed {d.dbgCompleted} | exit runs: seen {d.dbgRuns} started {d.dbgRunStarted} done {d.dbgRunDone} | bump-draft steps {d.dbgBumpDraft}");
+            sb.AppendLine($"  packed start at the green: largest consecutive gap {d.greenMaxGapLaps:F4} laps ({d.greenMaxGapLaps * d.LapLengthM / U.Ft:F1} ft centre to centre), leader to last {d.greenSpreadLaps:F3} laps");
             sb.AppendLine($"  contacts {d.Contacts} (hard {d.HardContacts})   spins: contact {d.contactSpins} / self {d.selfSpins}   flips: contact {d.contactFlips} / self {d.selfFlips}");
             st.cSpin += d.contactSpins; st.sSpin += d.selfSpins; st.cFlip += d.contactFlips; st.sFlip += d.selfFlips; st.contacts += d.Contacts; st.hard += d.HardContacts;
             st.passes += d.passes; st.moved += d.MeanPositionsMoved;

@@ -217,6 +217,7 @@ namespace OKT
         public readonly RaceConfig cfg;
         public RacePhase phase = RacePhase.Grid;
         public float phaseTime, raceTime, greenTime = -1f, firstGreenTime = -1f; // greenTime = latest green (restarts move it)
+        public float greenMaxGapLaps = -1f, greenSpreadLaps = -1f; // packed start (spec §12.3), measured at the first green
         public int cautions;            // cautions thrown this race (spec 8.4, pulled forward from M3 at Franklin's request)
         // ---- caution state
         readonly List<Entry> cautionBase = new List<Entry>(), cautionTail = new List<Entry>();
@@ -228,6 +229,7 @@ namespace OKT
         public StringBuilder trace; public float traceUntil = 7f; // debug: per-kart state for the first seconds of green
         readonly World w;
         float L;                        // lap length on the centerline (m)
+        public float LapLengthM => L;
         readonly Entry[] workerBusy = new Entry[2]; // the kart each infield worker is helping (null = free)
 
         public class Entry
@@ -773,6 +775,12 @@ namespace OKT
                     var sb = new System.Text.StringBuilder("GRID AT GREEN — outside kart vs its inside partner (ft, + = behind):");
                     foreach (var o in field) if (o.gridPos % 2 == 1) { var p = field.Find(x => x.gridPos == o.gridPos - 1); if (p != null) sb.Append($" row{o.gridPos / 2 + 1} {(p.ai.raceDist - o.ai.raceDist) / U.Ft:+0.0;-0.0}"); }
                     Event(sb.ToString());
+                }
+                {   // spec §12.3 packed start: consecutive gaps at the green, in laps (browser benchmark ≲ 0.02)
+                    var ds = new List<float>(); foreach (var e in field) if (!e.outOfRace) ds.Add(e.ai.raceDist);
+                    ds.Sort(); ds.Reverse();
+                    greenMaxGapLaps = 0f; for (int i = 1; i < ds.Count; i++) greenMaxGapLaps = Mathf.Max(greenMaxGapLaps, (ds[i - 1] - ds[i]) / L);
+                    greenSpreadLaps = ds.Count > 1 ? (ds[0] - ds[ds.Count - 1]) / L : 0f;
                 }
                 Event($"GREEN FLAG — {Tag(lead)} leads them to the line.");
                 foreach (var e in field) { e.lastCross = -1f; e.ai.SnapTrafficOffsetToCurrent(); }
