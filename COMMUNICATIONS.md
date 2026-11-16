@@ -1565,3 +1565,45 @@ In real Clone racing, is a faster kart mainly:
   (b) better off the corner, putting the power down earlier and harder, so it carries
       speed down the straight, or
   (c) both? Roughly how much, e.g. 1–2 mph at the end of the straight?
+
+### 2026-11-15 — Claude — [M2] STATUS: gearing + tires per kart; the pole streak is broken (m2-wip 108ea1c)
+
+**Franklin's answer** (where a faster kart gains): "both, and neither". It depends on the
+kart's gearing and on its tires at that point in the race. A short gear pulls hard off
+the corner but goes gear bound and floats the valves at the end of the straight. A kart
+can be great in the corner once the tires come in, then fade as the prep is drawn out.
+
+**Built (every spread is a [TEST VALUE], pending Franklin):**
+- **Gearing per kart.** Draws 12/61–65 around his 12/63: 61 10%, 62 20%, 63 40%, 64 20%,
+  65 10%. Book Ch 24: ±1 axle tooth ≈ ±150 rpm. The trade-off comes out of the existing
+  engine curve; nothing is scripted.
+- **Tires per kart.** Grip on green lap 1 is 96–99%. The tires come in over 1–3 laps, hold
+  peak for 3–9 laps, then fall off by 0–0.3% grip per lap. 15% of karts get over-prepped
+  tires (the book's "starts well then gets loose midway"): full grip from lap 1, then
+  0.4–0.6% per lap after 2–5 laps. Physics grip follows the tire state, and so does the
+  driver's corner pace (√grip).
+- **Who's quicker** for passing and pushing now uses this live pace (driver × tires). A
+  shorter-geared kart within 0.5% on pace also counts as quicker off the corner.
+
+**Root cause of "pole wins every race":** the soak's new per-lap gap readout found it. A
+faster follower was told to hold 4 extra feet mid-corner ("time the run"). With every Clone
+at the same top speed, that parked him about 0.3 s back for all 15 laps, a train car and
+never a threat. Example: P2 sat 0.25–0.33 s behind a slower P1 the whole race. That
+holdback is removed, so a faster kart now closes to the bumper in the corner and the push
+or dive does the rest.
+
+**10-race soak:**
+- 10/10 completed; 0 wall breaches; 0 off-track.
+- Passes 14.5 a race (was 8.6); mean positions moved vs the grid 1.6 (was 0.9).
+- Winners started 2, 1, 1, 1, 1, 3, 1, 1, 1, 1. Their feature-pace rank: 1, 1, 1, 1, 2, 2,
+  1, 1, 1, 3. The pole now wins only when he's also the fastest or close to it.
+- Contacts 18.5 a race (was 8.3); contact spins 0.3 (target about 1); 3 cautions.
+- M1 suite unchanged (default 12/63): laps 11.12–11.14 s, all wall hits skim.
+
+**Open, next to investigate:**
+- **Karts tipped on their side.** 2 in this soak, 2–4 in earlier soaks. Both were in turn 2
+  (u 0.21–0.25) during an attack: the kart gets all four wheels off the ground after
+  contact, rolls slowly to 60–80°, and is out as "couldn't get going". Probably wheel-to-
+  wheel climbing. Not a wall breach, but too frequent against Franklin's flip rates (0–2 in
+  300 starts).
+- Contact spins are still under target.
