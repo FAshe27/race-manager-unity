@@ -2115,3 +2115,86 @@ this often.
 
 The M1 suite wasn't rerun: these changes are in the race director only, and M1 doesn't use it.
 Muse: this supplements the M2 REPORT above. Audit both together.
+
+### 2026-11-16 09:22 CT — Franklin (recorded by Claude Code) — [M2] NOTE: playtest #2, plus rule answers
+
+**Racing feel:**
+- **The start:** "It's a scramble, not a coherent zipper merge. Drivers are trying to keep every inch
+  of track position they can hold, and then some more." It takes a lap or two to filter out, and
+  there's close racing through the pack after that.
+- **Overall:** "drivers are too polite. And I say that as a self-proclaimed clean driver."
+- **Urgency:** he wants some aggression and awareness that it's only a 15-lap race, but **no
+  overdriving a corner to clean someone out**. His 2019 Indoor Nationals win went caution-free:
+  start to finish in less than three minutes.
+
+**Pacing:** the formation follows the groove, not the middle of the track. Drivers won't willingly
+drive through the loose stuff off the groove, since it dusts up the tires.
+
+**Cornering:** karts look too planted. They should be on the edge of grip: not sliding, but close.
+I told him the spec puts at-the-limit driving in M4, and that it's his call whether to pull it
+forward. No ruling yet.
+
+**Caution variance:** multi-caution races happen, rarely, especially in big fields. His example: a
+21-kart field took six start attempts to complete lap 1, ran 12 cautions, and hit the time limit
+with 5 laps done. The aim is rare chaos without boring the players.
+
+**Rules (Pit Board, M3 caution work):**
+- **q15, time limit:** 20 minutes for a 15-lap feature. The clock starts at lap 1's initial start
+  and runs through yellows. It's rarely enforced. Once time has expired, the checkered comes out at
+  the next caution. If no caution comes, the race finishes as normal.
+- **q16, lap-1 cautions:** a complete restart in the original double-file lineup, with no penalty
+  for the karts that caused it. After three failed double-file starts, it goes single file.
+
+**Also asked for:** a flag indicator (green, yellow, white for one to go, checkered). Track
+portability: future tracks are dirt ovals only. Franklin will draw each one, with the line, walls,
+openings and go line.
+
+### 2026-11-16 09:22 CT — Claude Code — [M2] REPORT (follow-up): playtest #2 (m2-wip 4f4013d)
+
+- **Start scramble:** for a lap or two off the initial green (2 laps for drivers with aggression
+  above 0.55, 1 for the rest):
+  - a kart truly alongside holds its side of the pair, which straddles the groove;
+  - nobody concedes the inside at entry;
+  - any close kart may have a go.
+
+  When pinched against the wall, a kart still concedes. A version without that, which also paired
+  nose-to-tail karts, produced 137 contacts and 4.2 contact spins a race, 2 time caps, and karts
+  piled into the guardrail end at the turn-4 opening. It was backed out.
+- **Less polite:**
+  - concede only when he's within 3 ft (was 5), dropping 0.3 m/s (was 0.6), for 0.8 s (was 1.2);
+  - a pass is held 4 s (was 3);
+  - a pass needs a 0.2% pace edge (was 0.5%).
+- **Late-race urgency:** ramps linearly to the last lap. By then the push likelihood is ×2, a pass
+  is held 1.5× longer, and the kart concedes half as hard. **Corner speed is never touched**
+  (Franklin: no overdriving a corner).
+- **Pacing on the groove:** the double-file pair straddles the groove, slid down where the groove
+  runs near the wall. The single-file caution line runs on the groove itself. Drop-backs and
+  hazard dodges still leave the groove.
+- **Flag (HUD, top right):** green; yellow, shown as "1 TO GO" on the restart lap; white when the
+  leader starts the last lap; checkered.
+
+**10-race soak** (seeds 8001–8010):
+
+| | M2 REPORT | Playtest #1 fixes | Now |
+|---|---|---|---|
+| Completed | 10/10 | 10/10 | **10/10** |
+| Wall breaches | 0 | 0 | **0** |
+| Flips | 0 | 0 | **0** |
+| DNFs | 0 | 0 | 1 |
+| Cautions per race | 0.2 | 0.2 | 0.3 |
+| Contact spins per race | 0.2 | 0.3 | **0.5** (self 0.3) |
+| Contacts per race | 30 | 51 | 82 |
+| Passes per race | 22.2 | 23.3 | 22.8 |
+
+Two of the three cautions came on lap 2 out of the start scramble, at the turn-2 exit, which is what
+Franklin described. Seven of the ten races ran caution-free.
+
+The M1 suite wasn't rerun. KartAI's change is confined to the formation (pace/caution) path, which
+M1 doesn't use.
+
+**Queued for M3:**
+- the race time limit;
+- the lap-1 complete restart, with karts driving back to the original lineup and going single file
+  after 3 failed starts;
+- track-specific values moved into the track JSON: worker posts, grid spot, edge treatment, and a
+  track picker.
