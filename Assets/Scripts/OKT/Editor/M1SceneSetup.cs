@@ -14,7 +14,7 @@ namespace OKT.EditorTools
     {
         public const string ScenePath = "Assets/Scenes/M1_KartLapsSurface.unity";
         // v3 = Franklin's 2026-11-14 geometry/barrier rulings (Tools/build_track_v3.py from v2).
-        public const string JsonPath = "Assets/Data/test-track-one-v3.json";
+        public const string JsonPath = "Assets/Data/test-track-one-v4.json";
 
         static M1SceneSetup()
         {

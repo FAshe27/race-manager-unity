@@ -15,7 +15,7 @@ namespace OKT
         [System.NonSerialized] public KartSetup kartSetup;
         [System.NonSerialized] public DriverConfig driver;
 
-        public const string CurrentTrackName = "test-track-one-v3";
+        public const string CurrentTrackName = "test-track-one-v4";
 
         public World world;
         public SimClock clock = new SimClock();

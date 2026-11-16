@@ -266,13 +266,15 @@ namespace OKT.EditorTools
                 {
                     var w = World.Build(json, new SurfaceConfig { barrierFriction = fric });
                     var k = w.karts[0]; var ai = w.drivers[0];
+                    // start of the back straight from the corner table (v4's rounder ends moved it: a fixed u=0.42 was still in turn 2)
+                    float uBack = 0.42f; for (float uu = 0.3f; uu < 0.6f; uu += 0.002f) if (w.track.Frame(uu * w.track.N).corner < 0.1f) { uBack = uu; break; }
                     int phase = 0; float tStart = 0, tHit = 0, vHalf = -1, vBefore = 0, vMin = 99, vAfter = 0, maxYaw = 0, angAtHit = 0; int contact = 0;
                     for (int i = 0; i < (hz / 60) * 60 * 40 && phase < 3; i++)
                     {
                         float u = ai.s / w.track.N;
                         var f = w.track.Frame(ai.s);
                         float headOut = Mathf.Asin(Mathf.Clamp(Vector3.Dot(k.transform.forward, new Vector3(f.outN.x, 0, f.outN.y)), -1f, 1f)) * Mathf.Rad2Deg;
-                        if (phase == 0 && w.simTime > 12f && u > 0.42f && u < 0.44f)
+                        if (phase == 0 && w.simTime > 12f && u > uBack && u < uBack + 0.02f)
                         { phase = 1; tStart = w.simTime; vBefore = k.ForwardSpeed; ai.steerOverride = true; ai.steerOverrideDeg = Mathf.Min(28f, angleDeg * 0.6f + 3f); }
                         if (phase == 1 && (headOut >= angleDeg || ai.wallGapNow < 3f * U.In))
                         { ai.steerOverrideDeg = 0f; } // hold straight at the wall until contact
