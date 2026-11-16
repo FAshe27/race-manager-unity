@@ -92,6 +92,55 @@ namespace OKT
             };
             text += $"     cautions {d.cautions}";
             GUI.Label(new Rect(Screen.width / 2 - 230, 8, 460, 34), text, banner);
+            DrawFlag(d, lead);
+        }
+
+        enum Flag { None, Green, Yellow, White, Checkered }
+
+        /// <summary>The flagstand (Franklin, 11-16): green live, yellow caution, white one lap to go, checkered finish.</summary>
+        static Flag CurrentFlag(RaceDirector d, RaceDirector.Entry lead)
+        {
+            switch (d.phase)
+            {
+                case RacePhase.Caution: return Flag.Yellow;
+                case RacePhase.Checkered: case RacePhase.Done: return Flag.Checkered;
+                case RacePhase.Green:
+                    return lead != null && lead.lapsDone >= d.cfg.featureLaps - 1 ? Flag.White : Flag.Green;
+                default: return Flag.None;
+            }
+        }
+
+        void DrawFlag(RaceDirector d, RaceDirector.Entry lead)
+        {
+            var flag = CurrentFlag(d, lead);
+            if (flag == Flag.None) return;
+            const float fw = 96f, fh = 64f, pole = 4f;
+            float x = Screen.width - fw - 24f, y = 12f;
+            var tex = Texture2D.whiteTexture; var old = GUI.color;
+            GUI.color = new Color(0.25f, 0.25f, 0.25f); GUI.DrawTexture(new Rect(x - pole, y, pole, fh + 40f), tex); // the stick
+            var r = new Rect(x, y, fw, fh);
+            GUI.color = Color.black; GUI.DrawTexture(new Rect(r.x - 1, r.y - 1, r.width + 2, r.height + 2), tex); // outline
+            if (flag == Flag.Checkered)
+            {
+                const int cols = 6, rows = 4; float cw = fw / cols, ch = fh / rows;
+                for (int i = 0; i < cols; i++)
+                    for (int j = 0; j < rows; j++)
+                    {
+                        GUI.color = (i + j) % 2 == 0 ? Color.white : Color.black;
+                        GUI.DrawTexture(new Rect(x + i * cw, y + j * ch, cw, ch), tex);
+                    }
+            }
+            else
+            {
+                GUI.color = flag == Flag.Green ? new Color(0.13f, 0.75f, 0.2f)
+                          : flag == Flag.Yellow ? new Color(1f, 0.85f, 0.1f)
+                          : Color.white;
+                GUI.DrawTexture(r, tex);
+            }
+            GUI.color = old;
+            string label = flag == Flag.Green ? "GREEN" : flag == Flag.Yellow ? (d.oneToGo ? "YELLOW — 1 TO GO" : "YELLOW")
+                         : flag == Flag.White ? "WHITE — LAST LAP" : "CHECKERED";
+            GUI.Label(new Rect(x - 40f, y + fh + 6f, fw + 60f, 24f), label, banner);
         }
 
         static string Order(RaceDirector d)

@@ -66,6 +66,11 @@ namespace OKT
         // ---- Race director commands (M2), set every step before Step(). Defaults = free running (M1).
         [System.NonSerialized] public bool formation;        // pace lap: hold a grid lane instead of the groove
         [System.NonSerialized] public float laneFrac;        // lane centre as a fraction of half-width (+ = outside)
+        // Formation on the groove (Franklin's playtest 11-16: pacing follows the groove, nobody drives the loose stuff):
+        // 0 = single file on the groove, -1/+1 = inside/outside of a pair straddling it, NoGrooveLane = use laneFrac.
+        public const int NoGrooveLane = 99;
+        [System.NonSerialized] public int grooveLane = NoGrooveLane;
+        [System.NonSerialized] public float grooveLaneHalf = 0.635f; // half the pair's centre-to-centre spacing (m)
         [System.NonSerialized] public bool paceMode;         // drive the pace-speed profile, not racing speed
         [System.NonSerialized] public float paceStraight = 25f * U.Mph, paceCorner = 20f * U.Mph;
         [System.NonSerialized] public float speedCap = float.PositiveInfinity; // traffic / check-up cap (m/s)
@@ -198,6 +203,16 @@ namespace OKT
             // at grip's edge — entering low on purpose costs too much momentum unless you're passing)
             float off = cfg.lateralOffset * (1f - tf.corner) + DriveOverOffset(ti) + trafficOffset;
             float dWant = formation ? laneFrac * tf.halfWidth : tf.LineOffset + off;
+            if (formation && grooveLane != NoGrooveLane)
+            {
+                if (grooveLane == 0) dWant = tf.LineOffset;
+                else
+                {   // the pair straddles the groove, slid down where the groove runs near the wall (both karts on the dirt)
+                    float lo = LowLimit(tf) + grooveLaneHalf, hi = HighLimit(tf) - grooveLaneHalf;
+                    float pc = lo < hi ? Mathf.Clamp(tf.LineOffset, lo, hi) : tf.LineOffset;
+                    dWant = pc + grooveLane * grooveLaneHalf;
+                }
+            }
             if (recovering) dWant = Mathf.Min(d, tf.LineOffset - 1.0f); // rejoin low, off the groove, out of the way
             float dT = Mathf.Clamp(dWant, LowLimit(tf), HighLimit(tf));
             // Occupancy as hard lane limits on the STEERING TARGET (karts alongside own their slots).
