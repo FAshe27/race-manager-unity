@@ -77,9 +77,8 @@ namespace OKT
                 var mount = transform.TransformPoint(s.WheelMount((Corner)i));
                 float r = s.WheelRadius(i);
                 float rayLen = s.travel + r;
-                if (GroundRay(mount, -up, rayLen, out hits[i]))
+                if (TreadRay(mount, -up, rayLen, s.TireWidth(i), out hits[i], out float x))
                 {
-                    float x = rayLen - hits[i].distance;
                     float xdot = (x - prevX[i]) / dt;
                     prevX[i] = x;
                     float f = k * x + c * xdot;
@@ -206,6 +205,31 @@ namespace OKT
 
         /// <summary>Nearest hit along the wheel ray that isn't part of this kart (its own tubes/frame).
         /// Other karts DO count — a wheel landing on another kart's tire or nerf bar is the M3 climb.</summary>
+        /// <summary>
+        /// The tire feels the dirt across its whole tread: rays at the centre and both tread edges, and the squash is
+        /// the AVERAGE of the three (a tire envelops what it stands on). With one centre ray a tire's outer half hung
+        /// over a ridge without feeling it, so the low nerf tube (1/2 in up, 1/8 in outside the tire) was the first
+        /// thing to meet it — a rigid stop that rolled karts at the inside edge (M2 soak, 2026-11-15). A 3 in ridge
+        /// under one edge now lifts the kart ~1 in and the tire climbs it. (Highest-point-wins was tried first: on the
+        /// bank a 9 in right tire's edges sit ~0.7 in apart against 0.15 in of sag, and it slid a kart into the wall.)
+        /// Point and normal come from the centre ray when it hits.
+        /// </summary>
+        bool TreadRay(Vector3 mount, Vector3 dir, float len, float width, out RaycastHit best, out float squash)
+        {
+            squash = 0f;
+            bool found = GroundRay(mount, dir, len, out best);
+            if (found) squash += len - best.distance;
+            var side = transform.right * (width * 0.45f);
+            for (int e = -1; e <= 1; e += 2)
+                if (GroundRay(mount + side * e, dir, len, out var h))
+                {
+                    squash += len - h.distance;
+                    if (!found) { best = h; found = true; }
+                }
+            squash /= 3f;
+            return found;
+        }
+
         bool GroundRay(Vector3 origin, Vector3 dir, float len, out RaycastHit best)
         {
             best = default;

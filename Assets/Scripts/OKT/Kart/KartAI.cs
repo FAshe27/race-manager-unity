@@ -126,6 +126,15 @@ namespace OKT
             return Mathf.Min(wall, f.halfWidth - track.cfg.bermWidth - rightTire - bermBufferIn * U.In);
         }
 
+        /// <summary>
+        /// Lowest the kart's centre may aim (m): its whole footprint on the racing surface, with more room in the
+        /// corners — pure pursuit cuts the chord to its target and a kart sliding a few degrees drifts in further, so a
+        /// 2 in margin put the left side over the inside edge at the T3/T4 apex (M2 soak, 2026-11-15).
+        /// </summary>
+        public float LowLimit(in TrackFrame f)
+            => -f.halfWidth + kart.setup.FootLeft + Mathf.Lerp(2f, insideCornerMarginIn, f.corner) * U.In;
+        [System.NonSerialized] public float insideCornerMarginIn = 6f; // [TEST VALUE]
+
         /// <summary>Lateral offset (m) of Franklin's groove at this kart's current position.</summary>
         public float LineOffsetHere => track.Frame(s).LineOffset;
 
@@ -190,7 +199,7 @@ namespace OKT
             float off = cfg.lateralOffset * (1f - tf.corner) + DriveOverOffset(ti) + trafficOffset;
             float dWant = formation ? laneFrac * tf.halfWidth : tf.LineOffset + off;
             if (recovering) dWant = Mathf.Min(d, tf.LineOffset - 1.0f); // rejoin low, off the groove, out of the way
-            float dT = Mathf.Clamp(dWant, -tf.halfWidth + kart.setup.FootLeft + 2f * U.In, HighLimit(tf));
+            float dT = Mathf.Clamp(dWant, LowLimit(tf), HighLimit(tf));
             // Occupancy as hard lane limits on the STEERING TARGET (karts alongside own their slots).
             if (latMin <= latMax) dT = Mathf.Clamp(dT, latMin, latMax);
             else dT = d; // squeezed from both sides: hold my line

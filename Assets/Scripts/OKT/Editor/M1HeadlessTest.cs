@@ -254,7 +254,7 @@ namespace OKT.EditorTools
                     float dd = Vector2.Distance(new Vector2(k.transform.position.x, k.transform.position.z), pp);
                     if (dd < closest) { closest = dd; spdAt = k.ForwardSpeed; }
                 }
-                sb.AppendLine($"   Drive-over ({label}): rise +{U.InS(hb, 2)} at u={ai.driveOverS / w.track.N:F3}; passed within {U.FtS(closest)} at {U.MphS(spdAt)}; done={done}; max air {k.maxAirTime:F2} s; steps with a wheel unloaded {unloaded}; max compression {U.InS(k.maxCompression, 2)}; upside-down {k.UpsideDown}");
+                sb.AppendLine($"   Drive-over ({label}): rise +{U.InS(hb, 2)} at u={ai.driveOverS / w.track.N:F3}; passed within {U.FtS(closest)} at {U.MphS(spdAt)}; done={done}; max air {k.maxAirTime:F2} s; steps with a wheel unloaded {unloaded}; max compression {U.InS(k.maxCompression, 2)}; upside-down {k.UpsideDown}; end u={ai.s / w.track.N:F3} d={ai.d:F2} v={U.MphS(k.ForwardSpeed)} gnd{(k.grounded[0] ? 1 : 0)}{(k.grounded[1] ? 1 : 0)}{(k.grounded[2] ? 1 : 0)}{(k.grounded[3] ? 1 : 0)} load{k.load[0]:F0}/{k.load[1]:F0}/{k.load[2]:F0}/{k.load[3]:F0} patch d={ai.driveOverD:F2}");
                 w.Destroy();
             }
 
