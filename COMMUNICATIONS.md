@@ -1701,3 +1701,71 @@ tubes, and tires catching tires is the likeliest source of the remaining contact
   - #13 was rear-ended hard (1,145 N·s) while pulling away from the rail at 7 mph.
   Both look like tire-on-tube climbing, which the body-panel work should address: panels take
   the side contact, and the 8 in rear bumper loop takes the rear. Keeping them open until then.
+
+### 2026-11-16 — Claude — [M2] STATUS (night 2): body panels, WKA-legal kart, pile-up deadlock (m2-wip 074f9cb)
+
+**New sources (Franklin), WKA rulebooks, which outrank eyeball numbers.** Franklin: "Feel free to
+take WKA measurements and standards over mine. They set the rules." Copies are in the project's
+parent folder:
+- 2025 Dirt Competition and Chassis Rules.
+- 2025 and 2026 Official Dirt Rule Books (engine tech: Stock Clone and Ducar 212).
+- WKA 2025 Technical Manual 400, Speedway Dirt (archived). Its text is outlined, so the pages
+  were rendered with poppler and read as images.
+
+Kart-relevant limits:
+
+| Item | WKA limit |
+|---|---|
+| Overall length | 74 in (401.6) |
+| Overall width | 50 in (401.5) |
+| Wheelbase | 39.75–43 in (manual) / 44 in (2025 rules) |
+| Height | 26 in |
+| Side panels | 14 in max, 1 in lower lip max, may be wider than the tires, end at the rear tires (408.5) |
+| Nose | 8–17 in tall, covers at least 50% of each front tire |
+| Front bumper | top at least 7.75 in |
+| Rear bumper | between the bottom of the rear axle and 7.5 in, no wider than the rear tires |
+| Nerf bars | at least 24 in long |
+| Rear axle | one-piece and live, 1 in to 40 mm |
+
+Red flag for inverted karts: the field stops at S/F, and involved karts go to the rear. A start
+is waved off if the pole jumps it. Live axle: matches the model (one axle, mean rear radius).
+
+**Changes (074f9cb):**
+- **Body (Franklin, Pit Board):** the panels are what touch side to side, 1/2 in off the ground,
+  with the tires tucked 1/4 in inside them. Fiberglass, slides freely, sometimes snags and tears.
+  - Side-panel colliders run from 1/2 to 14 in, with a round bottom edge.
+  - A full-width nose with a round leading edge.
+  - Friction 0.15.
+  - Spacing and bump-draft rules now measure nose to tail.
+- **WKA-legal dimensions:**
+  - Rear track 43.3 → 42.0 in, for 49.9 in overall with the panels.
+  - Overall length 73.1 in. The rules fix the total, not the split between nose and rear bumper:
+    nose 13 in ahead of the front tires, rear bumper 8 in behind the rears. Both [TEST VALUE];
+    Franklin to measure.
+  - Front bumper top 7.75 in.
+  - Rear bumper at the axle bottom to 7.5 in.
+  - Grid row gap 6.3 ft.
+- **Pile-up deadlock:** a six-kart pile in turn 4 was fed one at a time to one worker. A released
+  kart then waited beside another stuck kart that was itself waiting, and three races ran to the
+  time cap. Fixes:
+  - A driver kept waiting 15 s on a busy worker frees his own kart (Franklin: "Drivers will often
+    hop out").
+  - A kart released beside a parked kart is walked on up the inside edge.
+  - A pull-started kart drives off in recovery mode.
+  - A caution watchdog logs every kart's state at 150 s.
+
+**Results:**
+- M1 suite: laps 11.13–11.14 s, all wall hits skim, no flips.
+- **20-race soak (seeds 7001–7020):**
+  - 20/20 completed; 0 DNFs; 0 flips; 0 wall breaches.
+  - Passes 21.8 a race; mean positions moved vs the grid 2.0.
+  - Pole won 13 of 20.
+  - Contacts 39 a race; contact spins 0.8 (target about 1).
+- With the body on, the first 20-race soak had 0 contact flips against 2 without it.
+- Off-track time is spun karts waiting at the inside edge or the T4 opening for help. Not a breach.
+
+**Open:**
+- Franklin's tape measure: overall length, the nose/bumper split, and side-panel height
+  (Pit Board q12–q14).
+- Cautions with several stuck karts run 2–3 min. Real?
+- The flipped-kart red flag (WKA procedure is known now) is an M3 item.
