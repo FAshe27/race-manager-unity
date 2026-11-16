@@ -2058,3 +2058,60 @@ Two nights ago this was a kart lapping alone. It's now a 12-kart race with
 cautions that behave the way Franklin described them from the driver's
 seat. Franklin: your playtest is the last gate — watch a restart queue and
 the outside row at the green, and judge the groove fights by eye.
+
+### 2026-11-16 08:28 CT — Franklin (recorded by Claude Code) — [M2] NOTE: first playtest of the M2 build
+
+"Looks very good!" He sent two screenshots of the pace lap (double file, turns 3–4 and the front stretch). His notes:
+1. The pace formation leaves large gaps between karts. They should be nose to tail.
+2. Karts peek to the inside down the straights very early.
+3. Karts are too patient with the kart in front. After peeking two or three times without
+   getting by, they should be more likely to push him to open up the inside.
+4. Off the initial double-file start, karts file into single file too quickly. It should be
+   competitive: the inside line has the advantage, and the inside karts don't want to give in
+   to the outside lane.
+5. Often, two karts side by side both ride the brakes and slow down a lot.
+
+### 2026-11-16 08:28 CT — Claude Code — [M2] REPORT (follow-up): Franklin's playtest notes 1–5 (m2-wip 0040926)
+
+1. **Pace gaps:** the kart's cap allowed it to close a gap, but its pace target (25/20 mph) didn't,
+   so a gap that opened in a corner never closed. Before this fix, only the outside row had a
+   catch-up allowance. Now every kart may run up to pace + 5 mph to close up on the kart ahead in
+   its lane, the same rule as under caution. The caution queue gap went from 4 ft to 1 ft.
+   - Field at the green, leader to last: **0.117 → 0.063 laps**.
+   - Largest consecutive gap: 0.019 → 0.007 laps.
+2. **Early peeks:** a latched inside move now stays in the other kart's tracks on his bumper (bump
+   draft) down the straight, and pulls out about 0.8 s before the entry. The abandon timer doesn't
+   run while it waits.
+3. **Patience:** each failed inside peek at a kart counts against him for 20 s. After 2, the driver
+   pushes instead of peeking again, with 4× the usual push likelihood. That holds even when he isn't
+   faster on pace.
+4. **The start:** the outside row was running the concede-the-inside rule at the first entry. On the
+   first lap off the double-file start it no longer concedes. It races for the spot and files in
+   only when there's a real gap. The inside line keeps its advantage through the corners.
+5. **Side by side, both braking:** a kart rubbing alongside, a few inches behind, counted the other
+   as "the kart in front" and checked up hard, while the other conceded. Each slowed for the other.
+   An overlapped kart now needs real lateral overlap to count as ahead.
+
+**10-race soak** (seeds 8001–8010, the same as the M2 REPORT, so the numbers compare directly):
+
+| | M2 REPORT | Now |
+|---|---|---|
+| Completed | 10/10 | **10/10** |
+| Wall breaches | 0 | **0** |
+| Flips | 0 | **0** |
+| DNFs | 0 | **0** |
+| Passes per race | 22.2 | 23.3 |
+| Mean positions moved vs grid | 1.6 | 2.0 |
+| Contacts per race | 30.4 | 50.9 (more bumper leaning) |
+| Contact spins per race | 0.2 | 0.3 |
+| Cautions per race | 0.2 | 0.2 |
+
+Failed peeks average about 50 a race and pushes about 47 a race.
+
+**Watch item:** in race 2, the last outside-row kart (g12) was carried up through the turn-4 opening
+on lap 1 and stopped just outside the edge. It was off track for 34 s: a caution, then a worker
+pull-started it. It's the opening, not a breach. I'll keep an eye on whether the start battle does
+this often.
+
+The M1 suite wasn't rerun: these changes are in the race director only, and M1 doesn't use it.
+Muse: this supplements the M2 REPORT above. Audit both together.
