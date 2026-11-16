@@ -2265,3 +2265,73 @@ spins and 1–3 time caps per 10 races. Bisecting with a deterministic control (
 3. Soak at 20 karts (Atoka's real maximum).
 
 Each step gets a short follow-up REPORT.
+
+### 2026-11-16 16:20 CT — Franklin (recorded by Claude Code) — [M2] NOTE: v4 playtest, start rules, Atoka layout, Pit Board q20–q24
+
+**Racing feel on v4:** "the actual racing looks pretty dang good". Starts still separate too quickly and filter into
+single file.
+
+**Start rules:**
+- At the green a kart CAN out-accelerate the kart ahead; that's the accordion push.
+- 140 contacts a race is "not too astronomical".
+- Initial start: no passing to the inside before the start/finish line (a penalty). Passing outside before the line
+  is so rare it isn't worth modelling (q20).
+- Jump start: the outside front-row kart fires before the pole. If they're still side by side, even slightly, it's
+  fine. Some tracks use a restart zone: two lines, the leader goes anywhere between them, and it's fair game at the
+  second line.
+- WKA 410.3.4: a start is waved off for a jump. On the second wave-off the front row swaps with the second row. That's
+  a penalty for jumping the start, separate from q16 (a lap-1 crash caution is a full restart; single file after 3
+  crashed double-file starts).
+- Restarts (q21): no pulling out to pass before the start/finish line. Some tracks put a cone on the line that karts
+  must pass outside of, with about 1.5 karts of room to the wall. Everyone goes together, so there's no fanning out
+  before the line unless someone timed a slight jump.
+- Rolling start speed (q24): 15–25 mph, the leader's choice.
+
+**Lineup (q22):** from qualifying: two timed laps after a warm-up lap, 2–3 karts at a time, spaced by the grid worker.
+
+**Atoka layout** (his markups, saved in `Track Photos/atoka-openings-*` and IMG_1998 / IMG_4521):
+- Guardrail around most of the track, with chain link at the end of the front straight.
+- Openings:
+  - a paved road at the top of T1, used by the tractor and emergency vehicles only;
+  - the grid gate (a red swing gate) at T4 exit, into a paved staging grid fenced with chain link;
+  - a gap at the end of the backstretch onto the exit road, which runs outside T3–T4 to the scale house.
+- The restart line is across the track at T4 exit.
+- Outside the rails is flat grass. At T4 exit / the front straight, the open edge slopes up to the flag-stand fence.
+- Grid and tower lap: karts stage on the grid and enter single file. They pair up double file during a lap at about
+  pace speed (the leader goes slow at first), sorting out anyone out of order, then get one to go (q23).
+- Off-pace karts raise a hand along the top of the backstretch and exit before T3. A sudden failure can pull to the
+  infield; there's no caution unless there's debris.
+
+### 2026-11-16 16:20 CT — Claude Code — [M2] STATUS: start rework + pace-lane fix (m2-wip 2f02de5)
+
+**Changes:**
+- The 4 s chain cap is removed. For 3 s after any green, karts close to the bumper with a 0.4 m/s lean (the accordion).
+- Lines are held, with no passing moves, until each kart crosses the start/finish line. That applies on restarts too.
+- The leader rolls the initial start at 15–25 mph, chosen per race.
+- The outside pace lane and the single-file caution lane keep 30 in between the nerf bar and the rail. They had been
+  running about 12 in off the backstretch wall on v4, where the groove is high mid-straight.
+
+**Soak** (v4, seeds 8001–8010, against the 4f4013d behaviour):
+
+| | 4f4013d | 2f02de5 |
+|---|---|---|
+| Finished | 10/10 | 10/10 |
+| Passes per race | 22.5 | 50.4 |
+| Contacts per race | 53.6 | 90 |
+| Cautions per race | 0.1 | 0.3 |
+| Contact spins per race | 0 | 0.4 |
+| Contact flips per race | 0.1 | 0.1 |
+| Karts alongside at 6 s after the green | 0–4 | ~10 of 12 |
+| Field spread at 6 s | ~170 ft | 75–90 ft |
+
+At 22 s (two laps), 4–8 karts are still alongside.
+
+**Weak spot:** in race 3, karts sent to the tail under caution cut across the T3–T4 infield and got stuck, and one
+ended as a DNF. That's the caution-queue problem, and the field-stop procedure (q18) is next.
+
+**Queued:**
+- field stop;
+- jump-start wave-off and the lap-1 crash restart (with the M3 rules);
+- staging grid and grid gate (track JSON);
+- per-segment barrier types and openings;
+- re-adding the parked playtest-3 features one at a time.
