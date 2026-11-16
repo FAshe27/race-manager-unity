@@ -89,10 +89,20 @@ namespace OKT
         // Recovery / clearing (spec §8.3, §8.4 — pulled forward from M3 so one spin doesn't end a race)
         public float recoverMaxSeconds = 12f;       // can't get going in this long -> out (pulls in / stopped)
         public float crewWalkMph = 3f;               // crew pushes a wreck to the infield at walking pace (§8.4)
+        public float crewTurnDegPerSec = 45f;        // crew straightening a stuck kart by hand [TEST VALUE]
+        // Infield track workers (Franklin, 2026-11-15): two of them, one covering turns 1-2 and one turns 3-4, standing
+        // "a good ten feet or so away from the racing surface" (they also wave the yellow with the flagman at S/F).
+        public float workerBackFt = 10f;
+        public float[] workerPostU = { 0.25f, 0.75f };   // mid turns 1-2 and 3-4 on this track [TEST VALUE: read off the groove apexes]
         // Stub incident detection (M2): spins / flips / stops are logged, not judged (M3).
         public float spinAngleDeg = 75f;
         public float stoppedSeconds = 3f;
         public float dnfStoppedSeconds = 15f;
+        // Tires after a caution (Franklin: "cautions will cause the tire to cool, and they may not fire off properly
+        // again"). [TEST VALUE] all four.
+        public const float TireCautionCool = 0.6f;     // share of the green-flag cold penalty a restart brings back
+        public float tireNoRefireChance = 0.3f;
+        public float tireNoRefireMin = 0.005f, tireNoRefireMax = 0.015f; // lap-time fraction, ~0.05-0.16 s
     }
 
     public class DriverProfile
@@ -110,19 +120,28 @@ namespace OKT
         // Gearing: shorter (more axle teeth) drives off the corner harder but goes gear bound and floats the valves at
         // the end of the straight; taller is the reverse. Falls out of the engine model (power curve, KartSetup).
         public int axleTeeth = 63;
-        // Tires: a little down until they come in, then a peak, then falloff as the prep is drawn out.
-        // An over-prepped set "starts well then gets loose midway" (book Ch 28). Grip multipliers on the kart's 1.3 g.
-        public float tireColdGrip = 1f;    // grip on green lap 1
-        public int tireWarmLaps = 1;       // laps to come in
-        public int tirePeakLaps = 99;      // laps at peak before falloff starts
-        public float tireFalloffPerLap;    // grip lost per lap after that
-        public string tireNote = "";
-        /// <summary>Tire grip multiplier on green lap n (0-based).</summary>
-        public float TireGrip(int lap)
+        // Tires (Franklin, Pit Board 2026-11-15), as LAP-TIME fractions over the kart's peak lap (so they carry over
+        // when the sim's laps come down to his 10.6s): "two or three laps for tires to come in" -- lap 2 ~11.0, lap 3
+        // ~10.8, then 10.6-10.7 for the next 5-10 laps depending on prep. Properly prepped tires can last the whole
+        // race; too little prep burns off and the kart "skates" (once tires fall off they may lose half a second or
+        // more); too much prep produces too much grip and locks the kart down. Cautions cool the tires and they
+        // may not fire off properly again.
+        public float tireColdFrac;         // lap-time penalty on green lap 1 (Franklin: lap 2 ~3%, lap 1 slower still)
+        public int tireWarmLaps = 3;       // laps to come in (2-3)
+        public int tireHoldLaps = 99;      // laps at peak after coming in, before a light-prepped set goes off
+        public float tireFalloffFrac;      // lap-time penalty once it has gone off (Franklin: ~0.5 s = 4.7%)
+        public int tireFalloffLaps = 4;    // laps to go from peak to fully gone
+        public float tireLockFrac;         // over-prepped: locked down, a touch slow at peak
+        public string tireNote = "";       // "" proper, "light prep", "over-prepped"
+        /// <summary>Lap-time penalty (fraction of a lap) from the tires: green lap index, laps since the last green
+        /// (start or restart), whether this run began at a restart (tires partly cooled), and any failure to refire.</summary>
+        public float TireLapFrac(int lap, int sinceGreen, bool restart, float refireMiss)
         {
-            if (lap < tireWarmLaps) return Mathf.Lerp(tireColdGrip, 1f, (float)lap / tireWarmLaps);
-            int past = lap - tireWarmLaps - tirePeakLaps;
-            return 1f - Mathf.Max(0, past) * tireFalloffPerLap;
+            float cold = restart ? tireColdFrac * RaceConfig.TireCautionCool : tireColdFrac;
+            float warm = sinceGreen < tireWarmLaps ? cold * (1f - (float)sinceGreen / tireWarmLaps) : 0f;
+            int past = lap - tireWarmLaps - tireHoldLaps;
+            float off = past > 0 ? tireFalloffFrac * Mathf.Min(1f, (float)past / tireFalloffLaps) : 0f;
+            return warm + off + tireLockFrac + refireMiss;
         }
     }
 
@@ -172,17 +191,20 @@ namespace OKT
             {
                 double g = kr.NextDouble();
                 d.axleTeeth = g < 0.10 ? 61 : g < 0.30 ? 62 : g < 0.70 ? 63 : g < 0.90 ? 64 : 65;
+                // Tires (Franklin's lap times, see DriverProfile). Mix of prep outcomes [TEST VALUE odds].
+                d.tireColdFrac = K(0.040f, 0.050f);                       // green lap 1: ~0.45-0.55 s off peak
+                d.tireWarmLaps = kr.NextDouble() < 0.5 ? 2 : 3;
                 double t = kr.NextDouble();
-                if (t < 0.15)
-                {   // over-prepped: comes in at once, a touch more bite, gets loose midway
-                    d.tireColdGrip = 1f; d.tireWarmLaps = 1; d.tirePeakLaps = Mathf.RoundToInt(K(2f, 5f));
-                    d.tireFalloffPerLap = K(0.004f, 0.006f); d.tireNote = "over-prepped tires";
+                if (t < 0.25)
+                {   // too little prep: burns off, skates, loses ~0.3-0.5 s
+                    d.tireHoldLaps = Mathf.RoundToInt(K(4f, 8f)); d.tireFalloffFrac = K(0.03f, 0.05f);
+                    d.tireFalloffLaps = Mathf.RoundToInt(K(3f, 5f)); d.tireNote = "light prep";
                 }
-                else
-                {
-                    d.tireColdGrip = K(0.96f, 0.99f); d.tireWarmLaps = Mathf.RoundToInt(K(1f, 3f));
-                    d.tirePeakLaps = Mathf.RoundToInt(K(3f, 9f)); d.tireFalloffPerLap = K(0f, 0.003f);
+                else if (t < 0.45)
+                {   // too much prep: locked down, a tenth or so slow all race
+                    d.tireLockFrac = K(0.005f, 0.015f); d.tireNote = "over-prepped";
                 }
+                // else: properly prepped, lasts the whole race
             }
             list.Sort((a, b) => a.qualiOffsetSec.CompareTo(b.qualiOffsetSec)); // grid = qualifying order, no invert
             return list;
@@ -205,10 +227,12 @@ namespace OKT
         public StringBuilder trace; public float traceUntil = 7f; // debug: per-kart state for the first seconds of green
         readonly World w;
         float L;                        // lap length on the centerline (m)
+        readonly Entry[] workerBusy = new Entry[2]; // the kart each infield worker is helping (null = free)
 
         public class Entry
         {
             public KartAI ai; public KartPhysics kart; public DriverProfile driver; public int gridPos; public float baseGripG;
+            public int greenStartLap; public bool restarted; public float refireMiss; // tires: laps since the last green; cooled by a caution
             public bool finished; public int finishPos; public float finishTime;
             public bool outOfRace; public string outReason;
             public int lapsDone;                  // green laps completed
@@ -232,11 +256,15 @@ namespace OKT
             public readonly Queue<string> hist = new Queue<string>(); public float histT;
             public bool recovering; public float recoverT;     // spun kart driving itself out (spec §8.3)
             public bool cleared; public bool beingCleared;      // wreck moved off by the crew (spec §8.4 step 3)
+            public bool crewHelp, crewHelped, assistStarted; public float assistWait; // stuck kart separated + pull-started by track workers
+            public int worker = -1; public float workerArrives; public bool offLogged;                        // which infield worker, and when they get to it
         }
         public readonly List<Entry> field = new List<Entry>();
         int nextFinish = 1;
         System.Random rng;
         float Gauss() { double u1 = 1.0 - rng.NextDouble(), u2 = rng.NextDouble(); return (float)(System.Math.Sqrt(-2.0 * System.Math.Log(u1)) * System.Math.Cos(2.0 * System.Math.PI * u2)); }
+        /// <summary>Tire lap-time penalty for this kart right now.</summary>
+        float TireFrac(Entry e) => e.driver.TireLapFrac(e.lapsDone, e.lapsDone - e.greenStartLap, e.restarted, e.refireMiss);
         /// <summary>New lap: this lap's pace = the driver's pace x a consistency wobble.</summary>
         void RollLapPace(Entry e)
         {
@@ -245,9 +273,10 @@ namespace OKT
             e.ai.cfg.pace = e.driver.paceFactor * baseLap / (baseLap + Gauss() * sigmaSec);
             // Tires: the physics grip is set from the tire state, and the driver feels it — corner speed goes with
             // the square root of grip, so his pace in the turns does too (straights are engine-limited regardless).
-            float tg = e.driver.TireGrip(e.lapsDone);
-            e.kart.setup.gripG = e.baseGripG * tg;
-            e.ai.cfg.pace *= Mathf.Sqrt(tg);
+            // Pace follows lap time (the same convention as feature pace); grip = pace^2 (corner speed ~ sqrt(grip)).
+            float tp = 1f / (1f + TireFrac(e));
+            e.kart.setup.gripG = e.baseGripG * tp * tp;
+            e.ai.cfg.pace *= tp;
         }
 
         /// <summary>Is a quicker than b where it counts? A pace edge, or (off a corner) a shorter gear with pace close.</summary>
@@ -255,7 +284,7 @@ namespace OKT
             => NightPace(a) > NightPace(b) * cfg.fasterBy
                || (offCorner && a.driver.axleTeeth > b.driver.axleTeeth && NightPace(a) > NightPace(b) * 0.995f);
         /// <summary>The kart's pace right now: the driver's feature pace with his tires' state (no lap-to-lap wobble).</summary>
-        float NightPace(Entry e) => e.driver.paceFactor * Mathf.Sqrt(e.driver.TireGrip(e.lapsDone));
+        float NightPace(Entry e) => e.driver.paceFactor / (1f + TireFrac(e));
 
         public RaceDirector(World world, RaceConfig config, int seed = 0) { w = world; cfg = config ?? new RaceConfig(); L = w.track.centerLength; rng = new System.Random(seed * 7919 + 17); }
 
@@ -375,7 +404,7 @@ namespace OKT
         // A kart that's merely slow in a queue is NOT a hazard — the karts behind just follow it. Counting every slow
         // kart made a jam behind a wreck spread backwards: each stopped kart became a wreck to the ones behind, and
         // the whole field gridlocked (Franklin's video: karts thread through and it clears in seconds).
-        bool Hazard(Entry o) => (o.outOfRace && !o.cleared) || o.inIncident || o.recovering || Unsettled(o);
+        bool Hazard(Entry o) => (o.outOfRace && !o.cleared) || o.inIncident || o.recovering || o.crewHelp || Unsettled(o);
 
         void Traffic(Entry e, float dt, float kartLen, float room, bool packed)
         {
@@ -752,6 +781,12 @@ namespace OKT
             {
                 var ai = e.ai;
                 if (e.outOfRace && !e.finished) CrewClear(e, dt);
+                if (e.crewHelp) { CrewAssist(e, dt); continue; }
+                if (ai.offTrackSteps > 0 && !e.offLogged && !e.outOfRace)
+                {
+                    e.offLogged = true; var fo = w.track.Frame(ai.s);
+                    Event($"OFF TRACK: {Tag(e)} u={ai.s / w.track.N:F3} d={ai.d:F2} m (edge {fo.halfWidth:F2}) v={e.kart.ForwardSpeed / U.Mph:F0} mph recovering={e.recovering} toTail={e.toTail} phase={phase} crewHelped={e.crewHelped}");
+                }
                 // ---- wall breach forensics (CLAUDE.md: stop-and-report) — every kart, out or not
                 if (ai.bandBreaches > e.breachesSeen)
                 {
@@ -785,7 +820,7 @@ namespace OKT
                 }
 
                 // ---- spin forensics: what was this kart doing in the last ~1.5 s?
-                if (phase == RacePhase.Green && !e.recovering && !e.inIncident)
+                if ((phase == RacePhase.Green || phase == RacePhase.Caution) && !e.recovering && !e.inIncident && !e.crewHelp)
                 {
                     e.histT += dt;
                     if (e.histT >= 0.1f)
@@ -820,7 +855,21 @@ namespace OKT
                 {
                     e.recoverT += dt;
                     if (!spun && e.kart.ForwardSpeed > 3f * U.Mph) { e.recovering = false; Event($"RECOVERED: {Tag(e)} rejoins."); }
-                    else if (e.recoverT > cfg.recoverMaxSeconds) { e.recovering = false; e.outOfRace = true; e.outReason = "couldn't restart"; Event($"OUT: {Tag(e)} (couldn't get going)."); }
+                    else if (e.recoverT > cfg.recoverMaxSeconds)
+                    {
+                        e.recovering = false;
+                        // Franklin (Pit Board 2026-11-15): "Infield track workers typically help get any karts separated.
+                        // Drivers will often hop out of their own kart to move when stuck. The engines have attached
+                        // pull-starts too." A kart that's upright but can't get going gets separated and pull-started
+                        // once and rejoins at the tail; a second time (or upside down) it's out.
+                        if (!e.crewHelped && !flipped)
+                        {
+                            e.crewHelp = true; e.crewHelped = true; e.assistStarted = false; e.assistWait = 0f; e.worker = -1;
+                            Event($"CREW: track workers separate {Tag(e)} and pull-start it.");
+                            if (phase == RacePhase.Caution && !e.toTail) SendToTail(e, "crew had to get it going");
+                        }
+                        else { e.outOfRace = true; e.outReason = "couldn't restart"; Event($"OUT: {Tag(e)} (couldn't get going)."); }
+                    }
                 }
                 if (newEpisode || (flipped && !e.inIncident))
                 {
@@ -903,6 +952,78 @@ namespace OKT
             rb.MovePosition(new Vector3(p.x, Mathf.Max(ground + 0.2f, pos.y - 0.5f * dt), p.y));
             ai.d = nd;
             if (nd <= targetD + 0.01f) { e.cleared = true; }
+        }
+
+        /// <summary>Stop (false) or restore (true) this kart's collisions with the other karts still racing.
+        /// Pairs with karts the crew has taken off are left ignored.</summary>
+        void SetKartCollisions(Entry e, bool on)
+        {
+            foreach (var c in e.kart.GetComponentsInChildren<Collider>())
+                foreach (var o in field)
+                    if (o != e && o.kart != null && !(on && (o.cleared || o.beingCleared || o.crewHelp)))
+                        foreach (var oc in o.kart.GetComponentsInChildren<Collider>()) Physics.IgnoreCollision(c, oc, !on);
+        }
+
+        /// <summary>
+        /// Track workers get a stuck kart going (Franklin): walk it clear of the tangle to the inside edge at walking
+        /// pace, straighten it up the track, pull-start it, and let it go once nobody is right beside it. Same
+        /// sanctioned scripted move as crew clearing (spec §8.4): walking pace, kinematic, not touching other karts
+        /// while it's moved. It then drives itself to the tail like any spun kart.
+        /// </summary>
+        void CrewAssist(Entry e, float dt)
+        {
+            var rb = e.kart.Body; var ai = e.ai;
+            if (!e.assistStarted)
+            {
+                // the worker for this end of the track takes the job when free, then walks out from the infield
+                if (e.worker < 0)
+                {
+                    float u = ai.s / w.track.N;
+                    int wk = Mathf.Abs(Mathf.DeltaAngle(u * 360f, cfg.workerPostU[0] * 360f)) <= Mathf.Abs(Mathf.DeltaAngle(u * 360f, cfg.workerPostU[1] * 360f)) ? 0 : 1;
+                    if (workerBusy[wk] != null && workerBusy[wk] != e) { e.assistWait += dt; return; }
+                    workerBusy[wk] = e; e.worker = wk;
+                    var fp = w.track.Frame(cfg.workerPostU[wk] * w.track.N);
+                    var post = fp.pos - fp.outN * (fp.halfWidth + cfg.workerBackFt * U.Ft);
+                    var fk = w.track.Frame(ai.s); var kp = fk.pos + fk.outN * ai.d;
+                    e.workerArrives = raceTime + Vector2.Distance(post, kp) / (cfg.crewWalkMph * U.Mph);
+                    Event($"CREW: the turns {(wk == 0 ? "1-2" : "3-4")} worker walks out to {Tag(e)} ({Vector2.Distance(post, kp) / U.Ft:F0} ft).");
+                }
+                if (raceTime < e.workerArrives) { e.assistWait += dt; return; }
+                e.assistStarted = true; rb.isKinematic = true; SetKartCollisions(e, false);
+            }
+            var f = w.track.Frame(ai.s);
+            float targetD = ai.LowLimit(f) + 0.3f;
+            float nd = Mathf.MoveTowards(ai.d, targetD, cfg.crewWalkMph * U.Mph * dt);
+            // Set it down the way a kart sits on this patch of the (banked) dirt: level with the surface, at its static
+            // ride height. Standing it level to the WORLD buried the low side in the bank, and every kart helped this
+            // way flipped as it was let go (soak 2026-11-16).
+            float g1 = w.track.SurfaceHeightSD(ai.s, nd);
+            float slope = (w.track.SurfaceHeightSD(ai.s, nd + 0.5f) - w.track.SurfaceHeightSD(ai.s, nd - 0.5f)) / 1.0f;
+            var outN3 = new Vector3(f.outN.x, 0f, f.outN.y);
+            var nrm = (Vector3.up - outN3 * slope).normalized;
+            var fwd = Vector3.ProjectOnPlane(new Vector3(f.tan.x, 0f, f.tan.y), nrm).normalized;
+            var sit = Quaternion.LookRotation(fwd, nrm);
+            var p = f.pos + f.outN * nd;
+            var ground = new Vector3(p.x, g1, p.y);
+            rb.MovePosition(ground + nrm * 0.03f); // same seat as a kart placed on the grid (World.SpawnKartAt)
+            rb.MoveRotation(Quaternion.RotateTowards(rb.rotation, sit, cfg.crewTurnDegPerSec * dt));
+            ai.d = nd;
+            if (Mathf.Abs(nd - targetD) > 0.01f || Quaternion.Angle(rb.rotation, sit) > 1f) return;
+            // pull-started: let it go once no kart is rolling by close alongside (the field queues up the track), and never
+            // while it overlaps anything. A parked kart nearby doesn't hold it forever (soak: a 400 s caution waiting on one).
+            e.assistWait += dt;
+            foreach (var o in field)
+            {
+                if (o == e || o.cleared || o.beingCleared || o.outOfRace) continue;
+                float dist = (o.kart.Body.position - rb.position).magnitude;
+                bool rolling = o.kart.ForwardSpeed > 2f * U.Mph;
+                if (dist < 1.6f || (dist < 2.5f && (rolling || e.assistWait < 8f))) return;
+            }
+            rb.isKinematic = false; rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero;
+            SetKartCollisions(e, true);
+            e.crewHelp = false; e.stoppedT = 0f; e.inIncident = false; ai.SnapTrafficOffsetToCurrent();
+            if (e.worker >= 0 && workerBusy[e.worker] == e) workerBusy[e.worker] = null;
+            Event($"CREW: {Tag(e)} pull-started and rolling{(e.assistWait > 0.5f ? $" ({e.assistWait:F0} s waiting on the worker / traffic)" : "")}.");
         }
 
         // ======================= CAUTIONS (spec 8.4; Franklin's rules logged 2026-11-15) =======================
@@ -1057,6 +1178,7 @@ namespace OKT
             {
                 if (e.beingCleared && !e.cleared) { notReady = $"crew clearing {Tag(e)}"; return false; }
                 if (e.recovering && !e.outOfRace) { notReady = $"{Tag(e)} still recovering"; return false; }
+                if (e.crewHelp) { notReady = $"track workers getting {Tag(e)} going"; return false; }
             }
             for (int i = 1; i < cautionQueue.Count; i++)
             {
@@ -1110,6 +1232,11 @@ namespace OKT
                     e.nextLine = (Mathf.Floor(e.ai.raceDist / L) + 1f) * L;
                     e.lastCross = raceTime; e.cleanThisLap = false; e.toTail = false; e.spotBack = false;
                     e.ai.formation = false; e.ai.SnapTrafficOffsetToCurrent();
+                    // Tires cooled under the yellow: they come in again, and some never fire off properly (Franklin).
+                    e.greenStartLap = e.lapsDone; e.restarted = true;
+                    if (rng.NextDouble() < cfg.tireNoRefireChance)
+                        e.refireMiss += cfg.tireNoRefireMin + (float)rng.NextDouble() * (cfg.tireNoRefireMax - cfg.tireNoRefireMin);
+                    RollLapPace(e);
                 }
                 var sb = new StringBuilder($"GREEN: restart after {raceTime - cautionStart:F0} s under caution. Order:");
                 for (int i = 0; i < cautionQueue.Count; i++) { var q = cautionQueue[i]; sb.Append($" {i + 1}.#{q.driver.number}(L{q.lapsDone}, next line {(q.nextLine - q.ai.raceDist) / U.Ft:F0} ft)"); }

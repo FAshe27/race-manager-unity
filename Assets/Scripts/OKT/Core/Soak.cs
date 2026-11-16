@@ -70,7 +70,7 @@ namespace OKT
             {
                 var e = order[i];
                 string st2 = e.finished ? $"{e.lapsDone}L" : e.outOfRace ? $"OUT-{e.outReason}" : $"{e.lapsDone}L running";
-                sb.Append($"{i + 1}. #{e.driver.number}({e.driver.tier[0]},g{e.gridPos + 1},{e.driver.axleTeeth}{(e.driver.tireNote.Length > 0 ? ",op" : "")}) {st2}  ");
+                sb.Append($"{i + 1}. #{e.driver.number}({e.driver.tier[0]},g{e.gridPos + 1},{e.driver.axleTeeth}{(e.driver.tireNote == "light prep" ? ",lp" : e.driver.tireNote == "over-prepped" ? ",op" : "")}) {st2}  ");
             }
             sb.AppendLine();
             // interval to the kart ahead (s) at each S/F crossing, top 6 finishers: does anybody close on the leader?
@@ -85,6 +85,22 @@ namespace OKT
                 float me = 0, ma = 0; for (int k = 1; k < n; k++) { me += e.laps[k]; ma += a.laps[k]; }
                 sb.AppendLine($"   (mean lap {me / (n - 1):F2} vs {ma / (n - 1):F2}; feature pace {e.driver.paceOffsetSec:+0.00} vs {a.driver.paceOffsetSec:+0.00})");
             }
+            // field mean lap time by green lap number (tires coming in / going off; cautions excluded by lap timing)
+            {
+                sb.Append("  field mean lap by lap#:");
+                for (int k = 0; k < 15; k++)
+                {
+                    float sum = 0; int cnt = 0;
+                    foreach (var e in d.field) if (e.laps.Count > k && e.lapClean.Count > k && e.laps[k] < 14f) { sum += e.laps[k]; cnt++; }
+                    if (cnt > 0) sb.Append($" {sum / cnt:F2}");
+                }
+                sb.AppendLine();
+            }
+            {
+                var off = new System.Text.StringBuilder();
+                foreach (var e in d.field) if (e.ai.offTrackSteps > 0) off.Append($" #{e.driver.number} {e.ai.offTrackSteps * World.FixedDt:F1}s");
+                if (off.Length > 0) sb.AppendLine("  off-track time:" + off);
+            }
             sb.Append("  clean-air best laps: ");
             foreach (var e in d.field)
             {
@@ -98,7 +114,7 @@ namespace OKT
             }
             sb.AppendLine();
             if (d.trace != null) sb.Append(d.trace);
-            foreach (var ev in d.events) if (ev.Contains("SPIN") || ev.Contains("FLIP") || ev.Contains("STOPPED") || ev.Contains("OUT:") || ev.Contains("WALL BREACH") || ev.Contains("CAUTION") || ev.Contains("TO THE TAIL") || ev.Contains("ONE TO GO") || ev.Contains("GREEN") || ev.Contains("GRID AT GREEN") || ev.Contains("before:") || ev.Contains("DIVE") || ev.Contains("dive ")) sb.AppendLine("  " + ev);
+            foreach (var ev in d.events) if (ev.Contains("SPIN") || ev.Contains("FLIP") || ev.Contains("STOPPED") || ev.Contains("OUT:") || ev.Contains("CREW") || ev.Contains("OFF TRACK") || ev.Contains("WALL BREACH") || ev.Contains("CAUTION") || ev.Contains("TO THE TAIL") || ev.Contains("ONE TO GO") || ev.Contains("GREEN") || ev.Contains("GRID AT GREEN") || ev.Contains("before:") || ev.Contains("DIVE") || ev.Contains("dive ")) sb.AppendLine("  " + ev);
         }
 
         public static string Summary(SoakStats st)

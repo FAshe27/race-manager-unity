@@ -43,7 +43,7 @@ namespace OKT
         public float nerfTopIn = 8f;                   // top tube height [TEST VALUE, from photos]
         public float rearBumperBehindIn = 12f;         // Franklin: ~12 in behind the rear tires
         public float rearBumperHalfWidthIn = 19.7f;    // [TEST VALUE, from photos]
-        public float rearBumperTopIn = 10f;            // top tube height [TEST VALUE, from photos]
+        public float rearBumperTopIn = 8f;             // Franklin (Pit Board 2026-11-15): ~8 in at the top; bottom ~1/2 in confirmed
 
         // ---- tires. Sizes (Franklin): LF 10.5x4.50-6, LR 11x6.00-6, RF/RR 12x9.00-6 — nominal labels.
         // ROLLING size = measured circumference at race pressure (book Ch 25/28, 6/5 psi): rights 34",
