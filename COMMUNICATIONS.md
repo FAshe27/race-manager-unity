@@ -2198,3 +2198,70 @@ M1 doesn't use.
   after 3 failed starts;
 - track-specific values moved into the track JSON: worker posts, grid spot, edge treatment, and a
   track picker.
+
+### 2026-11-16 13:31 CT — Franklin (recorded by Claude Code) — [M2] NOTE: playtest #3, clips, photos, aerials, rule answers
+
+**Racing feel** (with his Big O and Atoka clips):
+- **Starts:** "still backing off to let each other in line". Everyone goes at the green, and on a single-file
+  restart the line fans out two- and three-wide into turn 1 straight away. The outside starter tends to get
+  shuffled back.
+- **"Sterile":** the kart being passed never defends. It doesn't cover the inside or come down a little to make
+  the inside kart back out. Sometimes a defender "slams the door" and causes a wreck: his brother was in a
+  seven-kart wreck last month that way, with two karts upside down. Drivers who get blocked get annoyed and
+  give the blocker a push on the next entry.
+- **Outside passes** are very rare; Franklin has never made one.
+- **The crossover** (his Atoka clip): at the top of three-wide he dragged the brakes before entry, tucked into
+  the groove, and went under the two karts that slid up.
+
+**Surface:**
+- Off the groove is the loose stuff, with far less grip. Pit Board q17: an 11 s groove lap run two kart-widths
+  up becomes 12.5–14 s. It's like drifting, with no lateral bite and some wheelspin. Being shoved up in turn 1
+  cost him about 2 s.
+- His 13 Atoka photos show the groove as a black rubbered band, 8–10 ft wide, hugging the inside through the
+  turns. Everything else is light, loose dirt.
+
+**The track:**
+- Google Earth aerials: Atoka is much rounder than v3. The footprint is about 1.5× as long as it is wide, and
+  the groove "looks more like a circle than an oval".
+- The entrance sign says "1/8 mile clay oval".
+- Laps are 10.7–11.1 s, and he puts the lap average at 43–44 mph.
+
+**Rules (Pit Board):**
+- **q18, stopping the field under caution:** the field stops at the first corner worker. The worker has radio
+  contact with race control, is given the order, and points at each kart in turn; a kart pointed at goes and
+  paces, and that's its spot. A swap between just two karts is pointed out at pace speed instead. The field is
+  stopped only when several karts are mixed up, or someone won't give a spot back.
+- **q19, at-the-limit cornering:** "your call". It stays M4.
+
+**Field sizes:** Batesville (indoor) 16, Atoka 20 max, big tracks (Georgia Karting Komplex, Possum Kingdom) 30.
+
+### 2026-11-16 13:31 CT — Claude Code — [M2] STATUS: track v4 (m2-wip b1d426f); playtest #3 features parked
+
+**Track v4** (`Tools/build_track_v4.py`, `Assets/Data/test-track-one-v4.json`), from the aerials:
+- **Shape:** footprint aspect 1.5 (v3: 2.0); straights 90.5 ft; outside radius 90.5 ft; centerline still 660 ft.
+- **Groove:** an ellipse, high mid-straight and low at the apexes.
+- **Unchanged:** widths and barriers. The go line is remapped.
+- **Results:**
+  - M1 suite: laps 11.13 s, wall hits skim, 0 breaches. The wall-hit test now finds the back straight from
+    the corner table; the fixed u was in turn 2 on v4.
+  - Soak on the 4f4013d behaviour (seeds 8001–8010): 10/10, 0 breaches, 0.1 cautions, 0 spins.
+- **Watch item:** one contact flip at 8 mph after a 42 N·s touch in turn 1.
+- **Lap speed:** the sim averages about 40 mph on the centerline. Franklin's 43–44 mph would mean about a
+  10.3 s lap at 660 ft. That's for M4 at-the-limit cornering to close.
+
+**Playtest #3 features** (launch together, loose stuff, defending, annoyance, crossover tuck, lane changes) are
+built but **parked on branch `m2-playtest3-wip`**. All on together, they ran 1.3–1.5 cautions, 2–4 contact
+spins and 1–3 time caps per 10 races. Bisecting with a deterministic control (the soak repeats exactly):
+- **The launch alone** scrambles the field. Passes went from 23 to about 60 a race and contacts from 82 to
+  140, but contact spins stayed near 1.
+- **Time caps** come from cautions that can't re-sort the line. Variants of the caution and drop-back lanes
+  didn't fix it.
+- **Defending** pushed divers over the inside edge onto the ridge. Defenders now always leave a kart-width of
+  dirt.
+
+**Plan:**
+1. Build the field-stop procedure (q18), so a caution always ends.
+2. Re-add the parked features one at a time on v4, with a soak each.
+3. Soak at 20 karts (Atoka's real maximum).
+
+Each step gets a short follow-up REPORT.
