@@ -87,7 +87,10 @@ namespace OKT
                 float arc = a0 - row * race.rowGapFt * U.Ft;
                 float s = ArcToS(w.track, arc);
                 var f = w.track.Frame(s);
-                float dLane = (i % 2 == 0 ? -1f : 1f) * race.laneFrac * f.halfWidth;
+                // double file straddling the groove (Franklin's playtest 11-16), slid down off the wall like the pace lap
+                float half = race.sideRoomIn * U.In * 0.5f, edge = 0.6f;
+                float pc = Mathf.Clamp(f.LineOffset, -f.halfWidth + edge + half, f.halfWidth - edge - half);
+                float dLane = pc + (i % 2 == 0 ? -1f : 1f) * half;
                 var dc = new DriverConfig { pace = dp.paceFactor, lateralOffsetFt = dp.lateralOffsetIn / 12f };
                 var kp = w.SpawnKartAt(dp.number, dp.color, new KartSetup { axleTeeth = dp.axleTeeth }, dc, s, dLane);
                 var ai = w.drivers[w.drivers.Count - 1];

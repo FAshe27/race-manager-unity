@@ -68,8 +68,12 @@ namespace OKT
         [System.NonSerialized] public float laneFrac;        // lane centre as a fraction of half-width (+ = outside)
         // Formation on the groove (Franklin's playtest 11-16: pacing follows the groove, nobody drives the loose stuff):
         // 0 = single file on the groove, -1/+1 = inside/outside of a pair straddling it, NoGrooveLane = use laneFrac.
-        public const int NoGrooveLane = 99;
+        public const int NoGrooveLane = 99, DropLane = -9;
+        public const float DropLaneInM = 0.6f; // the drop-back lane: 2 ft off the inside edge, always below the caution line
         [System.NonSerialized] public int grooveLane = NoGrooveLane;
+        // How fully the driver allows for the loose stuff off the groove (0 = drives it at groove speed and slides up,
+        // 1 = backs off to what it holds). Set from consistency: green drivers overdrive it (Franklin's clip). [TEST VALUE]
+        [System.NonSerialized] public float looseAwareness = 0.8f;
         [System.NonSerialized] public float grooveLaneHalf = 0.635f; // half the pair's centre-to-centre spacing (m)
         [System.NonSerialized] public bool paceMode;         // drive the pace-speed profile, not racing speed
         [System.NonSerialized] public float paceStraight = 25f * U.Mph, paceCorner = 20f * U.Mph;
@@ -205,7 +209,11 @@ namespace OKT
             float dWant = formation ? laneFrac * tf.halfWidth : tf.LineOffset + off;
             if (formation && grooveLane != NoGrooveLane)
             {
-                if (grooveLane == 0) dWant = tf.LineOffset;
+                // single file on the groove, but kept ~6 ft off the inside edge so the drop-back lane fits underneath it
+                // (at the apexes the groove runs ~3.5 ft from the edge: droppers and the line crossed there, and slow karts
+                // nudged off the apex beached on the inside ridge -- 2-4 min cautions and time caps, soak 2026-11-16)
+                if (grooveLane == 0) dWant = Mathf.Max(tf.LineOffset, -tf.halfWidth + DropLaneInM + 1.3f);
+                else if (grooveLane == DropLane) dWant = -tf.halfWidth + DropLaneInM;
                 else
                 {   // the pair straddles the groove, slid down where the groove runs near the wall (both karts on the dirt)
                     float lo = LowLimit(tf) + grooveLaneHalf, hi = HighLimit(tf) - grooveLaneHalf;
@@ -256,6 +264,13 @@ namespace OKT
                     float rLine = rC + tf.LineOffset, rPath = rC + tf.LineOffset + offFromLine;
                     if (rPath < rLine && rPath > 1f) freeSpeed *= Mathf.Sqrt(rPath / rLine);
                 }
+            }
+            // the loose stuff: a corner off the groove holds sqrt(grip) of the speed (here and where I'm aiming)
+            if (!formation && tf.corner > 0.05f)
+            {
+                float gHere = track.GroundAtSD(s, d).grip, gThere = track.GroundAtSD(track.LineS(si0), dT).grip;
+                float g = Mathf.Clamp(Mathf.Min(gHere, gThere), 0.3f, 1f);
+                freeSpeed *= Mathf.Lerp(1f, Mathf.Lerp(1f, Mathf.Sqrt(g), Mathf.Clamp01(tf.corner * 2f)), looseAwareness);
             }
             targetSpeed = paceMode ? Mathf.Lerp(paceStraight, paceCorner, tf.corner) : freeSpeed;
             if (diving && !paceMode) targetSpeed *= divingSpeedFactor;
