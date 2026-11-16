@@ -89,13 +89,13 @@ namespace OKT
                 var f = w.track.Frame(s);
                 float dLane = (i % 2 == 0 ? -1f : 1f) * race.laneFrac * f.halfWidth;
                 var dc = new DriverConfig { pace = dp.paceFactor, lateralOffsetFt = dp.lateralOffsetIn / 12f };
-                var kp = w.SpawnKartAt(dp.number, dp.color, new KartSetup(), dc, s, dLane);
+                var kp = w.SpawnKartAt(dp.number, dp.color, new KartSetup { axleTeeth = dp.axleTeeth }, dc, s, dLane);
                 var ai = w.drivers[w.drivers.Count - 1];
                 ai.raceDist = arc - L; // grid sits before S/F: crossing it the first time = distance 0
                 w.director.Add(ai, kp, dp, i);
             }
             w.LogSetup();
-            w.Log($"Field: {w.drivers12.Count} karts, seed {seed}; grid (pace order): " + string.Join(", ", w.drivers12.ConvertAll(d => $"#{d.number} {d.tier} q+{d.qualiOffsetSec:F2} race+{d.paceOffsetSec:F2}{(d.qualiNote.Length > 0 ? " (" + d.qualiNote + ")" : "")}")));
+            w.Log($"Field: {w.drivers12.Count} karts, seed {seed}; grid (pace order): " + string.Join(", ", w.drivers12.ConvertAll(d => $"#{d.number} {d.tier} q+{d.qualiOffsetSec:F2} race+{d.paceOffsetSec:F2} 12/{d.axleTeeth}{(d.tireNote.Length > 0 ? " " + d.tireNote : "")}{(d.qualiNote.Length > 0 ? " (" + d.qualiNote + ")" : "")}")));
             return w;
         }
 

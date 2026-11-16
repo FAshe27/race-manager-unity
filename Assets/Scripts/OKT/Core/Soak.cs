@@ -70,9 +70,21 @@ namespace OKT
             {
                 var e = order[i];
                 string st2 = e.finished ? $"{e.lapsDone}L" : e.outOfRace ? $"OUT-{e.outReason}" : $"{e.lapsDone}L running";
-                sb.Append($"{i + 1}. #{e.driver.number}({e.driver.tier[0]},g{e.gridPos + 1}) {st2}  ");
+                sb.Append($"{i + 1}. #{e.driver.number}({e.driver.tier[0]},g{e.gridPos + 1},{e.driver.axleTeeth}{(e.driver.tireNote.Length > 0 ? ",op" : "")}) {st2}  ");
             }
             sb.AppendLine();
+            // interval to the kart ahead (s) at each S/F crossing, top 6 finishers: does anybody close on the leader?
+            float Cross(RaceDirector.Entry e, int k) { float t = e.lastCross; for (int j = e.laps.Count - 1; j >= k; j--) t -= e.laps[j]; return t; }
+            for (int i = 1; i < Mathf.Min(6, order.Count); i++)
+            {
+                var e = order[i]; var a = order[i - 1];
+                if (e.laps.Count < 2 || a.laps.Count < 2) continue;
+                sb.Append($"  P{i + 1} #{e.driver.number} interval to P{i} by lap:");
+                int n = Mathf.Min(e.laps.Count, a.laps.Count);
+                for (int k = 0; k <= n; k += 2) sb.Append($" {Cross(e, k) - Cross(a, k):F2}");
+                float me = 0, ma = 0; for (int k = 1; k < n; k++) { me += e.laps[k]; ma += a.laps[k]; }
+                sb.AppendLine($"   (mean lap {me / (n - 1):F2} vs {ma / (n - 1):F2}; feature pace {e.driver.paceOffsetSec:+0.00} vs {a.driver.paceOffsetSec:+0.00})");
+            }
             sb.Append("  clean-air best laps: ");
             foreach (var e in d.field)
             {

@@ -106,6 +106,24 @@ namespace OKT
         public float consistency;     // 0..100 (browser sim tiers: fast 75–95, mid 55–85, new 35–60)
         public float lateralOffsetIn; // personal offset from the groove
         public Color color;
+        // ---- the kart's night (Franklin, 2026-11-15: where a faster kart gains is "both, and neither").
+        // Gearing: shorter (more axle teeth) drives off the corner harder but goes gear bound and floats the valves at
+        // the end of the straight; taller is the reverse. Falls out of the engine model (power curve, KartSetup).
+        public int axleTeeth = 63;
+        // Tires: a little down until they come in, then a peak, then falloff as the prep is drawn out.
+        // An over-prepped set "starts well then gets loose midway" (book Ch 28). Grip multipliers on the kart's 1.3 g.
+        public float tireColdGrip = 1f;    // grip on green lap 1
+        public int tireWarmLaps = 1;       // laps to come in
+        public int tirePeakLaps = 99;      // laps at peak before falloff starts
+        public float tireFalloffPerLap;    // grip lost per lap after that
+        public string tireNote = "";
+        /// <summary>Tire grip multiplier on green lap n (0-based).</summary>
+        public float TireGrip(int lap)
+        {
+            if (lap < tireWarmLaps) return Mathf.Lerp(tireColdGrip, 1f, (float)lap / tireWarmLaps);
+            int past = lap - tireWarmLaps - tirePeakLaps;
+            return 1f - Mathf.Max(0, past) * tireFalloffPerLap;
+        }
     }
 
     public static class FieldGen
@@ -146,6 +164,26 @@ namespace OKT
                     color = Colors[i % Colors.Length],
                 });
             }
+            // The kart's night: gearing and tires, drawn from their own stream so the driver draws above don't move.
+            // [TEST VALUE] spreads, all pending Franklin. Book Ch 24: 12/63 is Franklin's gear, +-1 axle tooth = +-150 rpm.
+            var kr = new System.Random(seed * 31 + 5);
+            float K(float lo, float hi) => lo + (float)kr.NextDouble() * (hi - lo);
+            foreach (var d in list)
+            {
+                double g = kr.NextDouble();
+                d.axleTeeth = g < 0.10 ? 61 : g < 0.30 ? 62 : g < 0.70 ? 63 : g < 0.90 ? 64 : 65;
+                double t = kr.NextDouble();
+                if (t < 0.15)
+                {   // over-prepped: comes in at once, a touch more bite, gets loose midway
+                    d.tireColdGrip = 1f; d.tireWarmLaps = 1; d.tirePeakLaps = Mathf.RoundToInt(K(2f, 5f));
+                    d.tireFalloffPerLap = K(0.004f, 0.006f); d.tireNote = "over-prepped tires";
+                }
+                else
+                {
+                    d.tireColdGrip = K(0.96f, 0.99f); d.tireWarmLaps = Mathf.RoundToInt(K(1f, 3f));
+                    d.tirePeakLaps = Mathf.RoundToInt(K(3f, 9f)); d.tireFalloffPerLap = K(0f, 0.003f);
+                }
+            }
             list.Sort((a, b) => a.qualiOffsetSec.CompareTo(b.qualiOffsetSec)); // grid = qualifying order, no invert
             return list;
         }
@@ -170,7 +208,7 @@ namespace OKT
 
         public class Entry
         {
-            public KartAI ai; public KartPhysics kart; public DriverProfile driver; public int gridPos;
+            public KartAI ai; public KartPhysics kart; public DriverProfile driver; public int gridPos; public float baseGripG;
             public bool finished; public int finishPos; public float finishTime;
             public bool outOfRace; public string outReason;
             public int lapsDone;                  // green laps completed
@@ -205,11 +243,23 @@ namespace OKT
             float sigmaSec = cfg.lapSigmaSecAtZero * (100f - e.driver.consistency) / 100f;
             float baseLap = 11.03f;
             e.ai.cfg.pace = e.driver.paceFactor * baseLap / (baseLap + Gauss() * sigmaSec);
+            // Tires: the physics grip is set from the tire state, and the driver feels it — corner speed goes with
+            // the square root of grip, so his pace in the turns does too (straights are engine-limited regardless).
+            float tg = e.driver.TireGrip(e.lapsDone);
+            e.kart.setup.gripG = e.baseGripG * tg;
+            e.ai.cfg.pace *= Mathf.Sqrt(tg);
         }
+
+        /// <summary>Is a quicker than b where it counts? A pace edge, or (off a corner) a shorter gear with pace close.</summary>
+        bool Quicker(Entry a, Entry b, bool offCorner)
+            => NightPace(a) > NightPace(b) * cfg.fasterBy
+               || (offCorner && a.driver.axleTeeth > b.driver.axleTeeth && NightPace(a) > NightPace(b) * 0.995f);
+        /// <summary>The kart's pace right now: the driver's feature pace with his tires' state (no lap-to-lap wobble).</summary>
+        float NightPace(Entry e) => e.driver.paceFactor * Mathf.Sqrt(e.driver.TireGrip(e.lapsDone));
 
         public RaceDirector(World world, RaceConfig config, int seed = 0) { w = world; cfg = config ?? new RaceConfig(); L = w.track.centerLength; rng = new System.Random(seed * 7919 + 17); }
 
-        public void Add(KartAI ai, KartPhysics kart, DriverProfile d, int gridPos) => field.Add(new Entry { ai = ai, kart = kart, driver = d, gridPos = gridPos });
+        public void Add(KartAI ai, KartPhysics kart, DriverProfile d, int gridPos) => field.Add(new Entry { ai = ai, kart = kart, driver = d, gridPos = gridPos, baseGripG = kart.setup.gripG });
 
         void Event(string s) { events.Add($"[{raceTime:F1}s] {s}"); }
         public string Tag(Entry e) => $"#{e.driver.number} {e.driver.name}";
@@ -434,7 +484,7 @@ namespace OKT
                 // exit run: off the corner, faster on pace, carrying more speed than him, within a run's distance
                 // (pace compared like for like: free speed is read at each kart's own look-ahead point, and off a corner
                 // the follower's point is still further back in the turn, so he always looked slower than the leader)
-                bool run = !latched && ExitRun(ai) && ai.cfg.pace > ahead.ai.cfg.pace * cfg.fasterBy
+                bool run = !latched && ExitRun(ai) && Quicker(e, ahead, true)
                            && gapA < SettleGap(e, v, kartLen, true) + cfg.runRoomFt * U.Ft + 1f
                            && v > ahead.kart.ForwardSpeed + 0.2f;
                 if (run) { want = true; dbgRuns++; }
@@ -551,7 +601,7 @@ namespace OKT
             // ---- the push: nose on his bumper, a touch faster than him; when he drifts up and the bottom opens, dive
             e.pushCool = Mathf.Max(0f, e.pushCool - dt);
             if (!packed && !e.finished && ahead != null && !Hazard(ahead) && e.pushTarget < 0 && e.attackTarget < 0 && e.pushCool <= 0f
-                && e.driver.paceFactor > ahead.driver.paceFactor * 1.001f
+                && NightPace(e) > NightPace(ahead) * 1.001f
                 && gapA < SettleGap(e, v, kartLen, false) + 3f && EntryAhead(ai)
                 && rng.NextDouble() < e.driver.aggression * dt * 3.0)
             { e.pushTarget = field.IndexOf(ahead); e.pushT = 0f; dbgPushes++;
@@ -598,9 +648,11 @@ namespace OKT
                 float va = ahead.kart.ForwardSpeed;
                 // Packed start: hold the grid spacing (nose to tail). Otherwise: follow gap + time headway —
                 // shortened to striking distance when I'm faster on pace and want by.
-                bool wantBy = ai.cfg.pace > ahead.ai.cfg.pace * cfg.fasterBy && !Hazard(ahead);
+                bool wantBy = Quicker(e, ahead, true) && !Hazard(ahead);
                 float settle = packed ? cfg.rowGapFt * U.Ft : SettleGap(e, v, kartLen, wantBy);
-                if (wantBy && !packed && fr.corner > 0.5f) settle += cfg.runRoomFt * U.Ft; // time the run: a little room mid-corner
+                // (was: hold runRoomFt of extra room mid-corner to "time the run". With every Clone at the same top speed
+                // that parked a faster kart ~12 ft back for the whole race — a train car, never a threat. Soak 2026-11-15:
+                // P2 sat 0.28-0.33 s behind P1 for 15 laps. A faster kart closes to the bumper in the corner instead.)
                 // Bumper drafting (Franklin, 2026-11-15): "literally up against the bumper of other karts, pushing them
                 // down the straight", then lift slightly on entry so as not to spin him into the corner. On the
                 // straight a racer (faster, or aggressive enough) closes to bumper contact and leans on him; at
