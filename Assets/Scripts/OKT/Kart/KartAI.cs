@@ -71,6 +71,10 @@ namespace OKT
         public const int NoGrooveLane = 99;
         [System.NonSerialized] public int grooveLane = NoGrooveLane;
         [System.NonSerialized] public float grooveLaneHalf = 0.635f; // half the pair's centre-to-centre spacing (m)
+        // Pacing stays off the wall (Franklin, v4 playtest: the outside pace lane rode the backstretch wall where the
+        // groove runs high mid-straight). Daylight between the nerf bar and the rail, in inches. [TEST VALUE]
+        public const float PaceWallGapIn = 30f;
+        public float PaceHigh(in TrackFrame f) => Mathf.Min(HighLimit(f), f.halfWidth - kart.setup.FootRight - PaceWallGapIn * U.In);
         [System.NonSerialized] public bool paceMode;         // drive the pace-speed profile, not racing speed
         [System.NonSerialized] public float paceStraight = 25f * U.Mph, paceCorner = 20f * U.Mph;
         [System.NonSerialized] public float speedCap = float.PositiveInfinity; // traffic / check-up cap (m/s)
@@ -205,10 +209,10 @@ namespace OKT
             float dWant = formation ? laneFrac * tf.halfWidth : tf.LineOffset + off;
             if (formation && grooveLane != NoGrooveLane)
             {
-                if (grooveLane == 0) dWant = tf.LineOffset;
+                if (grooveLane == 0) dWant = Mathf.Min(tf.LineOffset, PaceHigh(tf));
                 else
                 {   // the pair straddles the groove, slid down where the groove runs near the wall (both karts on the dirt)
-                    float lo = LowLimit(tf) + grooveLaneHalf, hi = HighLimit(tf) - grooveLaneHalf;
+                    float lo = LowLimit(tf) + grooveLaneHalf, hi = PaceHigh(tf) - grooveLaneHalf;
                     float pc = lo < hi ? Mathf.Clamp(tf.LineOffset, lo, hi) : tf.LineOffset;
                     dWant = pc + grooveLane * grooveLaneHalf;
                 }

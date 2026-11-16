@@ -6,8 +6,9 @@
 // Rules carried over from the browser sim (js/sim.js), all Franklin's:
 //  - the PACE LAP holds the double-file grid formation; nobody accelerates to racing speed
 //    before the green; the green flies when the leader crosses S/F after the pace lap
-//  - START PACK: for the first ~4 s of a green, a kart with company close ahead cannot
-//    out-accelerate the kart in front of it (the field stays packed to turn one)
+//  - START (Franklin, 11-16): everyone goes at the green and a kart CAN out-accelerate the kart ahead -- that
+//    is the accordion push. Nobody pulls out to pass before the start/finish line (inside passes there are a
+//    penalty; outside ones are so rare they aren't modelled). After the line it's a scramble into turn 1.
 //  - passing is a LATCHED move (side chosen once), abandoned after ~3 s, with a cool-down;
 //    the offset arcs in/out at a capped rate (no slithering)
 //  - OCCUPANCY: a kart may not steer into a slot another kart holds; running alongside needs
@@ -31,7 +32,10 @@ namespace OKT
         public float gridLeaderU = 0.95f;          // front row: front straight, just past the grid entrance (top of T4) [TEST VALUE]
         public float rowGapFt = 6.3f;              // centre to centre: nose ~2.5 in off the kart ahead (Franklin: no daylight between karts in a line); kart 73.1 in (6.1 ft) nose to rear bumper [TEST VALUE]
         public float laneFrac = 0.16f;             // double-file lanes at ±0.16 half-width ≈ 53 in apart: the two lines nearly touching (Franklin) [TEST VALUE]
-        public float packedStartSeconds = 4f;      // browser sim (Franklin) [TEST VALUE]
+        public float packedStartSeconds = 4f;      // pass COUNTING only (soak metric continuity); lines are held to the S/F line now
+        public float launchSec = 3f;               // accordion: for this long after a green, close right up on the kart ahead [TEST VALUE]
+        public float launchLead = 0.4f;            // m/s over the kart ahead while closing up -- the push that runs up the line [TEST VALUE]
+        public float startRollMinMph = 15f, startRollMaxMph = 25f; // Franklin q24: the leader rolls the start at 15-25 mph, his choice
         // Traffic geometry [TEST VALUEs]
         public float alongsideFt = 7.1f;           // longitudinal window that counts as "alongside" (≈ kart length 6.1 ft + 1 ft)
         public float sideRoomIn = 50f;             // centre-to-centre side by side: nerfs are 51 in apart, so side by side means rubbing (Franklin: contact is commonplace) [TEST VALUE]
@@ -229,6 +233,9 @@ namespace OKT
         public RacePhase phase = RacePhase.Grid;
         public float phaseTime, raceTime, greenTime = -1f, firstGreenTime = -1f; // greenTime = latest green (restarts move it)
         public float greenMaxGapLaps = -1f, greenSpreadLaps = -1f; // packed start (spec §12.3), measured at the first green
+        // after the first green: karts with a kart alongside, and leader-to-last spread (ft), at fixed times (soak metric)
+        public static readonly float[] StartSampleSec = { 2f, 4f, 6f, 9f, 12f, 16f, 22f };
+        public readonly List<int> startAlongside = new List<int>(); public readonly List<float> startSpreadFt = new List<float>();
         public int cautions;            // cautions thrown this race (spec 8.4, pulled forward from M3 at Franklin's request)
         // ---- caution state
         readonly List<Entry> cautionBase = new List<Entry>(), cautionTail = new List<Entry>();
@@ -251,6 +258,7 @@ namespace OKT
             public bool outOfRace; public string outReason;
             public int lapsDone;                  // green laps completed
             public float lastCross = -1f;         // time of last S/F crossing during green
+            public bool preLine;                  // green, but hasn't reached the start/finish line yet: hold your line
             public float nextLine;                // next S/F distance to cross (0 = not yet set)
             public readonly List<float> laps = new List<float>();
             public readonly List<bool> lapClean = new List<bool>();
@@ -335,7 +343,13 @@ namespace OKT
             return best;
         }
 
-        public void Start() { phase = RacePhase.Pace; phaseTime = 0; Event("Field rolls off the grid — pace lap."); }
+        float startRollMph = 20f;
+        public void Start()
+        {
+            phase = RacePhase.Pace; phaseTime = 0;
+            startRollMph = cfg.startRollMinMph + (float)rng.NextDouble() * (cfg.startRollMaxMph - cfg.startRollMinMph);
+            Event($"Field rolls off the grid — pace lap. Leader will roll the start at {startRollMph:F0} mph.");
+        }
 
         /// <summary>Called every physics step before the AIs drive.</summary>
         public void PreStep(float dt)
@@ -344,7 +358,7 @@ namespace OKT
             float paceS = cfg.paceStraightMph * U.Mph, paceC = cfg.paceCornerMph * U.Mph;
             float kartLen = cfg.alongsideFt * U.Ft, room = cfg.sideRoomIn * U.In;
             bool green = phase == RacePhase.Green;
-            bool packed = green && raceTime - greenTime < cfg.packedStartSeconds;
+            bool launch = green && raceTime - greenTime < cfg.launchSec;
 
             // lane leaders for the pace formation
             foreach (var e in field)
@@ -370,6 +384,9 @@ namespace OKT
                         if (o == e || o.outOfRace || o.gridPos % 2 != e.gridPos % 2) continue;
                         float g = o.ai.raceDist - ai.raceDist; if (g > 0f && g < gap) { gap = g; ahead = o; }
                     }
+                    // the leader rolls the start at his chosen speed over the last third of the pace lap (Franklin q24)
+                    if (e.gridPos == 0 && ai.raceDist > GoLine - 0.35f * L)
+                    { ai.paceStraight = Mathf.Min(paceS, startRollMph * U.Mph); ai.paceCorner = Mathf.Min(paceC, startRollMph * U.Mph); }
                     if (ahead != null)
                     {
                         ai.speedCap = Mathf.Max(0f, ahead.kart.ForwardSpeed + 1.0f * (gap - cfg.rowGapFt * U.Ft));
@@ -410,7 +427,7 @@ namespace OKT
                     if (e.bobbleT > 0f) ai.speedCap = Mathf.Min(ai.speedCap, ai.freeSpeed * cfg.bobbleSpeedFactor);
                 }
                 ai.paceMode = e.finished;
-                Traffic(e, dt, kartLen, room, packed);
+                Traffic(e, dt, kartLen, room, green && e.preLine, launch);
             }
         }
 
@@ -429,7 +446,7 @@ namespace OKT
         // the whole field gridlocked (Franklin's video: karts thread through and it clears in seconds).
         bool Hazard(Entry o) => (o.outOfRace && !o.cleared) || o.inIncident || o.recovering || o.crewHelp || Unsettled(o);
 
-        void Traffic(Entry e, float dt, float kartLen, float room, bool packed)
+        void Traffic(Entry e, float dt, float kartLen, float room, bool packed, bool launch)
         {
             var ai = e.ai;
             float myD = ai.d, line = ai.LineOffsetHere, personal = ai.cfg.lateralOffset;
@@ -746,7 +763,7 @@ namespace OKT
                 // Packed start: hold the grid spacing (nose to tail). Otherwise: follow gap + time headway —
                 // shortened to striking distance when I'm faster on pace and want by.
                 bool wantBy = Quicker(e, ahead, true) && !Hazard(ahead);
-                float settle = packed ? cfg.rowGapFt * U.Ft : SettleGap(e, v, kartLen, wantBy);
+                float settle = SettleGap(e, v, kartLen, wantBy);
                 // (was: hold runRoomFt of extra room mid-corner to "time the run". With every Clone at the same top speed
                 // that parked a faster kart ~12 ft back for the whole race — a train car, never a threat. Soak 2026-11-15:
                 // P2 sat 0.28-0.33 s behind P1 for 15 laps. A faster kart closes to the bumper in the corner instead.)
@@ -760,7 +777,10 @@ namespace OKT
                 bool bumpDraft = !packed && !e.finished && straightNow && !Hazard(ahead)
                                  && (wantBy || e.driver.aggression > cfg.bumpDraftAggression);
                 if (bumpDraft) { settle = bumperLen + 0.02f; dbgBumpDraft++; }
-                float cap = va + cfg.followGain * (gapA - settle) + (bumpDraft ? cfg.bumpLean : 0f);
+                // the accordion (Franklin): off the green everyone's on the gas and closes right up on the kart ahead
+                bool accordion = launch && !Hazard(ahead);
+                if (accordion) settle = Mathf.Min(settle, bumperLen + 0.3f);
+                float cap = va + cfg.followGain * (gapA - settle) + (bumpDraft ? cfg.bumpLean : 0f) + (accordion ? cfg.launchLead : 0f);
                 // Never demand far below the kart ahead's speed unless contact is imminent — a check-up eases
                 // back to his pace; it doesn't collapse (a hard cap cascaded the whole field to a stop).
                 // "Imminent" = within a few inches of his bumper (was 1.6 ft of air, which kept everyone off each other).
@@ -768,18 +788,8 @@ namespace OKT
                 cap = gapA > touch ? Mathf.Max(cap, va * 0.85f) : Mathf.Min(cap, va * 0.7f);
                 ai.speedCap = Mathf.Min(ai.speedCap, Mathf.Max(0f, cap));
             }
-            // ---- start pack: nobody out-accelerates the kart in front off the green
-            if (packed)
-            {
-                Entry front = null; float gf = float.MaxValue;
-                foreach (var o in field)
-                {
-                    if (o == e || o.outOfRace) continue;
-                    float g = o.ai.raceDist - ai.raceDist;
-                    if (g > 0f && g < 6f && g < gf) { gf = g; front = o; }
-                }
-                if (front != null) ai.speedCap = Mathf.Min(ai.speedCap, front.kart.ForwardSpeed + 0.15f);
-            }
+            // (the old start-pack chain cap -- nobody out-accelerates the kart ahead for 4 s -- is gone: Franklin, 11-16,
+            // "they can in real life! That's where that accordion push comes from." It strung the field out.)
         }
 
         float AbandonSec(Entry e) => (e.attackRun ? cfg.runAbandonSec : cfg.passAbandonSec) * (1f + 0.5f * (Urgency(e) - 1f));
@@ -870,9 +880,22 @@ namespace OKT
                     greenSpreadLaps = ds.Count > 1 ? (ds[0] - ds[ds.Count - 1]) / L : 0f;
                 }
                 Event($"GREEN FLAG — {Tag(lead)} leads them to the line.");
-                foreach (var e in field) { e.lastCross = -1f; e.ai.SnapTrafficOffsetToCurrent(); }
+                foreach (var e in field) { e.lastCross = -1f; e.preLine = true; e.ai.SnapTrafficOffsetToCurrent(); }
             }
 
+            if (firstGreenTime >= 0f && startAlongside.Count < StartSampleSec.Length && raceTime - firstGreenTime >= StartSampleSec[startAlongside.Count])
+            {
+                int n = 0; float hi = float.MinValue, lo = float.MaxValue;
+                foreach (var e in field)
+                {
+                    if (e.outOfRace) continue;
+                    hi = Mathf.Max(hi, e.ai.raceDist); lo = Mathf.Min(lo, e.ai.raceDist);
+                    float bl = e.kart.setup.FootFront + e.kart.setup.FootRear;
+                    foreach (var o in field)
+                        if (o != e && !o.outOfRace && Mathf.Abs(Gap(o, e)) < bl && Mathf.Abs(o.ai.d - e.ai.d) > cfg.sideRoomIn * U.In * 0.5f) { n++; break; }
+                }
+                startAlongside.Add(n); startSpreadFt.Add((hi - lo) / U.Ft);
+            }
             foreach (var e in field)
             {
                 var ai = e.ai;
@@ -903,7 +926,7 @@ namespace OKT
                     {
                         if (phase == RacePhase.Caution) { e.nextLine += L; continue; } // caution laps don't count (Franklin)
                         if (e.lastCross >= 0f) { e.laps.Add(raceTime - e.lastCross); e.lapClean.Add(e.cleanThisLap); e.lapsDone++; }
-                        e.lastCross = raceTime; e.cleanThisLap = true; e.nextLine += L;
+                        e.lastCross = raceTime; e.cleanThisLap = true; e.nextLine += L; e.preLine = false;
                         RollLapPace(e);
                         if (phase == RacePhase.Checkered && !e.finished) Finish(e);
                         else if (phase == RacePhase.Green && e.lapsDone >= cfg.featureLaps && !e.finished)
@@ -1368,7 +1391,7 @@ namespace OKT
                     int lapsDown = Mathf.FloorToInt((lead.ai.raceDist - e.ai.raceDist) / L + 0.25f);
                     e.lapsDone = Mathf.Max(0, lead.lapsDone - lapsDown);
                     e.nextLine = (Mathf.Floor(e.ai.raceDist / L) + 1f) * L;
-                    e.lastCross = raceTime; e.cleanThisLap = false; e.toTail = false; e.spotBack = false;
+                    e.lastCross = raceTime; e.cleanThisLap = false; e.toTail = false; e.spotBack = false; e.preLine = true;
                     e.ai.formation = false; e.ai.SnapTrafficOffsetToCurrent();
                     // Tires cooled under the yellow: they come in again, and some never fire off properly (Franklin).
                     e.greenStartLap = e.lapsDone; e.restarted = true;
