@@ -1769,3 +1769,209 @@ is waved off if the pole jumps it. Live axle: matches the model (one axle, mean 
   (Pit Board q12–q14).
 - Cautions with several stuck karts run 2–3 min. Real?
 - The flipped-kart red flag (WKA procedure is known now) is an M3 item.
+
+### 2026-11-16 07:49 CT — Claude Code — [M2] REPORT: A race
+
+Code: branch **m2-wip** (004b419). Muse, please audit against M2 as you re-scoped it on 11-15:
+the spec's M2, plus the M3 pieces Franklin pulled forward. **One item is still open: the
+nose/rear-bumper split**, which waits on Franklin's tape measure (below). It is a collider
+dimension, not race logic, and the audit doesn't need to wait for it.
+
+**What was built** (`Assets/Scripts/OKT`):
+- **Race director** (`Core/RaceDirector.cs`), spec §8:
+  - Phases: grid → pace → green → caution ↔ green → checkered → done.
+  - Positions by distance; laps count only under green.
+  - A 12-kart field from browser-sim tiers. The grid comes from qualifying pace.
+- **Start** (Franklin, 11-14 22:45): double file, nose to tail and nerf to nerf, with one pace
+  lap at 20–25 mph. The outside row holds alongside its partner. The green flies at the go
+  line (the red line in turn 4). For 4 s after the green, no kart out-accelerates the kart
+  in front, so the field arrives packed.
+- **Traffic AI** (`Kart/KartAI.cs` and the director):
+  - Speed slots and following: nose to tail, about 1 ft + 0.03 s.
+  - The groove is defended: the line is occupied, and a kart goes around or checks up.
+  - Side by side at nerf contact.
+  - Passing is Franklin's model:
+    - the bumper push: nose on the bumper, he enters 1.5 mph hot and slides up;
+    - the dive to the inside;
+    - the exit run;
+    - conceding the inside once overlapped.
+  - Bump drafting on the straights. Throttle feathering in a power slide.
+  - `LowLimit` keeps 2–6 in off the inside ridge.
+- **Per-kart pace sources** (Franklin: "both, and neither"):
+  - Gearing: 12/61–65 around 12/63, through the existing engine curve.
+  - Tires: they come in over 2–3 laps, then light prep falls off, over-prepped tires lock down,
+    and a caution cools them. All of it is modelled as lap-time fractions, and the physics grip
+    follows the same state.
+- **Contact** (pulled forward, Franklin's (B) of 11-15 00:40):
+  - Rigid-body contact between real colliders: frame tubes, bumpers, side panels, nose.
+  - Wheel rays see the track only.
+  - Per-tire spring force is capped at 900 lbf.
+  - Each tire reads its whole tread as 3 rays, averaged.
+  - Body panels and nose: fiberglass, μ 0.15, rounded bottom edges.
+  - The kart is WKA-legal: 73.1 × 49.9 in.
+- **Cautions** (pulled forward, Franklin's DECISION of 11-15):
+  - When one is thrown: a stopped kart on track, a spin in a pack, or a flip. A lone self-spin
+    that recovers stays green.
+  - The order is the running order from about 2 s before. The causer goes to the tail; spinners
+    and karts stopped in the crash go to the tail; in a clear rear-ender the victim keeps the spot.
+  - Position changes happen only by driving: a kart drops low at 12 mph to let the field by.
+  - Catch-up at pace + 5 mph.
+  - Restart: a verified queue, one to go, bunched up, green at the go line.
+  - Caution laps don't count.
+- **Recovery and clearing** (pulled forward):
+  - A spun kart drives itself out and to the tail.
+  - A flipped kart, or one that can't get going twice, is out. The crew walks it to the infield
+    at walking pace, and it ignores other karts while moved (spec §8.4).
+  - **New since the last audit, please judge:** two infield workers (posts mid-turns 1–2 and
+    3–4, 10 ft back). They walk out to an upright kart that's stuck, walk it to the inside edge,
+    straighten it, set it down level with the banked surface, and pull-start it. A driver
+    left waiting 15 s on a busy worker does the same himself. This uses the same kinematic
+    walking-pace move as crew clearing (spec §8.4), extended to karts that rejoin. Franklin
+    described exactly this ("infield workers help get karts separated; drivers hop out; engines
+    have pull-starts"). It is the only scripted motion besides clearing, and it never moves a
+    kart along the track to a new running position. If you read it as a teleport-rule
+    problem, say so.
+- **SOAK logger** (your 11-14 request), `Core/Soak.cs` + `Editor/M2Soak.cs`. Per race it records:
+  - cautions, wall breaches (band check every physics step), incidents and DNFs;
+  - passes, contacts, and contact vs self spins and flips;
+  - the packed-start gap at the green (new today, §12.3);
+  - P2–P6 intervals by lap, and field mean lap by lap number;
+  - off-track time;
+  - clean-air best lap per kart, and the finish order with gear and tire tags;
+  - the incident event log with forensics.
+- **HUD:** Start race, Reset, New field, pause/1×/2×, live positions and laps.
+
+**How to run:**
+- **A race:** `OKT > Open M1 Scene`, then Play, then **Start race**. **New field** rolls new
+  drivers.
+- **Soak:** use the menu `OKT > Run M2 Soak (10 races, headless)`, which writes `soak-results.txt`.
+  For batch runs:
+
+  ```
+  Unity -batchmode -nographics -quit -projectPath <proj> -executeMethod OKT.EditorTools.M2Soak.Run -okt-races 10 -okt-seed 8001 -okt-out soak.txt
+  ```
+- **M1 suite** (still passing): `OKT > Run M1 Headless Test`.
+
+**10-race soak** (seeds 8001–8010, 12 karts, 15 laps, 120 Hz, corner factor 0.30, today's code):
+
+| | Result | Target |
+|---|---|---|
+| Completed | **10/10**, 0 DNFs | all |
+| Wall breaches | **0** | 0 (§12.1) |
+| Flips | **0** | about 1 in 40–50 races (Franklin) |
+| Cautions | **0.2 a race** (2, both cycled and restarted) | 0–2 (§12.7) |
+| Contact spins | 0.2 a race | about 1 (Franklin) |
+| Contacts | 30.4 a race (hard 1.1) | "a contact sport" |
+| Passes | 22.2 a race; mean positions moved vs grid 1.6 | |
+| Winners' grid spot | 1, 1, 2, 1, 1, 3, 1, 1, 1, 2 | top karts often win |
+| Winners' feature-pace rank | 1, 1, 5, 1, 3, 2, 1, 1, 3, 1 | |
+| Packed start, largest consecutive gap at the green | 0.0184–0.0197 laps (12.1–13.0 ft centre to centre) | ≲ 0.02 (§12.3) |
+| Clean-air best laps | 53 karts, mean 11.33 s, range 11.08–11.93 s | 10.5–11.5 (§12.7) |
+| Field mean lap by lap number (typical race) | 11.9 → 11.6 → 11.4, then about 11.35–11.5 | Franklin's 11.0 → 10.8 → 10.65 shape |
+
+Full output (per race: finish order with gear and tire tags, intervals, every incident) is in
+`soak-results.txt` from the command above, with seeds 8001–8010.
+
+Earlier soaks: 20/20 with 0 breaches, 0 DNFs and 0 flips on 074f9cb (seeds 7001–7020), and
+20/20 with 0 breaches on the pre-body code (seeds 6001–6020). Over those soaks, contact
+spins ran 0.2–0.8 a race and passes 18.5–21.8.
+
+**M1 suite on the M2 code:** laps 11.13–11.14 s on normal and poor prep (35.5–44.4 mph). The scale reads nose 45.7%,
+left 58.9%, cross 65.0%. The footprint is 50.0 × 73.1 in. 0 breaches, 0 scraping, upside-down never.
+Drive-over: the 0.64 in rise (1.27 in on poor prep) is crossed with a wheel briefly unloaded, and
+there's no air. Wall hits at 6–9° skim: 0.2–0.3 s on the rail, back to speed, 0 breaches.
+
+**Acceptance checks (§12) as they stand:**
+
+1. **Wall integrity:** 0 breaches in this soak and the 20-race soak before it (seeds 7001–7020), and none since the turn-2 fix on 11-15.
+   Passes.
+2. **The groove is defended:** traffic logic treats the line as occupied, and a kart goes around or
+   checks up. It's judged by watching; there's no soak metric. Franklin's playtest.
+3. **Packed start:** 0.018–0.020 laps. Passes, but only just: rows open from 6.3 ft at the grid
+   to about 12 ft at the green. Watch it if pace-lap speed changes.
+4. **The spin sequence:** both cautions in the soak followed it. The spinner was sent to the
+   tail (one needed the turn-3–4 worker), the restart waited for the queue, and the race finished.
+5. **The flip sequence:** the logic is in place (caution, kart out, crew clears it). No flips in
+   the last 30 soak races to exercise it. A forced-flip debug button is still M3 (§10).
+6. **The surface is honest:** the M1 suite holds on the M2 code (above).
+7. **Race shape:** every race finishes, and cautions run 0.2 a race. Clean-air bests average
+   11.33 s, inside the band, but 8 of 53 karts are slower than 11.5 (new and mid-tier drivers),
+   and the fastest kart runs 11.08 against Franklin's 10.6–10.7. **Lap-time tuning is M4.**
+8. **Four-wide:** 4 karts take 16.7 ft against a 27 ft narrowest surface. Fits.
+
+**[TEST VALUE]s.** 111 are stamped in code. `grep -rn "TEST VALUE" Assets/Scripts` lists every one,
+with its source in the comment. The ones M2 added, grouped:
+- **Start:**
+  - pace 25 mph on the straights, 20 mph in the corners;
+  - row gap 6.3 ft centre to centre;
+  - lanes ±0.16 of the half-width (about 53 in apart);
+  - packed start 4 s;
+  - grid leader at u 0.95.
+- **Traffic:**
+  - follow gap 1 ft + 0.03 s headway; follow gain 1.5;
+  - side by side 50 in centre to centre;
+  - pass starts within 11 ft centre to centre, holds within 16 ft, abandons after 3 s, cooldown 2.5 s;
+  - faster-by 0.5%;
+  - push +0.7 m/s, maximum 3 s; the pushed kart drifts 0.9 m for 1.2 s;
+  - concede when overlapped by 5 ft: drop 0.6 m/s for 1.2 s;
+  - run room 4 ft, run abandon 5 s;
+  - bump-draft aggression 0.45, lean 0.3 m/s;
+  - merge rates 2.5 m/s free, 1.0 m/s in traffic;
+  - crawl 4 mph;
+  - hazard 30° or 1.8 rad/s, looking 2 s ahead;
+  - attack boost 0 (off);
+  - feather from 6° to 16° of slip;
+  - inside-edge margin 2–6 in; berm buffer 4 in.
+- **Caution:**
+  - catch-up pace + 5 mph (Franklin);
+  - queue gap 4 ft; bunch-up gap 0.5 ft;
+  - drop-back lane −0.55;
+  - minimum 15 s;
+  - "in a pack" within 1.5 s;
+  - recover maximum 12 s; stopped 3 s; DNF when stopped 15 s;
+  - spin at 75°;
+  - crew walk 3 mph, turn 45°/s;
+  - workers 10 ft back at u 0.25 and 0.75; self-help after 15 s.
+- **Pace:**
+  - gears 61/62/63/64/65 at 10/20/40/20/10%;
+  - tires 4.0–5.0% cold, warm over 2–3 laps;
+  - light prep 25% (holds 4–8 laps, then loses 3–5% over 3–5 laps);
+  - over-prepped 20% (0.5–1.5% slow);
+  - after a caution, 60% of the cold penalty returns, and 30% of sets don't refire (+0.5–1.5%).
+- **Body:**
+  - panels ¼ in outside the tires, from ½ in to 14 in, 0.75 in thick;
+  - nose 13 in ahead of the fronts, 2–10 in tall;
+  - rear bumper 8 in behind the rears;
+  - μ 0.15;
+  - tire force cap 900 lbf; tire-body friction 0.35; depenetration 1.5 m/s.
+
+**Deviations from spec, with reasons:**
+1. **Scope:** M2 carries M3's contact stability, cautions, spin recovery and crew clearing, by
+   Franklin's rulings (your 11-15 11:22 note). It also carries infield-worker assists, the same
+   kind of walking-pace move.
+   **Still M3:**
+   - deliberate contact as a judged system (the clean ↔ dirty trait);
+   - causer rulings beyond the to-the-back rules;
+   - the flipped-kart impulse cap;
+   - the WKA red flag for an inverted kart. A flip throws a caution and the kart is out.
+2. **Kart dimensions:** WKA (Technical Manual 401.5/401.6/404/409) overrides the spec's
+   1.80 × 1.35 m box, per Franklin ("WKA sets the rules"). Rear track 42.0 in.
+3. **Tire contact:** 3 rays per tire, averaged across the tread, not one centre ray. One ray let
+   the nerf tube find the inside ridge first and roll the kart (11-16 overnight entry).
+4. **Wheel rays see only the track,** and tire spring force is capped. Rays standing on other
+   karts made tens of kN and launched karts over the rail (11-15 00:30 STOP-AND-REPORT).
+5. **Physics runs at 120 Hz** (the M1 change; spec 60 Hz).
+6. **The grid comes from qualifying pace,** which can differ from feature pace. Franklin: passes
+   come from out-of-position karts.
+
+**Open:**
+- **Franklin's tape measure** (Pit Board q12–q14, today): how the 74 in length splits between
+  nose and rear bumper, and panel height.
+  - His race photo already shows the rear bumper's low bar at about axle height, matching
+    WKA 409.3 as modelled.
+  - The front bumper sits inside the nose, as modelled.
+- **Contact spins** run 0.2–1.2 a race across soaks, against Franklin's target of about 1.
+- **Cautions with several stuck karts last 2–3 min.** Franklin (today): "2-3 minute cautions
+  sounds about right".
+
+M2 stops here pending your AUDIT and Franklin's playtest verdict. Code stays on m2-wip until both are in.
