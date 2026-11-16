@@ -1607,3 +1607,97 @@ or dive does the rest.
   wheel climbing. Not a wall breach, but too frequent against Franklin's flip rates (0–2 in
   300 starts).
 - Contact spins are still under target.
+
+### 2026-11-16 — Claude — [M2] STATUS (overnight): side-tips closed, Franklin's tires, pit-board answers built in (m2-wip 0581935, 781e514)
+
+**New channel: the Pit Board.** Franklin can't see the local desktop chat on his phone, so domain
+questions now go to a private claude.ai page he answers from his phone. Open questions sit on top
+and answered ones fold up underneath. Eight were answered last night; their answers are built in below.
+
+**1. Side-tips (open item from b1574b4): CLOSED (0581935).** Forensics, no other kart involved:
+- At the T3/T4 apex the groove runs only about 3.7 ft from the inside edge. An inside pass aimed
+  about 4 ft below it, and pure pursuit plus a 16° slide carried the left side over the edge.
+- There the ½ in nerf tube met the 3 in loose ridge. One centre ray per tire never felt the ridge,
+  so the tube was the first thing to touch it. It stopped dead (30 → 17 mph) and rolled.
+- Fix, physics: each tire now feels its whole tread, as three rays (centre and both edges) with
+  the squash averaged. A ridge under one edge lifts the tire up it, as a real tire would.
+  Highest-point-wins was tried first: on the bank a 9 in right tire's edges sit about 0.7 in apart
+  against 0.15 in of sag, and it slid a kart into the wall in the M1 drive-over test.
+- Fix, AI: `KartAI.LowLimit` keeps 2 in (straights) to 6 in (corners) off the inside edge
+  [TEST VALUE].
+- Franklin: the 3 × 18 in ridge is right. Karts try not to touch it. If they do, it lifts the left
+  side and the kart pushes up the track. Side-tips with no other kart involved: "exceptionally
+  rare". Since the fix: 0 in 40+ soak races.
+
+**2. Tires to Franklin's lap times (781e514).** Lap 2 ~11.0, lap 3 ~10.8, then 10.6–10.7 depending
+on prep, and once tires fall off they can lose half a second. Modelled as lap-time fractions over
+the kart's peak, so it carries over when the sim's laps come down (grip = pace², so the physics and
+the driver agree):
+- **Coming in:** green lap 1 is 4.0–5.0% off peak, and the tires come in over 2 or 3 laps.
+- **Prep:**
+  - Properly prepped (55%): last the race.
+  - Light prep (25%): burn off after 4–8 laps and lose 3–5% (0.3–0.5 s) over 3–5 laps.
+  - Over-prepped (20%): locked down, 0.5–1.5% slow all race.
+- **Cautions:** the tires cool, so a restart brings back 60% of the cold penalty, and 30% of sets
+  don't refire (+0.5–1.5%).
+- Odds and sizes are [TEST VALUE].
+- **Soak check:** field mean laps run about 11.9 on lap 1 (rolling start), then 11.6, 11.4, and
+  about 11.3 from lap 4. That is the same shape as Franklin's 11.0 → 10.8 → 10.65.
+
+**3. Pileups: infield workers (781e514).** Franklin:
+- "Infield track workers typically help get any karts separated. Drivers will often hop out of
+  their own kart to move when stuck. The engines have attached pull-starts too."
+- There are two workers, one covering turns 1–2 and one covering turns 3–4, about 10 ft off the
+  racing surface.
+
+So a kart that's upright but can't get going is no longer out:
+- **The walk out:** the worker for that end walks out at walking pace, from the post to the kart.
+  One kart per worker at a time.
+- **The assist:** the worker walks the kart to the inside edge and straightens it at walking pace.
+  The kart is kinematic and doesn't touch other karts while it's moved, the same sanctioned move as
+  crew clearing (spec §8.4).
+- **Setting it down:** it's seated level with the banked surface. Seating it level to the world
+  buried the low side, and every assisted kart flipped on release. Caught in the soak and fixed
+  before commit.
+- **Release:** it's pull-started once rolling traffic has passed, never waiting forever (an early
+  version waited 400 s on a parked kart; also fixed before commit). It then drives to the tail.
+- **Second time:** a second "can't get going", or a kart upside down, is still out.
+
+Result on the seeds that had 6 pileup DNFs (soak 4001–4010): 0 DNFs, 0 flips, 0 breaches, with
+both stuck karts helped and back in the race. Cautions with a worker run 78–92 s.
+
+**4. Other answers built in:**
+- Rear bumper top 8 in (bottom ½ in confirmed).
+- Gear spread: "within a tooth or two" on the rear matches the 12/61–65 draw. Karts on 11- or
+  13-tooth clutches change the rear to match, so ratios stay close. No change needed.
+
+**Soak tooling added:**
+- Field mean lap by lap number.
+- Per-kart off-track time and the first OFF TRACK event.
+- CREW events.
+- Spin forensics under caution too.
+
+**Next (planned, not started): body panels.** Franklin: every Clone runs a full body (nose,
+side panels, tail). The side panels sit about ½ in off the ground, and in side-by-side contact the
+panels are what touch. The sim kart is a bare chassis, so rubbing happens through tires and nerf
+tubes, and tires catching tires is the likeliest source of the remaining contact launches. Plan:
+- Add a nose shell and side-panel colliders (smooth plastic, low friction, round bottom edge so
+  they ride up a lip rather than catch it). Tires stay inboard of the panels.
+- Measurements needed first go on the Pit Board: nose length and width, panel height and width.
+- Then re-soak contact counts and spins. Contact spins have been 0.0–1.2 a race against a
+  target of about 1.
+
+**Confirmation soak (20 races, fresh seeds 6001–6020, all of the above):**
+- 20/20 completed; 0 wall breaches.
+- Passes 18.5 a race; mean positions moved vs the grid 1.7.
+- Pole won 15/20, mostly when it was also the fastest kart (winners' feature-pace rank: 1–3 in
+  18 of 20).
+- Contacts 23 a race; contact spins 0.2 (target about 1).
+- One kart helped by a worker and back in the race.
+- **2 contact flips** (about 1 in 120 starts, against Franklin's family's 0–2 in 300), both kart on
+  kart:
+  - #21 was squeezed against the outside rail during an outside attack, then flipped at 33 mph
+    after a bump.
+  - #13 was rear-ended hard (1,145 N·s) while pulling away from the rail at 7 mph.
+  Both look like tire-on-tube climbing, which the body-panel work should address: panels take
+  the side contact, and the 8 in rear bumper loop takes the rear. Keeping them open until then.
