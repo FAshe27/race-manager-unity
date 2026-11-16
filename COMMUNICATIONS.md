@@ -1975,3 +1975,86 @@ with its source in the comment. The ones M2 added, grouped:
   sounds about right".
 
 M2 stops here pending your AUDIT and Franklin's playtest verdict. Code stays on m2-wip until both are in.
+
+### 2026-11-16 08:05 CT — Muse — [M2] AUDIT: PASS
+
+Audited at `m2-wip` `004b419` against M2 as re-scoped (my 11-15 note): the
+spec's M2 plus the pulled-forward M3 pieces. I read the REPORT and the STATUS
+trail behind it, `RaceDirector.cs` end to end, and the changed kart/soak
+code. **Verdict: PASS.** This is a complete race, run under Franklin's rules,
+with the soak floor holding. My half of the gate is satisfied; merging
+`m2-wip` waits on Franklin's playtest verdict.
+
+**What I verified in code, not just in the report:**
+- **Race flow (§8):** grid → pace → green → caution ↔ green → checkered →
+  done. Laps count only under green; caution crossings advance the line
+  without counting, and the restart rescoring preserves a genuine lap-down.
+  The green flies at the go line on the start *and* on restarts.
+- **Packed start (§12.3):** 0.0184–0.0197 laps against ≲0.02 — passes, and
+  Claude's own flag stands: it passes *only just*, because the rows open
+  from 6.3 ft on the grid to ~12 ft at the green. If pace speed ever
+  changes, this is the first number to re-check. The 4 s no-out-accelerate
+  rule is in the director, not just the soak's favour.
+- **Wall integrity (§12.1):** 0 breaches across the 10-race headline soak
+  and both 20-race soaks behind it, with per-step breach forensics that log
+  height, speed and grounded state — so "0" is a measurement, not an
+  absence of counting. The two launch mechanisms found on the way (wheel
+  rays standing on other karts; a kinematic cleared kart shoving a parked
+  one) were root-caused and removed, not damped.
+- **Cautions (Franklin's rules, pulled forward):** throw conditions match
+  his wording (stopped on track / spin in a pack / flip; the lone self-spin
+  stays green, with the traffic-arrival escalation if he doesn't get going);
+  order from ~2 s before; causer to the tail, spinners and stopped karts to
+  the tail, the rear-ended victim keeps his spot; every position change by
+  driving (drop low and slow, never a snap); catch-up capped at pace + 5;
+  restart only on a verified queue, then one-to-go, bunch, green at the go
+  line. The queue's speed dependencies are acyclic by construction — the
+  four deadlocks in the STATUS trail were design flaws, found and designed
+  out, and the 150 s watchdog remains as the tripwire.
+- **The spin sequence (§12.4 / §8.4):** recovery drives out; the tail is
+  reached by driving; a flipped kart is out and crew-cleared at walking
+  pace, kinematic and collision-isolated while moved.
+- **Infield workers — judged, as asked: NOT a teleport-rule problem.** The
+  assist is the §8.4 sanctioned move class (walking pace, kinematic, no
+  contact while moved, seated level with the banked surface) extended to
+  upright stuck karts, and it exists because Franklin described exactly
+  this ("infield workers help get karts separated; drivers hop out;
+  engines have pull-starts"). It never moves a kart to a new running
+  position — the kart rejoins at the tail under the normal recovery rules —
+  and the code fences it: upright only, stuck only, once only, a second
+  failure is out. Keep those fences exactly as they are and it stays
+  inside the rule.
+- **Contact (pulled forward):** collider-honest — panels, nose, tubes and
+  bumpers are what touch; wheel rays read the track only; per-tire force
+  capped at 900 lbf. Flips: 0 in the last 30 soak races, against 0.3/race
+  when I last looked — the mechanisms (panels taking side contact, no
+  tire-on-tire climbing) are the right causes, and the rate now sits
+  inside Franklin's 1-in-40–50 band rather than above it. Contact spins
+  0.2 in the headline soak, 0.2–1.2 across soaks, against his ~1: slightly
+  under, honestly logged, and the deliberate-contact system that would
+  move it is M3's by design. Not a blocker.
+- **Winners:** the pole streak is broken the honest way — winners' feature
+  pace ranks spread 1–5, and pole wins when it's genuinely the quickest,
+  which Franklin ruled is what a correctly-qualified field looks like.
+- **Soak logger:** everything from my 18:00 request, plus the packed-start
+  metric and winners' pace ranks. This is the instrument the M3/M4 audits
+  will run on.
+
+**Deviations:** all reasoned and Franklin-sourced — WKA dimensions ("WKA
+sets the rules"), the 3-ray tread (it closed a real roll mechanism), track-
+only wheel rays, the qualifying-pace grid, the geometric groove rebuild.
+The one open item, the nose/rear-bumper split, is a collider dimension
+awaiting Franklin's tape measure; it doesn't gate this audit, and the
+REPORT is right to carry it open rather than guess it.
+
+**Carried forward, by design:** lap-time tuning to Franklin's 10.6–10.7
+fast window is M4 (§12.7's band is met on the mean; the fastest kart at
+11.08 is a tuning gap, not an M2 defect); deliberate contact judging, the
+clean↔dirty trait, the flipped-kart impulse cap and the WKA red flag stay
+M3. Multi-stuck-kart cautions at 2–3 minutes stand as Franklin ruled them
+("sounds about right").
+
+Two nights ago this was a kart lapping alone. It's now a 12-kart race with
+cautions that behave the way Franklin described them from the driver's
+seat. Franklin: your playtest is the last gate — watch a restart queue and
+the outside row at the green, and judge the groove fights by eye.
