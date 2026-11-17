@@ -27,8 +27,9 @@ namespace OKT
         public float yawDamping = 0.1f;        // rad of steer per rad/s of unwanted yaw rate [TEST VALUE]
         public float minLookaheadFt = 8.2f;    // controller floor at low speed [TEST VALUE]
         public float speedGain = 2.0f;         // accel cmd per (m/s) of speed error, 1/s [TEST VALUE]
-        public float featherStartDeg = 6f;     // body slip angle where the driver starts easing the throttle [TEST VALUE]
-        public float featherRangeDeg = 10f;    // ...and is fully off by start + this [TEST VALUE]
+        public static float DefaultFeatherStartDeg = 6f, DefaultFeatherRangeDeg = 10f;
+        public float featherStartDeg = DefaultFeatherStartDeg;     // body slip angle where the driver starts easing the throttle [TEST VALUE]
+        public float featherRangeDeg = DefaultFeatherRangeDeg;    // ...and is fully off by start + this [TEST VALUE]
         public float lateralOffsetFt = 0f;     // personal offset from the groove (spec §7), + = toward the outside
 
         public float vMax => vMaxMph * U.Mph;

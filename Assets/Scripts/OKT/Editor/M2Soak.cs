@@ -25,6 +25,7 @@ namespace OKT.EditorTools
                 if (a[i] == "-okt-trace") Soak.TraceFirstGreen = true;
                 if (a[i] == "-okt-slide") KartSetup.DefaultSlideGripRatio = float.Parse(a[i + 1], System.Globalization.CultureInfo.InvariantCulture);
                 if (a[i] == "-okt-fade") { var fp = a[i + 1].Split(':'); KartSetup.DefaultSlideFadeStartDeg = float.Parse(fp[0], System.Globalization.CultureInfo.InvariantCulture); KartSetup.DefaultSlideFadeEndDeg = float.Parse(fp[1], System.Globalization.CultureInfo.InvariantCulture); }
+                if (a[i] == "-okt-feather") { var fp = a[i + 1].Split(':'); DriverConfig.DefaultFeatherStartDeg = float.Parse(fp[0], System.Globalization.CultureInfo.InvariantCulture); DriverConfig.DefaultFeatherRangeDeg = float.Parse(fp[1], System.Globalization.CultureInfo.InvariantCulture); }
                 if (a[i] == "-okt-bigpush") RaceConfig.DefaultBigPushChance = float.Parse(a[i + 1], System.Globalization.CultureInfo.InvariantCulture);
                 if (a[i] == "-okt-cs") DriverConfig.DefaultCornerSlow = float.Parse(a[i + 1], System.Globalization.CultureInfo.InvariantCulture);
             }
