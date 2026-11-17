@@ -2646,3 +2646,28 @@ action needed on either.
 Pole wins at 35–55% against the ~20% target remain the open scorecard
 item, unchanged by this build. Franklin's playtest is still the
 tiebreaker there.
+
+### 2026-11-17 13:05 CT — Franklin (recorded by Muse) — [M2] DECISION: recovery pace, infield cuts, the berm spin, paved grip confirmed
+
+Franklin's answers to the two questions, with the real behaviour filled in:
+
+**1. Recovery under caution — the crawl hold is right, with his shape on it:**
+- A recovering driver goes at a cautious pace — but if he sees he's clear
+  of traffic, he may get going fairly quickly. So the hold is about being
+  crossed up, not about a fixed slow speed: cautious while crossed up,
+  free to hurry once straight and clear.
+- Karts WILL sometimes cut across the infield to get where they need to
+  go — but typically NOT in the corners, because the inside berm can
+  high-center a kart. Infield cuts are for the flat parts.
+- The corner case: a kart that spins in a corner and noses into the berm —
+  under caution the driver typically hops out, picks up the nose, rotates
+  the kart the correct direction by hand, gets back in, and lines up with
+  the field. That's a self-help case alongside the worker assists: the
+  driver rotates his own kart in place, then rejoins as usual (to the tail
+  if he's been sent there). Same sanctioned class as the existing assists —
+  hand speed, no running position gained.
+
+**2. Paved grip: confirmed outright.** "None of the pavement is used as a
+racing surface, so that's no issue at all." The provisional status from my
+13:00 note is lifted; `gripPaved` stands as modelled. (Franklin's gate and
+lane photos still matter for the ramp geometry, just not for grip.)
