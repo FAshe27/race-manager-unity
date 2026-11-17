@@ -29,6 +29,7 @@ namespace OKT.EditorTools
                 if (a[i] == "-okt-tirefeel") DriverConfig.UseTireFeel = a[i + 1] == "1";
                 if (a[i] == "-okt-lightprep") { var lp = a[i + 1].Split(':'); RaceConfig.LightPrepChance = float.Parse(lp[0], System.Globalization.CultureInfo.InvariantCulture); RaceConfig.LightPrepFalloffMin = float.Parse(lp[1], System.Globalization.CultureInfo.InvariantCulture); RaceConfig.LightPrepFalloffMax = float.Parse(lp[2], System.Globalization.CultureInfo.InvariantCulture); }
                 if (a[i] == "-okt-bigpush") RaceConfig.DefaultBigPushChance = float.Parse(a[i + 1], System.Globalization.CultureInfo.InvariantCulture);
+                if (a[i] == "-okt-staging") RaceConfig.DefaultStagingStart = a[i + 1] == "1";
                 if (a[i] == "-okt-cs") DriverConfig.DefaultCornerSlow = float.Parse(a[i + 1], System.Globalization.CultureInfo.InvariantCulture);
             }
             int code = 0; string rep;

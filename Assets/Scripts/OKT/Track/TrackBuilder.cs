@@ -125,7 +125,7 @@ namespace OKT
             if (jb <= cfg.bermCols) return Mathf.Lerp(bermStart, hw, (float)jb / cfg.bermCols);
             int js = jb - cfg.bermCols; // 1..4
             if (js == 1) return hw + cfg.outerFlat;
-            return hw + cfg.outerFlat + cfg.outerBank * (js - 1) / 3f;
+            return hw + cfg.outerFlat + f.outerBank * (js - 1) / 3f;
         }
 
         public static void BuildBarriers(TrackModel t, Transform parent)
@@ -222,13 +222,7 @@ namespace OKT
 
         // ---------------- scenery from the JSON "features" (visual only: no colliders yet) ----------------
         /// <summary>World point for (u, feet beyond the outside edge), sitting on the ground there.</summary>
-        static Vector3 FeaturePoint(TrackModel t, float u, float outFt, float lift = 0.03f)
-        {
-            float s = Mathf.Repeat(u, 1f) * t.N; var f = t.Frame(s);
-            float d = f.halfWidth + outFt * U.Ft;
-            var p = f.pos + f.outN * d;
-            return new Vector3(p.x, Mathf.Max(t.InfieldHeight, t.SurfaceHeightSD(s, d)) + lift, p.y);
-        }
+        static Vector3 FeaturePoint(TrackModel t, float u, float outFt, float lift = 0.03f) => t.OffTrackPoint(u, outFt, lift);
 
         /// <summary>The feature's points with extra points between them every ~1 m, so paths follow the track's curve.</summary>
         static List<Vector3> FeaturePath(TrackModel t, TrackFeature ft, float lift)
@@ -320,8 +314,18 @@ namespace OKT
             var g = GameObject.CreatePrimitive(PrimitiveType.Cube);
             g.name = "Ground";
             g.transform.SetParent(parent, false);
-            g.transform.localScale = new Vector3(160f, 1f, 110f);
-            g.transform.position = new Vector3(0f, -0.5f - 0.005f + t.InfieldHeight, 0f);
+            // big enough for the track and all its scenery (the back rows of the staging grid hung off a fixed
+            // 160 x 110 m plane, 2026-11-17), with room to spare
+            var mn = new Vector2(-80f, -55f); var mx = new Vector2(80f, 55f);
+            foreach (var ft in t.features)
+                foreach (var q in ft.points)
+                {
+                    var w = t.OffTrackPoint(q.x, q.y + 30f);
+                    mn = Vector2.Min(mn, new Vector2(w.x, w.z)); mx = Vector2.Max(mx, new Vector2(w.x, w.z));
+                }
+            var cg = (mn + mx) * 0.5f; var sz = mx - mn;
+            g.transform.localScale = new Vector3(sz.x, 1f, sz.y);
+            g.transform.position = new Vector3(cg.x, -0.5f - 0.005f + t.InfieldHeight, cg.y);
             g.GetComponent<MeshRenderer>().sharedMaterial = Materials.Solid(new Color(0.30f, 0.40f, 0.20f), 0.05f);
             g.GetComponent<BoxCollider>().sharedMaterial = DirtMaterial();
             g.isStatic = true;

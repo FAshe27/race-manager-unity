@@ -53,6 +53,8 @@ namespace OKT
 
         // Grass (infield inside the cones, outside run-off): 50% of the groove's grip (Franklin).
         public float gripGrass = 0.50f;
+        // Pavement off the track (staging grid, grid lane, exit road -- the JSON's road/pad features). [TEST VALUE]
+        public float gripPaved = 1.0f;
 
         // Off the groove (Franklin, Pit Board q17): "sliding all over, almost a drift" -- an 11 s groove lap two kart-widths
         // up runs 12.5-14 s. Full grip within half the groove width of the line, easing down to offGrooveGrip over
@@ -136,6 +138,7 @@ namespace OKT
         public float halfWidth;
         public float lineFrac;
         public float corner;
+        public float outerBank;  // run-off bank length behind the outside edge here (m): longer where a road leaves the track
         public float LineOffset => (lineFrac - 0.5f) * 2f * halfWidth;
     }
 
@@ -303,6 +306,7 @@ namespace OKT
             f.tan = d.normalized;
             f.outN = new Vector2(f.tan.y, -f.tan.x) * outSign;
             f.halfWidth = CR(hw[i0], hw[i1], hw[i2], hw[i3], t);
+            f.outerBank = OuterBankAtU(s / N);
             f.lineFrac = Mathf.Clamp01(CR(frac[i0], frac[i1], frac[i2], frac[i3], t));
             // Franklin: the groove gets the right-side tires right up to the berm, never on it.
             float dMax = f.halfWidth - cfg.bermWidth - cfg.grooveBermClearance;
@@ -419,7 +423,7 @@ namespace OKT
             {
                 // Outside run-off: flat behind the barrier, then a grass bank down to infield level.
                 float edge = SurfaceHeightSD(s, f.halfWidth);
-                float t = Mathf.Clamp01((d - f.halfWidth - cfg.outerFlat) / cfg.outerBank);
+                float t = Mathf.Clamp01((d - f.halfWidth - cfg.outerFlat) / f.outerBank);
                 return edge * (1f - t * t * (3f - 2f * t));
             }
             if (d < -f.halfWidth)
@@ -432,6 +436,84 @@ namespace OKT
             return LayerBanking(f, d) + LayerGroove(f, d) + LayerRoughness(s, f, d) + LayerBerm(f, d);
         }
 
+        // The grid lane leaves the track over a long, gentle ramp, not the 20 ft grass bank (a kart's low nose dug into the
+        // ~17 deg bank and stuck, 2026-11-17). Ramp length = the lane's length to the staging grid. [TEST VALUE: Franklin's
+        // photos of the grid lane will say how it really meets the track]
+        bool rampInit; float rampU = -1f, rampHalfU, rampTaperU, rampLen;
+        float OuterBankAtU(float u)
+        {
+            float bank = cfg.outerBank;
+            if (!rampInit)
+            {
+                if (centerLength <= 0f) return bank; // still being built: decide once the lap length is known
+                rampInit = true; var gl = Feature("grid lane");
+                if (gl != null)
+                {
+                    float lapFt = centerLength / U.Ft;
+                    rampU = Mathf.Repeat(gl.points[0].x, 1f); rampHalfU = (gl.widthFt * 0.5f + 10f) / lapFt; rampTaperU = 15f / lapFt;
+                    rampLen = Mathf.Max(cfg.outerBankFt, gl.points[gl.points.Count - 1].y) * U.Ft;
+                }
+            }
+            if (rampU < 0f) return bank;
+            float du = Mathf.Abs(Mathf.Repeat(u - rampU + 0.5f, 1f) - 0.5f);
+            float k = 1f - Mathf.Clamp01((du - rampHalfU) / rampTaperU);
+            k = k * k * (3f - 2f * k);
+            return Mathf.Lerp(bank, rampLen, k);
+        }
+
+        /// <summary>World point for (u around the lap, feet beyond the outside edge), on the ground there (+ lift).</summary>
+        public Vector3 OffTrackPoint(float u, float outFt, float lift = 0f)
+        {
+            float s = Mathf.Repeat(u, 1f) * N; var f = Frame(s);
+            float d = f.halfWidth + outFt * U.Ft;
+            var p = f.pos + f.outN * d;
+            return new Vector3(p.x, Mathf.Max(InfieldHeight, SurfaceHeightSD(s, d)) + lift, p.y);
+        }
+
+        /// <summary>The first scenery feature whose name contains this text (case-insensitive), or null.</summary>
+        public TrackFeature Feature(string nameContains)
+        {
+            foreach (var ft in features) if (ft.name != null && ft.name.IndexOf(nameContains, StringComparison.OrdinalIgnoreCase) >= 0) return ft;
+            return null;
+        }
+
+        /// <summary>Is (s, d) outside the track on a paved scenery feature (a "road" or "pad": the grid lane, staging grid,
+        /// exit road)? Worked in a flat (feet along the centerline, feet beyond the outside edge) plane -- close enough
+        /// this near the track.</summary>
+        public bool PavedAt(float s, float d)
+        {
+            if (features.Count == 0) return false;
+            var f = Frame(s); float outFt = (d - f.halfWidth) / U.Ft;
+            if (outFt < 0f) return false;
+            float lapFt = centerLength / U.Ft, xFt = s / N * lapFt;
+            float X(float u) { float x = u * lapFt; float dx = x - xFt; dx -= Mathf.Round(dx / lapFt) * lapFt; return xFt + dx; }
+            foreach (var ft in features)
+            {
+                if (ft.type == "road")
+                {
+                    float hw = ft.widthFt * 0.5f;
+                    for (int i = 0; i + 1 < ft.points.Count; i++)
+                    {
+                        var a = new Vector2(X(ft.points[i].x), ft.points[i].y); var b = new Vector2(X(ft.points[i + 1].x), ft.points[i + 1].y);
+                        var ab = b - a; var p = new Vector2(xFt, outFt);
+                        float t = ab.sqrMagnitude > 1e-6f ? Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab.sqrMagnitude) : 0f;
+                        if ((a + ab * t - p).magnitude <= hw) return true;
+                    }
+                }
+                else if (ft.type == "pad")
+                {
+                    bool inside = false; int n = ft.points.Count;
+                    for (int i = 0, j = n - 1; i < n; j = i++)
+                    {
+                        float xi = X(ft.points[i].x), yi = ft.points[i].y, xj = X(ft.points[j].x), yj = ft.points[j].y;
+                        if ((yi > outFt) != (yj > outFt) && xFt < (xj - xi) * (outFt - yi) / (yj - yi) + xi) inside = !inside;
+                    }
+                    if (inside) return true;
+                }
+            }
+            return false;
+        }
+
         /// <summary>Height of the flat infield beyond the apron.</summary>
         public float InfieldHeight => 0f;
 
@@ -442,7 +524,7 @@ namespace OKT
         public GroundSample GroundAtSD(float s, float d)
         {
             var f = Frame(s);
-            if (d > f.halfWidth + 0.01f) return new GroundSample { grip = cfg.gripGrass, loose = false };
+            if (d > f.halfWidth + 0.01f) return new GroundSample { grip = PavedAt(s, d) ? cfg.gripPaved : cfg.gripGrass, loose = false };
             if (d < -f.halfWidth)
             {
                 float x = -f.halfWidth - d;

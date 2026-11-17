@@ -80,6 +80,9 @@ namespace OKT
             w.drivers12 = FieldGen.Make(race.fieldSize, seed, baseLap);
             float L = w.track.centerLength;
             float a0 = race.gridLeaderU * L;
+            var lane = race.stagingStart ? w.track.Feature("grid lane") : null;
+            if (race.stagingStart && lane == null) w.Log("Staging start asked for, but the track has no \"grid lane\" feature: starting from the track grid.");
+            if (lane != null) { w.SpawnStaging(lane, race); w.LogSetup(); return w; }
             for (int i = 0; i < w.drivers12.Count; i++)
             {
                 var dp = w.drivers12[i];
@@ -97,6 +100,42 @@ namespace OKT
             w.LogSetup();
             w.Log($"Field: {w.drivers12.Count} karts, seed {seed}; grid (pace order): " + string.Join(", ", w.drivers12.ConvertAll(d => $"#{d.number} {d.tier} q+{d.qualiOffsetSec:F2} race+{d.paceOffsetSec:F2} 12/{d.axleTeeth}{(d.tireNote.Length > 0 ? " " + d.tireNote : "")}{(d.qualiNote.Length > 0 ? " (" + d.qualiNote + ")" : "")}")));
             return w;
+        }
+
+        /// <summary>Staging-grid start: two columns on the paved grid outside turn 4, pole nearest the lane, facing the
+        /// track. Each kart gets a path down its column, into the lane, through the gate and onto the dirt, where it
+        /// turns down the track. Positions come from the track JSON's "grid lane" feature (u of the gate).</summary>
+        void SpawnStaging(TrackFeature lane, RaceConfig race)
+        {
+            float uG = lane.points[0].x, L = track.centerLength;
+            var fg = track.Frame(Mathf.Repeat(uG, 1f) * track.N);
+            var outw = new Vector3(fg.outN.x, 0f, fg.outN.y); var tan = new Vector3(fg.tan.x, 0f, fg.tan.y);
+            Vector3 Ray(float outFt, float sideFt) { var p = track.OffTrackPoint(uG, outFt) + tan * (sideFt * U.Ft); p.y = Mathf.Max(track.InfieldHeight, p.y); return p; }
+            float gateArc = track.ArcAt(Mathf.Repeat(uG, 1f) * track.N);
+            for (int i = 0; i < drivers12.Count; i++)
+            {
+                var dp = drivers12[i];
+                int row = i / 2; float side = (i % 2 == 0 ? 1f : -1f) * race.stagingColumnFt; // pole column on the track-forward side
+                float outFt = race.stagingFirstRowFt + row * race.stagingRowFt;
+                var pos = Ray(outFt, side); pos.y += 0.03f;
+                var dc = new DriverConfig { pace = dp.paceFactor, lateralOffsetFt = dp.lateralOffsetIn / 12f };
+                var kp = SpawnKartPose(dp.number, dp.color, new KartSetup { axleTeeth = dp.axleTeeth }, dc, pos, Quaternion.LookRotation(-outw, Vector3.up));
+                var ai = drivers[drivers.Count - 1];
+                var path = new List<Vector3>();
+                for (float o = outFt - 3f; o > 52f; o -= 3f) path.Add(Ray(o, side));          // straight out of my slot
+                for (float o = 52f; o >= 0f; o -= 4f) path.Add(Ray(o, side * Mathf.Clamp01((o - 30f) / 22f))); // into the lane's centre
+                // through the gate and onto the dirt, turning down the track to the outside of the groove
+                foreach (var (du, frac) in new[] { (0.000f, 0.80f), (0.008f, 0.62f), (0.016f, 0.48f), (0.026f, 0.40f), (0.038f, 0.36f) })
+                {
+                    var f = track.Frame(Mathf.Repeat(uG + du, 1f) * track.N); var p = f.pos + f.outN * (frac * f.halfWidth);
+                    path.Add(new Vector3(p.x, 0f, p.y));
+                }
+                ai.stagePath = path; ai.stageIdx = 0;
+                // one lap to form up from the gate, then the pace lap (Franklin: about a lap before one-to-go)
+                ai.raceDist = gateArc - 2f * L;
+                director.Add(ai, kp, dp, i);
+            }
+            Log($"Field: {drivers12.Count} karts on the staging grid (gate u={uG:F3}); grid (pace order): " + string.Join(", ", drivers12.ConvertAll(d => $"#{d.number} {d.tier} q+{d.qualiOffsetSec:F2} race+{d.paceOffsetSec:F2} 12/{d.axleTeeth}{(d.tireNote.Length > 0 ? " " + d.tireNote : "")}{(d.qualiNote.Length > 0 ? " (" + d.qualiNote + ")" : "")}")));
         }
 
         static float ArcToS(TrackModel t, float arc)
@@ -122,9 +161,14 @@ namespace OKT
             var fwd = new Vector3(f.tan.x, 0f, f.tan.y);
             var outward = new Vector3(f.outN.x, 0f, f.outN.y);
             var n = (Vector3.up - outward * Mathf.Tan(surfaceCfg.bankingDeg * Mathf.Deg2Rad)).normalized;
+            return SpawnKartPose(number, color, setup, driver, new Vector3(p.x, h + 0.03f, p.y), Quaternion.LookRotation(Vector3.ProjectOnPlane(fwd, n), n));
+        }
 
+        /// <summary>A kart at a world position and rotation (on the track, or off it on the staging grid).</summary>
+        public KartPhysics SpawnKartPose(int number, Color color, KartSetup setup, DriverConfig driver, Vector3 pos, Quaternion rot)
+        {
             var kp = KartFactory.Create("Kart " + number, number, color, setup, root.transform);
-            kp.transform.SetPositionAndRotation(new Vector3(p.x, h + 0.03f, p.y), Quaternion.LookRotation(Vector3.ProjectOnPlane(fwd, n), n));
+            kp.transform.SetPositionAndRotation(pos, rot);
             Physics.SyncTransforms();
             // Per-wheel ground grip from the ONE track model: groove / loose berm / grass.
             var hints = new[] { -1, -1, -1, -1 };
@@ -135,7 +179,11 @@ namespace OKT
                     track.Locate(new Vector2(hit.point.x, hit.point.z), ref hints[i], out float hs, out float hd);
                     return track.GroundAtSD(hs, hd);
                 }
-                if (hit.collider.name == "Ground") return new GroundSample { grip = surfaceCfg.gripGrass };
+                if (hit.collider.name == "Ground")
+                {
+                    track.Locate(new Vector2(hit.point.x, hit.point.z), ref hints[i], out float gs, out float gd);
+                    return new GroundSample { grip = track.PavedAt(gs, gd) ? surfaceCfg.gripPaved : surfaceCfg.gripGrass };
+                }
                 return new GroundSample { grip = 1f }; // another kart's body or a barrier top
             };
             kp.surface = surfaceCfg;
