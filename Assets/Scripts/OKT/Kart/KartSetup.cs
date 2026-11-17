@@ -41,8 +41,8 @@ namespace OKT
         public float frontBumperTopIn = 7.75f;         // top of the upper hoop: WKA 409.1 minimum 7.75 in
         public float nerfOutsideTireIn = 0.125f;       // Franklin: 1/8 in outside the tires' outer edge
         public float nerfTopIn = 8f;                   // top tube height [TEST VALUE, from photos]
-        public float rearBumperBehindIn = 8f;          // WKA 401.6 length cap (74 in) with the nose: was Franklin's ~12 [TEST VALUE, split of the 74 in]
-        public float rearBumperHalfWidthIn = 19.7f;    // [TEST VALUE, from photos]
+        public float rearBumperBehindIn = 4f;          // Franklin's body mockup (11-16): close behind the rear tires (was 8)          // WKA 401.6 length cap (74 in) with the nose: was Franklin's ~12 [TEST VALUE, split of the 74 in]
+        public float rearBumperHalfWidthIn = 14.5f;    // Franklin's mockup: ~29 in across, narrower than the tires (was 19.7)    // [TEST VALUE, from photos]
         // ---- body (Franklin, Pit Board 2026-11-16; WKA Dirt rulebook 2025 §404). Fiberglass; "generally they slide
         // pretty freely against each other". In side-by-side contact the panels are what touch.
         public bool bodyOn = true;
@@ -50,12 +50,13 @@ namespace OKT
         public float panelBottomIn = 0.5f;           // Franklin: ~1/2 in off the ground
         public float panelTopIn = 14f;               // WKA 404.7: no higher than 14 in (Franklin guessed 15; measuring) [TEST VALUE]
         public float panelThickIn = 0.75f;           // collider thickness (the shell is thin; thicker keeps the solver honest) [TEST VALUE]
-        public float noseAheadOfTiresIn = 13f;       // WKA 401.6: overall length 74 in max -> 73.1 in with the rear bumper 8 in back (Franklin's ~2 ft overshot the cap) [TEST VALUE, split of the 74 in]
+        public float noseAheadOfTiresIn = 17f;       // Franklin's mockup: tip a bit further out; keeps 73 in overall with the 4 in rear bumper (was 13)       // WKA 401.6: overall length 74 in max -> 73.1 in with the rear bumper 8 in back (Franklin's ~2 ft overshot the cap) [TEST VALUE, split of the 74 in]
         public float noseBottomIn = 2f;              // [TEST VALUE]
         public float noseTopIn = 10f;                // WKA 404.4: nose 8-17 in tall [TEST VALUE]
         // Rounded nose (Franklin, 11-16: "the actual exterior contact points are exceptionally important"). From his
         // body photos the nose piece is a wide U in plan: big round front corners blending back into the sides. [TEST VALUEs]
-        public float noseCornerRadiusIn = 12f;       // plan-view radius of the front corners
+        public float noseCornerRadiusIn = 21f;       // Franklin's body mockup (11-16): one round arch across the whole front ->
+                                                     // clamps to the half width (x) and the nose depth (z): an elliptical front
         public float noseBottomRoundIn = 0f;         // lower front edge: square. A 2 in roll made a ramp -- the nose climbed the
                                                      // 3 in berm and the kart swung to 88 deg in the M1 berm ride (11-16)
         public float noseTopRoundIn = 3f;            // and the upper front edge

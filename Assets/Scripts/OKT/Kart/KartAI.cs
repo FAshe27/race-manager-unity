@@ -297,8 +297,9 @@ namespace OKT
         {
             float x = right ? st.FootRight : st.FootLeft;
             if (!st.bodyOn) return new Vector3(right ? x : -x, 0.1f, st.FootFront);
-            float R = st.noseCornerRadiusIn * U.In, c = R * (1f - 0.7071f);
-            return new Vector3((x - c) * (right ? 1f : -1f), 0.1f, st.FootFront - c);
+            float R = st.noseCornerRadiusIn * U.In;
+            float Rx = Mathf.Min(R, x), Rz = Mathf.Min(R, st.noseAheadOfTiresIn * U.In); // elliptical nose corner
+            return new Vector3((x - Rx * (1f - 0.7071f)) * (right ? 1f : -1f), 0.1f, st.FootFront - Rz * (1f - 0.7071f));
         }
 
         float WallGap(in TrackFrame fr)

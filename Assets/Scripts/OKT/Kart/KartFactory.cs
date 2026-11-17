@@ -174,7 +174,7 @@ namespace OKT
         /// </summary>
         static Mesh NoseMesh(float xL, float xR, float zBack, float zTip, float y0, float y1, float R, float rB, float rT)
         {
-            R = Mathf.Min(R, zTip - zBack - 0.01f, (xR - xL) * 0.5f - 0.01f);
+            float Rx = Mathf.Min(R, (xR - xL) * 0.5f - 0.001f), Rz = Mathf.Min(R, zTip - zBack - 0.01f); // elliptical corners
             rB = Mathf.Max(rB, 0.0005f); rT = Mathf.Max(rT, 0.0005f); // a zero roll is a square edge (rings collapse to one)
             const int cornerSeg = 8, ringsB = 4, ringsT = 4;
             var heights = new System.Collections.Generic.List<float>(); var insets = new System.Collections.Generic.List<float>();
@@ -194,18 +194,18 @@ namespace OKT
             foreach (int k in System.Linq.Enumerable.Range(0, heights.Count))
             {
                 float ins = insets[k], y = heights[k];
-                float l = xL + ins, r = xR - ins, tip = zTip - ins, rr = Mathf.Max(0.005f, R - ins);
+                float l = xL + ins, r = xR - ins, tip = zTip - ins, rx = Mathf.Max(0.005f, Rx - ins), rz = Mathf.Max(0.005f, Rz - ins);
                 var ring = new System.Collections.Generic.List<Vector3>();
                 ring.Add(new Vector3(r, y, zBack));                                   // back right
                 for (int j = 0; j <= cornerSeg; j++)                                  // front right corner
                 {
                     float a = Mathf.PI * 0.5f * j / cornerSeg;
-                    ring.Add(new Vector3(r - rr + rr * Mathf.Cos(a), y, tip - rr + rr * Mathf.Sin(a)));
+                    ring.Add(new Vector3(r - rx + rx * Mathf.Cos(a), y, tip - rz + rz * Mathf.Sin(a)));
                 }
                 for (int j = 0; j <= cornerSeg; j++)                                  // front left corner
                 {
                     float a = Mathf.PI * 0.5f + Mathf.PI * 0.5f * j / cornerSeg;
-                    ring.Add(new Vector3(l + rr + rr * Mathf.Cos(a), y, tip - rr + rr * Mathf.Sin(a)));
+                    ring.Add(new Vector3(l + rx + rx * Mathf.Cos(a), y, tip - rz + rz * Mathf.Sin(a)));
                 }
                 ring.Add(new Vector3(l, y, zBack));                                   // back left
                 ringN = ring.Count; verts.AddRange(ring);
