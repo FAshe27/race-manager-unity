@@ -2394,3 +2394,86 @@ order.
 
 **Pending from Franklin:** tape measurements after Batesville (Pit Board checklist): rear and front tire widths outside
 to outside, wheelbase, nose overhang and width, rear bumper overhang, panel and bumper heights.
+
+### 2026-11-17 overnight — Franklin (recorded by Claude Code) — [M2] NOTE: racing feel, real-race targets, body and width
+
+**Playtest notes:**
+- Still no cautions. Karts give room far too quickly and everyone plays it too safe: "not meant to be rough, but it's
+  definitely not clean racing in real life."
+- When a kart gets to the inside, the outside kart moves up the track, which doesn't happen in real life. "They'll rub
+  up against each other ten times before they move apart on purpose once."
+- Drivers see about 90°. "Unless you have a reason to believe there's a kart there — there isn't, in your mind."
+- Karts live at the edge of grip. A big push can rotate a kart past what the front tires can pull back.
+- The front wheels are independent; the rear is a solid axle. All drive and braking go through the rears, and the
+  fronts spin free.
+
+**Real-race targets (Pit Board q25–q30):**
+- Cautions (q25): almost every 12–20 kart feature has at least one; typically 1–2, up to 5.
+- Pole (q26): wins about 20%, usually finishes top 3.
+- Moving through the field (q27): 12th to 3rd happens, and so does pole to 7th–8th (setup and tires).
+- Contact (q28): nearly everyone touches someone; a spin usually involves 1–2 karts.
+- A kart you find on your inside (q29): if it's barely up, chop it. If it's well alongside, hold the spot while the
+  groove is wide enough for both; if it isn't, lift slightly and file in behind.
+- Glancing (q30): drivers just look forward.
+
+**Kart:**
+- Franklin's official measurement: 42 in wide and 73 in long with the body on.
+- His top-view mockup: a round arch nose and a narrow rear bumper close behind the rear tires.
+
+### 2026-11-17 overnight — Claude Code — [M2] STATUS: hard racing, body/width, Atoka scenery (m2-wip 0623f8a → b335f49)
+
+**Commits:**
+
+| Commit | What |
+|---|---|
+| 0623f8a | Side panels cover the front tires; rounded nose; under caution, never rear-end the kart physically ahead. |
+| 16ae33d | 42 in width: rear track 34 in, front 32 in (split is a TEST VALUE), side-by-side room 42 in. |
+| 0972ad9 | Elliptical arch nose 17 in ahead of the front tires; rear bumper 4 in behind the tires, 29 in wide; 73.1 in overall. |
+| 9f6496e | Hard racing (below). |
+| 82e0ccf | Atoka scenery (visual only) and wall openings re-mapped onto v4. v4 had kept v3's positions, which put the grid gate mid-straight. While the caution line has gaps, the leader paces at 15 mph. |
+| b335f49 | Tuning toward Franklin's caution numbers. |
+
+**What 9f6496e changes:**
+- Driver awareness: a ±45° forward cone from the helmet, plus contact felt in the last 0.3 s, remembered for 1.5 s.
+- Occupancy, conceding and defending use only karts the driver knows about.
+- No make-room climbing.
+- Conceding only when out in the loose.
+- Loose grip off the groove: 0.70 above it, 0.92 below it.
+- Defending: cover and lean.
+- Blocking annoyance.
+- Big pushes.
+- Corner factor 0.25 (was 0.30, which Franklin once called realistic but has since called "too planted").
+- Sliding-tire grip fade between 12° and 30° of slip.
+- Qualifying-to-feature pace spread.
+- A real-race scorecard in the soak report.
+
+**For the auditor:**
+- **Spec §7 "aggression never overrides occupancy" is relaxed, on Franklin's rulings above:**
+  - an unseen kart gets no room at all;
+  - a known kart only keeps the other from steering further into it;
+  - nobody climbs to make room.
+- **New physics: the sliding-tire grip fade.** The grip cap eases to 72% between 12° and 30° of slip. It's a tire
+  property, honest physics, not a scripted spin.
+- **M1 wall-hit test change:** the 22° hit at 43 mph now spins the kart round instead of skimming. Hits of 16° and
+  less still skim. 0 breaches throughout.
+
+**Scorecard** (40 races, seeds 8001–8020 and 9001–9020) [Franklin's target]:
+
+| Measure | Result | Target |
+|---|---|---|
+| Races with a caution | about 75% | ~90%+ |
+| Cautions per race | about 1.0 | 1–2 |
+| Karts spun per race | 0.9–1.7 | 1–2 per spin |
+| Pole wins | 45–55% | ~20% |
+| Pole top 3 | 70–90% | usually |
+| Contacts per race | 130–150 | — |
+| Lead changes per race | about 1 | — |
+
+40/40 finished, 0 breaches, 0 time caps. Cautions last 35–122 s. Laps 10.8 s (Franklin's 10.7–11.1).
+
+**Open:**
+- Self spins outnumber contact spins.
+- Pole still wins too often.
+- Karts sometimes run off the inside edge under caution at crawl speed.
+- Off turn 4, karts now drift out through the grid opening onto the grass.
+- Flips: 3 in 40 races, against about 1 in 40–50.
