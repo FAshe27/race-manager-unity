@@ -124,8 +124,10 @@ namespace OKT
                 var path = new List<Vector3>();
                 for (float o = outFt - 3f; o > 52f; o -= 3f) path.Add(Ray(o, side));          // straight out of my slot
                 for (float o = 52f; o >= 0f; o -= 4f) path.Add(Ray(o, side * Mathf.Clamp01((o - 30f) / 22f))); // into the lane's centre
-                // through the gate and onto the dirt, turning down the track to the outside of the groove
-                foreach (var (du, frac) in new[] { (0.000f, 0.80f), (0.008f, 0.62f), (0.016f, 0.48f), (0.026f, 0.40f), (0.038f, 0.36f) })
+                // through the gate and onto the dirt, staying against the wall while the banking changes under it (Franklin
+                // 11-17: no suspension -- coming on from the low side, the left front slams down at the crest), then easing
+                // down toward the formation lanes
+                foreach (var (du, frac) in new[] { (0.000f, 0.80f), (0.010f, 0.78f), (0.022f, 0.70f), (0.036f, 0.56f), (0.050f, 0.42f) })
                 {
                     var f = track.Frame(Mathf.Repeat(uG + du, 1f) * track.N); var p = f.pos + f.outN * (frac * f.halfWidth);
                     path.Add(new Vector3(p.x, 0f, p.y));

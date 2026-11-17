@@ -129,7 +129,7 @@ namespace OKT
             }
             sb.AppendLine();
             if (d.trace != null) sb.Append(d.trace);
-            foreach (var ev in d.events) if (ev.Contains("SPIN") || ev.Contains("FLIP") || ev.Contains("STOPPED") || ev.Contains("OUT:") || ev.Contains("CREW") || ev.Contains("WATCHDOG") || ev.Contains("OFF TRACK") || ev.Contains("WALL BREACH") || ev.Contains("CAUTION") || ev.Contains("TO THE TAIL") || ev.Contains("ONE TO GO") || ev.Contains("GREEN") || ev.Contains("GRID AT GREEN") || ev.Contains("FIELD") || ev.Contains("STAGING") || ev.Contains("Field pulls") || ev.Contains("WORKER POINTS") || ev.Contains("before:") || ev.Contains("DIVE") || ev.Contains("dive ")) sb.AppendLine("  " + ev);
+            foreach (var ev in d.events) if (ev.Contains("SPIN") || ev.Contains("FLIP") || ev.Contains("STOPPED") || ev.Contains("OUT:") || ev.Contains("CREW") || ev.Contains("MAD:") || ev.Contains("WATCHDOG") || ev.Contains("OFF TRACK") || ev.Contains("WALL BREACH") || ev.Contains("CAUTION") || ev.Contains("TO THE TAIL") || ev.Contains("ONE TO GO") || ev.Contains("GREEN") || ev.Contains("GRID AT GREEN") || ev.Contains("FIELD") || ev.Contains("STAGING") || ev.Contains("Field pulls") || ev.Contains("WORKER POINTS") || ev.Contains("before:") || ev.Contains("DIVE") || ev.Contains("dive ")) sb.AppendLine("  " + ev);
         }
 
         public static string Summary(SoakStats st)

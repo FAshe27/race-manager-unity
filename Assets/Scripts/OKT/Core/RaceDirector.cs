@@ -27,8 +27,10 @@ namespace OKT
         public int fieldSize = 12;                 // spec §1
         public int featureLaps = 15;               // spec §8 (Franklin: 15 or 20)
         public int paceLaps = 1;                   // Franklin (M2): one pace lap from the grid
-        public float paceStraightMph = 25f;        // Franklin: ~20–25 mph [TEST VALUE]
-        public float paceCornerMph = 20f;
+        // One steady speed all the way round (Franklin's playtest 11-17: 25 straight / 20 corner made the line spread on
+        // the straights and bunch in the corners -- an accordion). Franklin: ~20-25 mph. [TEST VALUE]
+        public float paceStraightMph = 22f;
+        public float paceCornerMph = 22f;
         // Staging-grid start (Franklin 2026-11-16: karts line up on the paved grid outside turn 4, pull out through the
         // red gate single file, form up double file over about a lap, then the pace lap). OFF by default for now.
         public static bool DefaultStagingStart = false; // soak knob -okt-staging 1
@@ -94,13 +96,22 @@ namespace OKT
         public float crawlMph = 4f;
         // Cautions (Franklin, 2026-11-15) [TEST VALUEs]
         public float cautionCatchUpMph = 5f;        // karts behind run up to pace + this to catch the field (Franklin: "around that")
-        public float cautionGapFt = 1f;             // bumper gap in the caution queue (Franklin's playtest 11-16: pacing should be nose to tail; was 4) [TEST VALUE]
+        public float cautionGapFt = 1f;             // (superseded by the 2-4 ft per-driver gap below; kept for the field stop)
+        // Franklin 11-17: general pacing while the tower checks is 2-4 ft bumper to nose -- an obvious line, nobody
+        // pushing. Each driver keeps his own gap in that range. [TEST VALUE]
+        public float cautionGapMinFt = 2f, cautionGapMaxFt = 4f;
+        // One to go: everyone pushes the kart ahead from about halfway between the centre of turns 1-2 and the middle
+        // of the backstretch, into the restart (Franklin 11-17).
+        public float pushUpU = 0.375f;
+        // Tire-warming weave (Franklin 11-17): some drivers, now and then, under caution and pacing; corners too, as
+        // long as it doesn't open a gap. Never once the push-up starts. [TEST VALUEs]
+        public float weaverShare = 0.33f, weaveAmpFt = 1f, weavePeriodSec = 1.6f, weaveOnSec = 4f, weaveOffMinSec = 8f, weaveOffMaxSec = 20f;
         public float paceCatchUpMph = 5f;           // pace lap: a kart that's dropped back may run up to pace + this to close up (as under caution) [TEST VALUE]
         public float peekLeadSec = 0.8f;            // an inside peek starts only this close (in time) to corner entry, not down the straight (Franklin's playtest) [TEST VALUE]
         public float frustrationMemorySec = 20f;    // failed peeks at the same kart within this long add up [TEST VALUE]
         public int frustratedPeeks = 2;             // after this many failed peeks, push him instead (Franklin: "two, three times") [TEST VALUE]
         public float frustratedPushRate = 4f;       // push likelihood multiplier once frustrated [TEST VALUE]
-        public float restartBunchGapFt = 0.5f;      // one to go: bunch up nose to tail, not "caught sleeping"
+        public float restartBunchGapFt = 0.25f;     // one to go, after the push-up point: nose on his bumper, pushing him (Franklin 11-17)
         public float cautionLaneFrac = 0.15f;       // single file, a touch above centre
         public float dropBackLaneFrac = -0.55f;     // a kart dropping back to its spot runs low and lets them by
         public float minCautionSec = 15f;
@@ -147,6 +158,14 @@ namespace OKT
         public float bobblePerSecAtZero = 0.10f;    // chance per second of a bobble for consistency 0
         public float bobbleSeconds = 0.6f, bobbleSpeedFactor = 0.90f;
         // Recovery / clearing (spec §8.3, §8.4 — pulled forward from M3 so one spin doesn't end a race)
+        // Franklin 11-17: under caution, a kart spun in a corner with its nose in the inside berm -- the driver hops out,
+        // picks up the nose, turns it the right way by hand and lines up with the field. No worker, and no trip to the
+        // tail for that alone. [TEST VALUEs]
+        public float bermSelfRotateAfterSec = 5f, driverHopOutSec = 3f;
+        // Franklin 11-17: a driver sent to the tail (not damaged) is still fast -- and a mad or frustrated one pushes
+        // the kart harder, which tends to help him or hurt him. The chance he's mad = his aggression. Mad: aggression
+        // up by madAggression, and he drives the corners harder (cornerSlow cut by madCornerCut). [TEST VALUEs]
+        public float madAggression = 0.3f, madCornerCut = 0.012f;
         public float recoverMaxSeconds = 12f;       // can't get going in this long -> out (pulls in / stopped)
         public float crewWalkMph = 3f;               // crew pushes a wreck to the infield at walking pace (§8.4)
         public float crewTurnDegPerSec = 45f;        // crew straightening a stuck kart by hand [TEST VALUE]
@@ -306,6 +325,10 @@ namespace OKT
         public class Entry
         {
             public KartAI ai; public KartPhysics kart; public DriverProfile driver; public int gridPos; public float baseGripG;
+            public float paceGapFt = 3f;                 // this driver's bumper gap when pacing under caution (2-4 ft)
+            public bool weaver; public float weaveClock;  // tire-warming weave: does he, and time to the next change
+            public bool weaving;
+            public bool mad;                            // sent to the tail and mad about it: races angrier the rest of the night
             public int greenStartLap; public bool restarted; public float refireMiss; // tires: laps since the last green; cooled by a caution
             public bool finished; public int finishPos; public float finishTime;
             public bool outOfRace; public string outReason;
@@ -368,7 +391,34 @@ namespace OKT
 
         public RaceDirector(World world, RaceConfig config, int seed = 0) { w = world; cfg = config ?? new RaceConfig(); L = w.track.centerLength; rng = new System.Random(seed * 7919 + 17); }
 
-        public void Add(KartAI ai, KartPhysics kart, DriverProfile d, int gridPos) => field.Add(new Entry { ai = ai, kart = kart, driver = d, gridPos = gridPos, baseGripG = kart.setup.gripG });
+        public void Add(KartAI ai, KartPhysics kart, DriverProfile d, int gridPos)
+        {
+            // per-driver habits from a hash of his number (not the race RNG: adding these didn't reshuffle every race)
+            float h1 = Hash01(d.number * 7919 + 11), h2 = Hash01(d.number * 104729 + 3), h3 = Hash01(d.number * 1299709 + 5);
+            field.Add(new Entry
+            {
+                ai = ai, kart = kart, driver = d, gridPos = gridPos, baseGripG = kart.setup.gripG,
+                paceGapFt = Mathf.Lerp(cfg.cautionGapMinFt, cfg.cautionGapMaxFt, h1),
+                weaver = h2 < cfg.weaverShare, weaveClock = Mathf.Lerp(cfg.weaveOffMinSec, cfg.weaveOffMaxSec, h3),
+            });
+        }
+        float Aggr(Entry e) => Mathf.Min(1f, e.driver.aggression + (e.mad ? cfg.madAggression : 0f));
+        static float Hash01(int x) { unchecked { uint h = (uint)x; h ^= h >> 16; h *= 0x7feb352d; h ^= h >> 15; h *= 0x846ca68b; h ^= h >> 16; return (h & 0xFFFFFF) / 16777216f; } }
+
+        /// <summary>Tire-warming weave: a weaver weaves for a few seconds now and then while pacing.</summary>
+        void UpdateWeave(Entry e, float dt, bool allowed)
+        {
+            if (!e.weaver || !allowed) { e.weaving = false; e.ai.weaveAmp = 0f; return; }
+            e.weaveClock -= dt;
+            if (e.weaveClock <= 0f)
+            {
+                e.weaving = !e.weaving;
+                e.weaveClock = e.weaving ? cfg.weaveOnSec * (0.75f + 0.5f * (float)rngWeave.NextDouble())
+                                         : Mathf.Lerp(cfg.weaveOffMinSec, cfg.weaveOffMaxSec, (float)rngWeave.NextDouble());
+            }
+            e.ai.weaveAmp = e.weaving ? cfg.weaveAmpFt * U.Ft : 0f; e.ai.weavePeriod = cfg.weavePeriodSec;
+        }
+        System.Random rngWeave = new System.Random(4242);
 
         void Event(string s) { events.Add($"[{raceTime:F1}s] {s}"); }
         public string Tag(Entry e) => $"#{e.driver.number} {e.driver.name}";
@@ -446,7 +496,7 @@ namespace OKT
                 ai.paceStraight = paceS; ai.paceCorner = paceC;
                 ai.speedCap = float.PositiveInfinity; ai.attackBoost = 0f; ai.pushedBoost = 0f;
                 ai.latMin = float.NegativeInfinity; ai.latMax = float.PositiveInfinity; ai.grooveLane = KartAI.NoGrooveLane;
-                ai.rejoinOnGroove = false;
+                ai.rejoinOnGroove = false; ai.weaveAmp = 0f; // the weave is caution-only: CautionDrive turns it back on
                 if (e.outOfRace) { ai.paceMode = true; ai.speedCap = 0f; continue; }
 
                 if (phase == RacePhase.Grid) { ai.paceMode = true; ai.speedCap = 0f; continue; }
@@ -754,7 +804,7 @@ namespace OKT
             // ---- defending (Franklin's playtest #3): no mirrors, but you feel a kart on your bumper or catch him in a glance.
             // Cover the inside at entry; once his nose is in, come down a touch to make him back out.
             int squeezeOn = -1; float squeezeD = 0f;
-            if (!packed && !e.finished && !attacking && e.pushTarget < 0 && fr.corner < 0.6f && e.driver.aggression > 0.2f)
+            if (!packed && !e.finished && !attacking && e.pushTarget < 0 && fr.corner < 0.6f && Aggr(e) > 0.2f)
             {
                 int me = field.IndexOf(e);
                 foreach (var o in field)
@@ -763,7 +813,7 @@ namespace OKT
                     if (!Knows(e, o)) continue;                       // can't defend against a kart you don't know is there
                     float g = Gap(o, e); // + = he's ahead of me
                     if (g < -kartLen * 1.6f || g >= 0f) continue;   // too far back, or level/ahead: never chop him
-                    float a = e.driver.aggression;
+                    float a = Aggr(e);
                     if (g < -bodyLen * 0.9f && EntryAhead(ai))
                     {   // on my bumper, not yet overlapped: cover the inside, leaving him a kart-width above the edge
                         goalAbs = Mathf.Max(loLim + room + 0.3f, Mathf.Min(goalAbs, line - cfg.defendCoverIn * U.In * a));
@@ -873,9 +923,9 @@ namespace OKT
             if (!packed && !e.finished && ahead != null && !Hazard(ahead) && e.pushTarget < 0 && e.attackTarget < 0 && e.pushCool <= 0f
                 && (NightPace(e) > NightPace(ahead) * 1.001f || (frustrated && e.peekTarget == field.IndexOf(ahead)))
                 && gapA < SettleGap(e, v, kartLen, false) + 3f && EntryAhead(ai)
-                && rng.NextDouble() < (frustrated ? Mathf.Max(0.3f, e.driver.aggression) * cfg.frustratedPushRate : e.driver.aggression) * dt * cfg.pushRate * Urgency(e))
+                && rng.NextDouble() < (frustrated ? Mathf.Max(0.3f, Aggr(e)) * cfg.frustratedPushRate : Aggr(e)) * dt * cfg.pushRate * Urgency(e))
             { e.pushTarget = field.IndexOf(ahead); e.pushT = 0f; dbgPushes++;
-              e.pushBig = rng.NextDouble() < cfg.bigPushChance * e.driver.aggression * Urgency(e) * (frustrated ? 2f : 1f); if (e.pushBig) dbgBigPushes++;
+              e.pushBig = rng.NextDouble() < cfg.bigPushChance * Aggr(e) * Urgency(e) * (frustrated ? 2f : 1f); if (e.pushBig) dbgBigPushes++;
               if (traceAtk < 0 && diveTraces < 0) { traceAtk = field.IndexOf(e); traceTgt = e.pushTarget; traceT0 = raceTime; traceAcc = 0f; diveTraces++; events.Add($"DIVE TRACE {diveTraces} (push): #{e.driver.number} on #{ahead.driver.number}"); } }
             bool pushing = false;
             if (e.pushTarget >= 0)
@@ -912,7 +962,8 @@ namespace OKT
             }
 
             // attacking drivers drive closer to the limit (not when dodging a wreck)
-            if ((pushing || (attacking && e.attackTarget >= 0)) && haz == null) ai.attackBoost = cfg.attackBoostMax * e.driver.aggression;
+            if ((pushing || (attacking && e.attackTarget >= 0)) && haz == null) ai.attackBoost = cfg.attackBoostMax * Aggr(e);
+            if (e.mad && phase == RacePhase.Green) ai.attackBoost = Mathf.Max(ai.attackBoost, cfg.madCornerCut); // driving it in harder
             // ---- check-up: hold station behind a kart in my slot until the lane is clear (time headway too)
             if (ahead != null && !(pushing && field.IndexOf(ahead) == e.pushTarget))
             {
@@ -932,7 +983,7 @@ namespace OKT
                 float bumperLen = (st.FootFront + st.FootRear); // centre to centre at bumper contact
                 bool straightNow = fr.corner < 0.15f && !EntryAhead(ai);
                 bool bumpDraft = !packed && !e.finished && straightNow && !Hazard(ahead)
-                                 && (wantBy || e.driver.aggression > cfg.bumpDraftAggression);
+                                 && (wantBy || Aggr(e) > cfg.bumpDraftAggression);
                 if (bumpDraft) { settle = bumperLen + 0.02f; dbgBumpDraft++; }
                 // the accordion (Franklin): off the green everyone's on the gas and closes right up on the kart ahead
                 bool accordion = launch && !Hazard(ahead);
@@ -1150,14 +1201,20 @@ namespace OKT
                 {
                     e.recoverT += dt;
                     if (!spun && e.kart.ForwardSpeed > 3f * U.Mph) { e.recovering = false; Event($"RECOVERED: {Tag(e)} rejoins."); }
-                    else if (e.recoverT > cfg.recoverMaxSeconds)
+                    else if (e.recoverT > (InBermCorner(e) ? cfg.bermSelfRotateAfterSec : cfg.recoverMaxSeconds))
                     {
                         e.recovering = false;
                         // Franklin (Pit Board 2026-11-15): "Infield track workers typically help get any karts separated.
                         // Drivers will often hop out of their own kart to move when stuck. The engines have attached
                         // pull-starts too." A kart that's upright but can't get going gets separated and pull-started
                         // once and rejoins at the tail; a second time (or upside down) it's out.
-                        if (!e.crewHelped && !flipped)
+                        if (!e.crewHelped && !flipped && InBermCorner(e))
+                        {
+                            e.crewHelp = true; e.crewHelped = true; e.assistStarted = false; e.assistWait = 0f; e.crewHelpT = raceTime;
+                            e.worker = 2; e.workerArrives = raceTime + cfg.driverHopOutSec;
+                            Event($"CREW: {Tag(e)}'s driver hops out, picks up the nose and turns it round himself.");
+                        }
+                        else if (!e.crewHelped && !flipped)
                         {
                             e.crewHelp = true; e.crewHelped = true; e.assistStarted = false; e.assistWait = 0f; e.worker = -1; e.crewHelpT = raceTime;
                             Event($"CREW: track workers separate {Tag(e)} and pull-start it.");
@@ -1422,6 +1479,8 @@ namespace OKT
             if (e.toTail || e.outOfRace) return;
             e.toTail = true; cautionTail.Add(e);
             Event($"TO THE TAIL: {Tag(e)} ({why}). Drives back there.");
+            if (!e.mad && Hash01(e.driver.number * 7727 + cautions * 131) < e.driver.aggression)
+            { e.mad = true; Event($"MAD: {Tag(e)} is hot about it -- he'll be driving it in harder from the back."); }
             RebuildQueue();
         }
 
@@ -1487,7 +1546,7 @@ namespace OKT
             if (pred != null)
             {
                 float gap = Mathf.Repeat(pred.ai.raceDist - e.ai.raceDist, L);
-                float want = bl + (oneToGo ? cfg.restartBunchGapFt : cfg.cautionGapFt) * U.Ft;
+                float want = bl + (PushingUp(e) ? cfg.restartBunchGapFt : e.paceGapFt) * U.Ft;
                 {
                     float cap = pred.kart.ForwardSpeed + cfg.followGain * (gap - want);
                     float catchUp = Mathf.Clamp(cap - paceS, 0f, cfg.cautionCatchUpMph * U.Mph);
@@ -1501,10 +1560,14 @@ namespace OKT
                 float myD = ai.d;
                 foreach (var o in field)
                 {
-                    if (o == e || o.cleared || o.beingCleared || Hazard(o)) continue; // wrecks: the go-round below handles them
+                    if (o == e || o.cleared || o.beingCleared) continue;
                     float g = Gap(o, e);
                     if (g <= 0f || g > 10f || Mathf.Abs(o.ai.d - myD) > 1.2f) continue;
                     float c = Mathf.Max(0f, o.kart.ForwardSpeed + cfg.followGain * (g - bl - 0.15f));
+                    // a wreck or a recovering kart right in my path: the go-round below steers me off his line, but until
+                    // I'm clear I don't close on him faster than a walking-pace nudge (Franklin's playtest 11-17: a kart
+                    // ran straight into a slow recovering kart under caution)
+                    if (Hazard(o)) c = Mathf.Max(c, Mathf.Min(cfg.crawlMph * U.Mph, o.kart.ForwardSpeed + cfg.crawlMph * U.Mph * 0.5f));
                     if (c < ai.speedCap) ai.speedCap = c;
                 }
             }
@@ -1527,7 +1590,28 @@ namespace OKT
             }
             ai.laneFrac = lane;
             ai.grooveLane = lane == cfg.cautionLaneFrac ? 0 : KartAI.NoGrooveLane; // single file on the groove (Franklin's playtest 11-16)
+            UpdateWeave(e, Time.fixedDeltaTime, lane == cfg.cautionLaneFrac && !PushingUp(e) && !e.dropping && !e.toTail);
             e.cdbg = $"v{e.kart.ForwardSpeed / U.Mph:F0} cap{(float.IsInfinity(ai.speedCap) ? -1 : ai.speedCap / U.Mph):F0} lane{lane:F2} d{ai.d:F1} pred#{(pred != null ? pred.driver.number : 0)} u{ai.s / w.track.N:F2}";
+        }
+
+        /// <summary>Under caution, stopped in a corner with the nose down at the inside berm (the driver can sort it himself).</summary>
+        bool InBermCorner(Entry e)
+        {
+            if (phase != RacePhase.Caution) return false;
+            var f = w.track.Frame(e.ai.s);
+            if (f.corner < 0.5f) return false;
+            var nose = e.kart.transform.TransformPoint(0f, 0f, e.kart.setup.FootFront);
+            w.track.Locate(new Vector2(nose.x, nose.z), ref bermHint, out _, out float nd);
+            return nd < -f.halfWidth + 0.5f && e.kart.ForwardSpeed < 2f * U.Mph;
+        }
+        int bermHint = -1;
+
+        /// <summary>One to go, and this kart is past the push-up point (u = pushUpU) on the lap the green comes.</summary>
+        bool PushingUp(Entry e)
+        {
+            if (!oneToGo) return false;
+            float goArc = w.track.ArcAt(w.track.goU * w.track.N), pushArc = w.track.ArcAt(cfg.pushUpU * w.track.N);
+            return e.ai.raceDist >= goDist - (goArc - pushArc);
         }
 
         string notReady; bool notReadyOrder, notReadyCrew, cautionGapsOpen;

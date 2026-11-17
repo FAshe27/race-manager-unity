@@ -16,18 +16,24 @@ import json, sys
 
 # Wall layout from Franklin's markup over the Unity view (2026-11-16), mapped onto v4's shape. (v4 had kept v3's u
 # values, which put the grid gate mid-straight once the straights got shorter.)
-FENCE_U0, FENCE_U1 = 0.0625, 0.0977   # chain link at the turn 1 end of the front straight
-T1_U0, T1_U1 = 0.0977, 0.1719         # no guardrail at the top of turn 1 (the access road comes in here)
-EXIT_U0, EXIT_U1 = 0.5508, 0.6094     # the gap at the end of the backstretch onto the exit road
-GATE_U0, GATE_U1 = 0.8672, 0.9102     # the grid gate at the turn 4 exit, just past the restart line
+# 2026-11-17: re-read off the Google Earth aerial Franklin sent, with the v4 outline overlaid on it (lap ticks):
+# - the front-straight fence runs on to where the dirt access road crosses (u ~0.135); the guardrail resumes ~0.17;
+# - the backstretch wall ends ~0.588 and the turn 3 wall (up on its embankment) starts ~0.632 -- a staggered gap
+#   about 30 ft wide that you leave through diagonally (photos IMG_7975-7979);
+# - the grid gate: the right-side wall ends ~0.862, the front-straight fence starts ~0.904.
+# Franklin: all three are wide enough to drive an F-150 through.
+FENCE_U0, FENCE_U1 = 0.0625, 0.135    # chain link at the turn 1 end of the front straight
+T1_U0, T1_U1 = 0.135, 0.172           # no guardrail at the top of turn 1 (the access road comes in here)
+EXIT_U0, EXIT_U1 = 0.588, 0.632       # the gap at the end of the backstretch onto the exit road
+GATE_U0, GATE_U1 = 0.862, 0.904       # the grid gate at the turn 4 exit, just past the restart line
 
 def mid(a, b): return round((a + b) / 2, 4)
 
 features = [
     {"type": "dirtroad", "name": "turn 1 access road (tractor, emergency vehicles)", "widthFt": 12,
-     "points": [[mid(T1_U0, T1_U1), 0], [mid(T1_U0, T1_U1), 30], [0.125, 70], [0.12, 110]]},
+     "points": [[mid(T1_U0, T1_U1), 0], [mid(T1_U0, T1_U1), 30], [0.14, 70], [0.135, 110]]},
     {"type": "road", "name": "exit road (to the scale house)", "widthFt": 10,
-     "points": [[mid(EXIT_U0, EXIT_U1), 0], [0.615, 14], [0.66, 14], [0.74, 14], [0.80, 14], [0.835, 16],
+     "points": [[mid(EXIT_U0, EXIT_U1), 0], [0.635, 12], [0.66, 14], [0.74, 14], [0.80, 14], [0.835, 16],
                 [0.855, 32], [0.865, 52]]},
     {"type": "building", "name": "scale house", "widthFt": 12, "depthFt": 10, "heightFt": 9,
      "points": [[0.842, 30]]},

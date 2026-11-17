@@ -129,6 +129,7 @@ namespace OKT
         /// <summary>Lane limits from karts alongside (absolute lateral m), set by the director each step.</summary>
         /// <summary>Staging-grid start: world points from the kart's grid slot, down the grid lane and through the gate onto
         /// the track. While set, the kart drives the path (it's off the track legitimately); cleared once it's on the dirt.</summary>
+        [System.NonSerialized] public float weaveAmp, weavePeriod = 1.6f; float weavePhase, weaveNow; // tire-warming weave (m, s)
         [System.NonSerialized] public bool rejoinOnGroove; // recovering under caution: rejoin on the groove, not low
         [System.NonSerialized] public List<Vector3> stagePath;
         [System.NonSerialized] public int stageIdx;
@@ -236,7 +237,10 @@ namespace OKT
             {
                 if (float.IsNaN(formD)) formD = d;
                 formD = Mathf.MoveTowards(formD, dWant, (FormLaneRateBase + FormLaneRatePerMps * v) * dt);
-                dWant = formD;
+                // the weave eases in and out (never a step) and rides on the lane, so it can't walk the kart off its spot
+                weaveNow = Mathf.MoveTowards(weaveNow, weaveAmp, 0.5f * dt);
+                weavePhase += dt * 2f * Mathf.PI / Mathf.Max(0.5f, weavePeriod);
+                dWant = formD + weaveNow * Mathf.Sin(weavePhase);
             }
             else formD = float.NaN;
             // rejoin low, off the groove, out of the way -- under caution there's no traffic at speed to stay clear of,
