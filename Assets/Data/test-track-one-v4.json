@@ -1809,40 +1809,40 @@
  "barriers": [
   {
    "type": "fence",
-   "u0": 0.0152,
-   "u1": 0.0478
+   "u0": 0.0625,
+   "u1": 0.0977
   },
   {
    "type": "guardrail",
-   "u0": 0.0721,
-   "u1": 0.543
+   "u0": 0.1719,
+   "u1": 0.5508
   },
   {
    "type": "guardrail",
-   "u0": 0.5915,
-   "u1": 0.9245
+   "u0": 0.6094,
+   "u1": 0.8672
   },
   {
    "type": "guardrail",
-   "u0": 0.9427,
-   "u1": 1.0152
+   "u0": 0.9102,
+   "u1": 1.0625
   }
  ],
  "openings": [
   {
-   "name": "access road (top of turn 1)",
-   "u0": 0.0478,
-   "u1": 0.0721
+   "name": "access road (top of turn 1, no guardrail)",
+   "u0": 0.0977,
+   "u1": 0.1719
   },
   {
-   "name": "track exit (top of turn 3)",
-   "u0": 0.543,
-   "u1": 0.5915
+   "name": "track exit (end of the backstretch, onto the exit road)",
+   "u0": 0.5508,
+   "u1": 0.6094
   },
   {
-   "name": "grid entrance (top of turn 4)",
-   "u0": 0.9245,
-   "u1": 0.9427
+   "name": "grid gate (turn 4 exit)",
+   "u0": 0.8672,
+   "u1": 0.9102
   }
  ],
  "sections": {
@@ -1851,5 +1851,191 @@
   "turn3Entry": 0.5703,
   "turn4Exit": 0.9336
  },
- "notes": "Units are metres (engine units); Franklin-facing values are reported in feet. Sample 0 = start/finish, mid front straight; travel counter-clockwise seen from above; world X = json x, world Z = json y. lineFrac 0 = inside edge, 1 = outside edge. No racingLineM: v2's was mirrored; build the line from lineFrac."
+ "notes": "Units are metres (engine units); Franklin-facing values are reported in feet. Sample 0 = start/finish, mid front straight; travel counter-clockwise seen from above; world X = json x, world Z = json y. lineFrac 0 = inside edge, 1 = outside edge. No racingLineM: v2's was mirrored; build the line from lineFrac.",
+ "features": [
+  {
+   "type": "dirtroad",
+   "name": "turn 1 access road (tractor, emergency vehicles)",
+   "widthFt": 12,
+   "points": [
+    [
+     0.1348,
+     0
+    ],
+    [
+     0.1348,
+     30
+    ],
+    [
+     0.125,
+     70
+    ],
+    [
+     0.12,
+     110
+    ]
+   ]
+  },
+  {
+   "type": "road",
+   "name": "exit road (to the scale house)",
+   "widthFt": 10,
+   "points": [
+    [
+     0.5801,
+     0
+    ],
+    [
+     0.615,
+     14
+    ],
+    [
+     0.66,
+     14
+    ],
+    [
+     0.74,
+     14
+    ],
+    [
+     0.8,
+     14
+    ],
+    [
+     0.835,
+     16
+    ],
+    [
+     0.855,
+     32
+    ],
+    [
+     0.865,
+     52
+    ]
+   ]
+  },
+  {
+   "type": "building",
+   "name": "scale house",
+   "widthFt": 12,
+   "depthFt": 10,
+   "heightFt": 9,
+   "points": [
+    [
+     0.842,
+     30
+    ]
+   ]
+  },
+  {
+   "type": "road",
+   "name": "grid lane",
+   "widthFt": 20,
+   "points": [
+    [
+     0.8887,
+     0
+    ],
+    [
+     0.8887,
+     55
+    ]
+   ]
+  },
+  {
+   "type": "gate",
+   "name": "grid gate (red swing gate)",
+   "heightFt": 3.5,
+   "points": [
+    [
+     0.8672,
+     1
+    ],
+    [
+     0.9102,
+     1
+    ]
+   ]
+  },
+  {
+   "type": "fence",
+   "name": "grid lane fence (left)",
+   "heightFt": 5,
+   "points": [
+    [
+     0.8735,
+     1
+    ],
+    [
+     0.8757,
+     55
+    ]
+   ]
+  },
+  {
+   "type": "fence",
+   "name": "grid lane fence (right)",
+   "heightFt": 5,
+   "points": [
+    [
+     0.9039,
+     1
+    ],
+    [
+     0.9017000000000001,
+     55
+    ]
+   ]
+  },
+  {
+   "type": "pad",
+   "name": "staging grid",
+   "points": [
+    [
+     0.872,
+     55
+    ],
+    [
+     0.935,
+     55
+    ],
+    [
+     0.945,
+     125
+    ],
+    [
+     0.862,
+     125
+    ]
+   ]
+  },
+  {
+   "type": "fence",
+   "name": "staging grid fence",
+   "heightFt": 5,
+   "points": [
+    [
+     0.9017000000000001,
+     55
+    ],
+    [
+     0.935,
+     55
+    ],
+    [
+     0.945,
+     125
+    ],
+    [
+     0.862,
+     125
+    ],
+    [
+     0.866,
+     72
+    ]
+   ]
+  }
+ ]
 }

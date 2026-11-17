@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 // Builds the track GameObjects from the TrackModel (spec §5): the heightfield
 // ribbon mesh + MeshCollider (racing surface, berm, outside run-off bank),
 // the outside barrier as box strips laid only where the JSON's barrier layout
@@ -43,6 +44,7 @@ namespace OKT
             BuildGround(t, root.transform);
             BuildCones(t, root.transform);
             BuildMarkers(t, root.transform);
+            BuildFeatures(t, root.transform);
             return root;
         }
 
@@ -216,6 +218,100 @@ namespace OKT
             var mc = go.AddComponent<MeshCollider>();
             mc.sharedMesh = mesh; mc.convex = false; mc.sharedMaterial = pmat;
             go.isStatic = true;
+        }
+
+        // ---------------- scenery from the JSON "features" (visual only: no colliders yet) ----------------
+        /// <summary>World point for (u, feet beyond the outside edge), sitting on the ground there.</summary>
+        static Vector3 FeaturePoint(TrackModel t, float u, float outFt, float lift = 0.03f)
+        {
+            float s = Mathf.Repeat(u, 1f) * t.N; var f = t.Frame(s);
+            float d = f.halfWidth + outFt * U.Ft;
+            var p = f.pos + f.outN * d;
+            return new Vector3(p.x, Mathf.Max(t.InfieldHeight, t.SurfaceHeightSD(s, d)) + lift, p.y);
+        }
+
+        /// <summary>The feature's points with extra points between them every ~1 m, so paths follow the track's curve.</summary>
+        static List<Vector3> FeaturePath(TrackModel t, TrackFeature ft, float lift)
+        {
+            var pts = new List<Vector3>();
+            for (int i = 0; i < ft.points.Count; i++)
+            {
+                var a = ft.points[i];
+                if (i == ft.points.Count - 1) { pts.Add(FeaturePoint(t, a.x, a.y, lift)); break; }
+                var b = ft.points[i + 1];
+                float du = b.x - a.x; if (du > 0.5f) du -= 1f; else if (du < -0.5f) du += 1f;
+                float len = Vector3.Distance(FeaturePoint(t, a.x, a.y), FeaturePoint(t, a.x + du, b.y));
+                int n = Mathf.Max(1, Mathf.CeilToInt(len / 1f));
+                for (int k = 0; k < n; k++) { float q = (float)k / n; pts.Add(FeaturePoint(t, a.x + du * q, Mathf.Lerp(a.y, b.y, q), lift)); }
+            }
+            return pts;
+        }
+
+        static void BuildFeatures(TrackModel t, Transform parent)
+        {
+            if (t.features.Count == 0) return;
+            var root = new GameObject("Scenery").transform; root.SetParent(parent, false);
+            var asphalt = Materials.Solid(new Color(0.36f, 0.36f, 0.37f), 0.1f);
+            var dirtRoad = Materials.Solid(new Color(0.62f, 0.48f, 0.34f), 0.05f);
+            var fenceMat = Materials.Solid(new Color(0.55f, 0.58f, 0.60f), 0.3f);
+            var gateMat = Materials.Solid(new Color(0.80f, 0.12f, 0.10f), 0.3f);
+            var houseMat = Materials.Solid(new Color(0.88f, 0.86f, 0.82f), 0.2f);
+            foreach (var ft in t.features)
+            {
+                var go = new GameObject(ft.type + ": " + ft.name); go.transform.SetParent(root, false); go.isStatic = true;
+                var verts = new List<Vector3>(); var tris = new List<int>(); Material mat;
+                if (ft.type == "road" || ft.type == "dirtroad")
+                {
+                    var path = FeaturePath(t, ft, ft.type == "road" ? 0.03f : 0.02f); float hw = ft.widthFt * U.Ft * 0.5f;
+                    for (int i = 0; i < path.Count; i++)
+                    {
+                        var dir = path[Mathf.Min(i + 1, path.Count - 1)] - path[Mathf.Max(i - 1, 0)]; dir.y = 0f; dir.Normalize();
+                        var side = new Vector3(dir.z, 0f, -dir.x);
+                        verts.Add(path[i] - side * hw); verts.Add(path[i] + side * hw);
+                        if (i > 0) { int a = 2 * i - 2; tris.AddRange(new[] { a, a + 2, a + 1, a + 1, a + 2, a + 3 }); }
+                    }
+                    mat = ft.type == "road" ? asphalt : dirtRoad;
+                }
+                else if (ft.type == "pad")
+                {
+                    var ring = FeaturePath(t, ft, 0.035f); ring.Add(ring[0]);
+                    var c = Vector3.zero; foreach (var p in ring) c += p; c /= ring.Count;
+                    verts.Add(c); verts.AddRange(ring);
+                    for (int i = 1; i < verts.Count - 1; i++) tris.AddRange(new[] { 0, i, i + 1 });
+                    mat = asphalt;
+                }
+                else if (ft.type == "fence" || ft.type == "gate")
+                {
+                    var path = FeaturePath(t, ft, 0f); float h = (ft.heightFt > 0f ? ft.heightFt : 5f) * U.Ft;
+                    // two sheets (front and back) with their own vertices, so each face gets its own normal
+                    int n = path.Count;
+                    for (int i = 0; i < n; i++) { verts.Add(path[i]); verts.Add(path[i] + Vector3.up * h); }
+                    for (int i = 0; i < n; i++) { verts.Add(path[i]); verts.Add(path[i] + Vector3.up * h); }
+                    for (int i = 1; i < n; i++)
+                    {
+                        int a = 2 * i - 2, b = 2 * n + 2 * i - 2;
+                        tris.AddRange(new[] { a, a + 1, a + 2, a + 2, a + 1, a + 3 });
+                        tris.AddRange(new[] { b, b + 2, b + 1, b + 2, b + 3, b + 1 });
+                    }
+                    mat = ft.type == "gate" ? gateMat : fenceMat;
+                }
+                else if (ft.type == "building")
+                {
+                    var p = FeaturePoint(t, ft.points[0].x, ft.points[0].y, 0f);
+                    var b = GameObject.CreatePrimitive(PrimitiveType.Cube); Object.DestroyImmediate(b.GetComponent<Collider>());
+                    b.name = ft.name; b.transform.SetParent(go.transform, false);
+                    float s = Mathf.Repeat(ft.points[0].x, 1f) * t.N; var f = t.Frame(s);
+                    b.transform.position = p + Vector3.up * ft.heightFt * U.Ft * 0.5f;
+                    b.transform.rotation = Quaternion.LookRotation(new Vector3(f.tan.x, 0f, f.tan.y));
+                    b.transform.localScale = new Vector3(ft.depthFt * U.Ft, ft.heightFt * U.Ft, ft.widthFt * U.Ft);
+                    b.GetComponent<MeshRenderer>().sharedMaterial = houseMat;
+                    continue;
+                }
+                else continue;
+                var m = new Mesh { name = ft.name }; m.SetVertices(verts); m.SetTriangles(tris, 0); m.RecalculateNormals(); m.RecalculateBounds();
+                go.AddComponent<MeshFilter>().sharedMesh = m;
+                go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+            }
         }
 
         static void BuildGround(TrackModel t, Transform parent)

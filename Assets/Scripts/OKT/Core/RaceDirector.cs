@@ -94,6 +94,9 @@ namespace OKT
         public float cautionLaneFrac = 0.15f;       // single file, a touch above centre
         public float dropBackLaneFrac = -0.55f;     // a kart dropping back to its spot runs low and lets them by
         public float minCautionSec = 15f;
+        // Franklin q23: "the leader will go a little bit slow at first because he knows karts are trying to get lined up".
+        // While the caution line has gaps, the leader runs this slow so the field can close up. [TEST VALUE]
+        public float cautionLeaderSlowMph = 15f;
         // Field stop (Franklin, Pit Board q18): no radios, so when the caution line can't sort itself the field is stopped
         // at the first corner worker. He has the order from the tower and points at each kart in turn; pointed at = go
         // and pace, that's your spot. A two-kart swap is pointed out at pace instead (the drop-back above).
@@ -1403,6 +1406,11 @@ namespace OKT
             if (e.recovering) { ai.formation = false; ai.paceMode = false; return; }
             ai.formation = true; ai.paceMode = true; ai.trafficGoal = 0f;
             if (fsStage != 0 && fsOrder.Contains(e)) { FieldStopDrive(e, paceS, paceC); return; }
+            if (cautionGapsOpen && cautionQueue.Count > 0 && cautionQueue[0] == e && !oneToGo)
+            {
+                paceS = Mathf.Min(paceS, cfg.cautionLeaderSlowMph * U.Mph); paceC = Mathf.Min(paceC, cfg.cautionLeaderSlowMph * U.Mph);
+                e.ai.paceStraight = Mathf.Min(e.ai.paceStraight, paceS); e.ai.paceCorner = Mathf.Min(e.ai.paceCorner, paceC);
+            }
             float lane = cfg.cautionLaneFrac;
             Entry pred = null;
             var st = ai.kart.setup; float bl = (st.FootFront + st.FootRear);
@@ -1469,7 +1477,7 @@ namespace OKT
             e.cdbg = $"v{e.kart.ForwardSpeed / U.Mph:F0} cap{(float.IsInfinity(ai.speedCap) ? -1 : ai.speedCap / U.Mph):F0} lane{lane:F2} d{ai.d:F1} pred#{(pred != null ? pred.driver.number : 0)} u{ai.s / w.track.N:F2}";
         }
 
-        string notReady; bool notReadyOrder, notReadyCrew;
+        string notReady; bool notReadyOrder, notReadyCrew, cautionGapsOpen;
         bool QueueReady()
         {
             notReady = null; notReadyOrder = false; notReadyCrew = false;
@@ -1504,6 +1512,14 @@ namespace OKT
             }
             RebuildQueue();
             if (cautionQueue.Count == 0) return;
+            // is the line strung out? (the leader slows until it closes up)
+            cautionGapsOpen = false;
+            for (int i = 1; i < cautionQueue.Count; i++)
+            {
+                var qa = cautionQueue[i - 1]; var qb = cautionQueue[i];
+                if (qa.recovering || qb.recovering || Hazard(qa) || Hazard(qb)) continue;
+                if (QueueGap(qa, qb) > qb.kart.setup.FootFront + qb.kart.setup.FootRear + 20f * U.Ft) { cautionGapsOpen = true; break; }
+            }
             if (fsStage != 0) { FieldStopStep(); return; }
             // who is out of place: a rolling kart that belongs ahead of me is physically behind (or beside) me
             for (int k = 0; k < cautionQueue.Count; k++)

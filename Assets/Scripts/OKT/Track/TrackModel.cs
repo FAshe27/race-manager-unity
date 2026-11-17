@@ -139,8 +139,17 @@ namespace OKT
         public float LineOffset => (lineFrac - 0.5f) * 2f * halfWidth;
     }
 
+    /// <summary>Scenery off the racing surface (track JSON "features"): roads, pads, fences, buildings. Points are
+    /// (u around the lap, feet beyond the outside edge). Visual only for now.</summary>
+    public sealed class TrackFeature
+    {
+        public string type, name; public float widthFt, heightFt, depthFt;
+        public readonly List<Vector2> points = new List<Vector2>(); // x = u, y = feet beyond the outside edge
+    }
+
     public sealed class TrackModel
     {
+        public readonly List<TrackFeature> features = new List<TrackFeature>();
         public readonly string name;
         public readonly int N;
         public readonly float lapLengthM;
@@ -207,6 +216,23 @@ namespace OKT
                 }
             }
             else barriers.Add(new BarrierSpan { type = BarrierType.Guardrail, u0 = 0f, u1 = 1f });
+            if (root.TryGetValue("features", out var fo) && fo is List<object> fl)
+                foreach (var e in fl)
+                {
+                    var d = (Dictionary<string, object>)e;
+                    var ft = new TrackFeature
+                    {
+                        type = (string)d["type"], name = d.TryGetValue("name", out var n) ? (string)n : "",
+                        widthFt = d.TryGetValue("widthFt", out var wv) ? Convert.ToSingle(wv) : 0f,
+                        heightFt = d.TryGetValue("heightFt", out var hv) ? Convert.ToSingle(hv) : 0f,
+                        depthFt = d.TryGetValue("depthFt", out var dv) ? Convert.ToSingle(dv) : 0f,
+                    };
+                    foreach (var p in (List<object>)d["points"])
+                    {
+                        var pl = (List<object>)p; ft.points.Add(new Vector2(Convert.ToSingle(pl[0]), Convert.ToSingle(pl[1])));
+                    }
+                    features.Add(ft);
+                }
 
             // Travel direction: CCW (positive area in XZ) => outward normal is right of travel.
             float area = 0f;
