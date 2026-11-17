@@ -2671,3 +2671,47 @@ Franklin's answers to the two questions, with the real behaviour filled in:
 racing surface, so that's no issue at all." The provisional status from my
 13:00 note is lifted; `gripPaved` stands as modelled. (Franklin's gate and
 lane photos still matter for the ramp geometry, just not for grip.)
+
+### 2026-11-17 afternoon — Claude Code — [M2] STATUS: caution pacing from Franklin's playtest, berm self-help, mad drivers, openings from the aerial (m2-wip 0d714be)
+
+**Franklin's playtest notes and rulings (11-17), all built:**
+- **Caution spacing:**
+  - General pacing while the tower checks is 2–4 ft bumper to nose: an obvious line, nobody pushing. Each driver keeps his own gap in that range (from a hash of his number).
+  - On the one-to-go lap everyone pushes the kart ahead, nose on bumper. That starts halfway between the centre of turns 1–2 and the middle of the backstretch (`pushUpU` 0.375) and runs into the restart. Before this, the line closed to 1 ft at once.
+- **Running into slow karts:** a kart drove straight into a slow recovering kart under caution. Recovering karts count as hazards, and the follow-check used to skip hazards: the go-round allowed 10 mph whatever the hazard's speed. Now, until it's clear, a kart can't close on a hazard ahead faster than a walking-pace nudge.
+- **Accordion:** the line spread on the straights and bunched in the corners because the pace speeds were 25 on the straights and 20 in the corners. Now it's one steady 22 mph ([TEST VALUE]; Franklin said ~20–25).
+- **Tire-warming weave:**
+  - About 1 in 3 drivers do it now and then: 3–5 s bursts, about 1 ft each way, 1.6 s period.
+  - It happens under caution only, corners included (Franklin: the best place to heat the RF).
+  - It rides on the kart's lane, so it doesn't open a gap.
+  - It stops when the push-up starts. Not on the double-file pace lap, where the lanes nearly touch.
+- **Berm self-help** (Franklin via Muse, 13:05): under caution, a kart stopped in a corner with its nose at the inside berm is turned round by its own driver after 5 s, with a 3 s hop-out ([TEST VALUEs]). No worker, and no trip to the tail for that alone.
+- **Mad drivers** (Franklin: a fast kart sent to the tail is still fast; a mad driver pushes harder, which helps him or hurts him):
+  - On a tail send, the chance he's mad equals his aggression.
+  - Mad means +0.3 aggression, which raises his push, big-push, defend and bump-draft rates, and his corner speed cut by 0.012 (`cornerSlow` 0.26 → 0.248) for the rest of the race.
+  - It's a driver state, the same class as frustration. It never places him anywhere.
+- **Openings:** re-read off the Google Earth aerial Franklin sent, with the v4 outline overlaid (he confirmed they match):
+  - turn 1: 0.135–0.172 (the fence runs on to the access road);
+  - backstretch exit: 0.588–0.632 (a staggered gap: the backstretch wall ends, the turn 3 wall starts up on its embankment);
+  - grid gate: 0.862–0.904.
+  - All three are about 26–30 ft wide (Franklin: you can drive an F-150 through them).
+  - Staging karts now come on hugging the wall (Franklin: no suspension; coming on from the low side slams the left front at the crest).
+
+**Comeback experiment (scratch, not in the build):**
+- **Setup:** the fastest kart started dead last, 40 races.
+- **Result:** finished 4.3rd on average, top 5 in about 80% of races, 3 wins; worst 10th and 12th.
+- **What it means:** passing works. Tail-sent fast karts finished badly in the logs because they went back with fewer laps left, sometimes after crew time. The mad state is the missing behaviour.
+
+**Test results, 40 races (seeds 8001 and 9001):**
+- 0 breaches, no compile errors.
+- 38 of 40 finished. The other two each had 3 cautions and ran out the 420 s harness cap.
+- Cautions 0.5 and 0.8 per race; pole wins 50–55%; laps 10.94–10.97 s.
+- MAD 14 per 20 races; berm self-help 3 and 5.
+- Staging check (2 races): field out at 27.7 s, rows within ±0.8 ft at the green.
+- Seed 9001's 0.5 cautions per race is the lowest set so far (earlier sets 0.7–0.8). Flagged in case the push-up spacing changed restarts; it's within the noise I've seen, but Franklin's playtest will show it.
+
+**Photos:** ARP Photos/CATALOG.md catalogues all 91 of Franklin's track-walk photos, with his notes (lane climbs about 3 ft to the track; caution lights at the backstretch exit and the top of turn 1, run from the flagstand).
+
+**For Muse:**
+- Is the mad state honest driver modelling? It's keyed to the driver's own temperament and his tail send, and it changes only what he attempts and how hard he drives.
+- Is the weave honest? It's a lateral oscillation the driver chooses, under caution only.
