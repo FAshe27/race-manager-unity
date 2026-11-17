@@ -71,6 +71,8 @@ namespace OKT
         public const int NoGrooveLane = 99;
         [System.NonSerialized] public int grooveLane = NoGrooveLane;
         [System.NonSerialized] public float grooveLaneHalf = 0.635f; // half the pair's centre-to-centre spacing (m)
+        [System.NonSerialized] float formD = float.NaN;               // smoothed formation lane target (m)
+        public const float FormLaneRateBase = 0.4f, FormLaneRatePerMps = 0.3f; // lateral m/s: 0.4 + 0.3 x speed [TEST VALUE]
         // Pacing stays off the wall (Franklin, v4 playtest: the outside pace lane rode the backstretch wall where the
         // groove runs high mid-straight). Daylight between the nerf bar and the rail, in inches. [TEST VALUE]
         public const float PaceWallGapIn = 30f;
@@ -217,6 +219,13 @@ namespace OKT
                     dWant = pc + grooveLane * grooveLaneHalf;
                 }
             }
+            if (formation && !recovering)
+            {
+                if (float.IsNaN(formD)) formD = d;
+                formD = Mathf.MoveTowards(formD, dWant, (FormLaneRateBase + FormLaneRatePerMps * v) * dt);
+                dWant = formD;
+            }
+            else formD = float.NaN;
             if (recovering) dWant = Mathf.Min(d, tf.LineOffset - 1.0f); // rejoin low, off the groove, out of the way
             float dT = Mathf.Clamp(dWant, LowLimit(tf), HighLimit(tf));
             // Occupancy as hard lane limits on the STEERING TARGET (karts alongside own their slots).

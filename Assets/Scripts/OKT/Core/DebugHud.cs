@@ -138,7 +138,7 @@ namespace OKT
                 GUI.DrawTexture(r, tex);
             }
             GUI.color = old;
-            string label = flag == Flag.Green ? "GREEN" : flag == Flag.Yellow ? (d.oneToGo ? "YELLOW — 1 TO GO" : "YELLOW")
+            string label = flag == Flag.Green ? "GREEN" : flag == Flag.Yellow ? (d.fsStage != 0 ? "FIELD STOPPED — LINING UP" : d.oneToGo ? "YELLOW — 1 TO GO" : "YELLOW")
                          : flag == Flag.White ? "WHITE — LAST LAP" : "CHECKERED";
             GUI.Label(new Rect(x - 40f, y + fh + 6f, fw + 60f, 24f), label, banner);
         }

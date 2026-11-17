@@ -10,7 +10,7 @@ namespace OKT
 {
     public class SoakStats
     {
-        public int races, finished, cautions, breaches, incidents, dnfs;
+        public int races, finished, cautions, breaches, incidents, dnfs, fieldStops;
         public readonly List<float> cleanBest = new List<float>();
         public readonly List<float> winnerTimes = new List<float>();
         public float minClean = float.PositiveInfinity, maxClean;
@@ -58,6 +58,8 @@ namespace OKT
 
             sb.AppendLine($"Race {st.races} (seed {seed}): {(done ? "complete" : "TIME CAP (did not finish)")}, " +
                           $"sim {d.raceTime:F0} s, from green flag {(d.firstGreenTime >= 0 ? (d.raceTime - d.firstGreenTime) : 0):F0} s");
+            if (d.fieldStops > 0) sb.AppendLine($"  field stops {d.fieldStops}");
+            st.fieldStops += d.fieldStops;
             sb.AppendLine($"  cautions {d.cautions} (Franklin's rules)   " +
                           $"wall breaches {d.WallBreaches}   incidents {d.Incidents} (spins/flips/stops)   DNF {d.Dnfs}   " +
                           $"on-track passes {d.passes}   mean positions moved vs grid {d.MeanPositionsMoved:F1}");
@@ -116,14 +118,14 @@ namespace OKT
             }
             sb.AppendLine();
             if (d.trace != null) sb.Append(d.trace);
-            foreach (var ev in d.events) if (ev.Contains("SPIN") || ev.Contains("FLIP") || ev.Contains("STOPPED") || ev.Contains("OUT:") || ev.Contains("CREW") || ev.Contains("WATCHDOG") || ev.Contains("OFF TRACK") || ev.Contains("WALL BREACH") || ev.Contains("CAUTION") || ev.Contains("TO THE TAIL") || ev.Contains("ONE TO GO") || ev.Contains("GREEN") || ev.Contains("GRID AT GREEN") || ev.Contains("before:") || ev.Contains("DIVE") || ev.Contains("dive ")) sb.AppendLine("  " + ev);
+            foreach (var ev in d.events) if (ev.Contains("SPIN") || ev.Contains("FLIP") || ev.Contains("STOPPED") || ev.Contains("OUT:") || ev.Contains("CREW") || ev.Contains("WATCHDOG") || ev.Contains("OFF TRACK") || ev.Contains("WALL BREACH") || ev.Contains("CAUTION") || ev.Contains("TO THE TAIL") || ev.Contains("ONE TO GO") || ev.Contains("GREEN") || ev.Contains("GRID AT GREEN") || ev.Contains("FIELD") || ev.Contains("WORKER POINTS") || ev.Contains("before:") || ev.Contains("DIVE") || ev.Contains("dive ")) sb.AppendLine("  " + ev);
         }
 
         public static string Summary(SoakStats st)
         {
             float mean = 0; foreach (var x in st.cleanBest) mean += x; mean = st.cleanBest.Count > 0 ? mean / st.cleanBest.Count : 0;
             float win = 0; foreach (var x in st.winnerTimes) win += x; win = st.winnerTimes.Count > 0 ? win / st.winnerTimes.Count : 0;
-            return $"SOAK SUMMARY: {st.races} races, {st.finished} completed. Cautions {st.cautions} total ({(st.races > 0 ? (float)st.cautions / st.races : 0):F1}/race). " +
+            return $"SOAK SUMMARY: {st.races} races, {st.finished} completed. Cautions {st.cautions} total ({(st.races > 0 ? (float)st.cautions / st.races : 0):F1}/race), field stops {st.fieldStops}. " +
                    $"Wall breaches {st.breaches}. Incidents {st.incidents} ({(st.races > 0 ? (float)st.incidents / st.races : 0):F1}/race). DNFs {st.dnfs}. " +
                    $"Clean-air best laps: {st.cleanBest.Count} karts, mean {mean:F2} s, range {(st.cleanBest.Count > 0 ? st.minClean : 0):F2}–{st.maxClean:F2} s (Clone band 10.5–11.5). " +
                    $"Mean winner race time {win:F1} s. Off-track steps {st.offTrackSteps}. " +

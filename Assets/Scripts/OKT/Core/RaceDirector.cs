@@ -79,6 +79,18 @@ namespace OKT
         public float cautionLaneFrac = 0.15f;       // single file, a touch above centre
         public float dropBackLaneFrac = -0.55f;     // a kart dropping back to its spot runs low and lets them by
         public float minCautionSec = 15f;
+        // Field stop (Franklin, Pit Board q18): no radios, so when the caution line can't sort itself the field is stopped
+        // at the first corner worker. He has the order from the tower and points at each kart in turn; pointed at = go
+        // and pace, that's your spot. A two-kart swap is pointed out at pace instead (the drop-back above).
+        public int fieldStopAfterChecks = 2;        // leader laps with the line still out of order before the stop [TEST VALUE]
+        public int fieldStopMixedKarts = 3;         // or this many karts out of place at once: stop now [TEST VALUE]
+        public float fieldStopWatchdogSec = 120f;   // or a caution this long that isn't waiting on a crew [TEST VALUE]
+        public float fieldStopGapFt = 3f;           // bumper gap when stopped [TEST VALUE]
+        public float fieldStopReleaseSec = 1.5f;    // the worker points at the next kart this long after the last one went [TEST VALUE]
+        public float fieldStopPassMph = 6f;         // a released kart easing past the karts still stopped [TEST VALUE]
+        public float fieldStopLeadMph = 12f;
+        public float fieldStopGatherSec = 45f;      // the worker stops waiting for stragglers after this [TEST VALUE]
+        public float fieldStopNextWaitSec = 5f;     // and points at the next kart even if the last one isn't clear yet [TEST VALUE]        // the first kart away runs slowly until the whole field is released [TEST VALUE]
         public float packBehindSec = 1.5f;          // a spin with a kart this close behind (or 15 m ahead) is "in a pack"
         public bool cautionForLoneSpin = false;     // some tracks throw it for any spin (Franklin): track setting                 // speed a blocked kart creeps through a jam at [TEST VALUE]      // how far ahead (in time) drivers watch for trouble [TEST VALUE]
         public float outsidePassMargin = 0.6f;
@@ -108,6 +120,7 @@ namespace OKT
         // Infield track workers (Franklin, 2026-11-15): two of them, one covering turns 1-2 and one turns 3-4, standing
         // "a good ten feet or so away from the racing surface" (they also wave the yellow with the flagman at S/F).
         public float workerBackFt = 10f;
+        public float crewGiveUpSec = 75f;               // a crew job this long and the kart is retired [TEST VALUE]
         public float driverSelfHelpSec = 15f;            // waiting on a busy worker this long, the driver hops out himself [TEST VALUE]
         public float[] workerPostU = { 0.25f, 0.75f };   // mid turns 1-2 and 3-4 on this track [TEST VALUE: read off the groove apexes]
         // Stub incident detection (M2): spins / flips / stops are logged, not judged (M3).
@@ -269,6 +282,8 @@ namespace OKT
             public bool inIncident; public int spins, flips; public float stoppedT;
             public bool blocked;
             public string cdbg = "";
+            public float crewHelpT;               // when the workers took the job
+            public bool fsHeld, fsReleased; public float fsStopAt, fsHeldAt; // field stop: stopped and waiting / pointed at and gone
             public bool toTail, spotBack, dropping; // caution: sent to the tail / keeps his spot (the kart that wrecked him goes back)   // a kart right in front of me: stopped here means waiting in a jam, not wrecked
             public float bobbleT;
             public float concedeT; public int concedeTo = -1;
@@ -957,7 +972,7 @@ namespace OKT
                 var f = w.track.Frame(ai.s);
                 float yaw = Vector3.Angle(new Vector3(f.tan.x, 0, f.tan.y), Vector3.ProjectOnPlane(e.kart.transform.forward, Vector3.up));
                 bool spun = yaw > cfg.spinAngleDeg, flipped = e.kart.UpsideDown;
-                bool stopped = (phase == RacePhase.Green || phase == RacePhase.Caution) && e.kart.ForwardSpeed < 2f * U.Mph && !e.finished;
+                bool stopped = (phase == RacePhase.Green || phase == RacePhase.Caution) && e.kart.ForwardSpeed < 2f * U.Mph && !e.finished && !e.fsHeld && fsStage == 0;
                 e.stoppedT = stopped ? e.stoppedT + dt : 0f;
                 bool stuck = (e.stoppedT > cfg.stoppedSeconds && !e.blocked && phase == RacePhase.Green)
                              // under caution a stop is normally just the queue; but a kart that's supposed to be rolling
@@ -983,7 +998,7 @@ namespace OKT
                         // once and rejoins at the tail; a second time (or upside down) it's out.
                         if (!e.crewHelped && !flipped)
                         {
-                            e.crewHelp = true; e.crewHelped = true; e.assistStarted = false; e.assistWait = 0f; e.worker = -1;
+                            e.crewHelp = true; e.crewHelped = true; e.assistStarted = false; e.assistWait = 0f; e.worker = -1; e.crewHelpT = raceTime;
                             Event($"CREW: track workers separate {Tag(e)} and pull-start it.");
                             if (phase == RacePhase.Caution && !e.toTail) SendToTail(e, "crew had to get it going");
                         }
@@ -1092,6 +1107,15 @@ namespace OKT
         void CrewAssist(Entry e, float dt)
         {
             var rb = e.kart.Body; var ai = e.ai;
+            // backstop: a kart the workers can't get going in this long is done for the night -- push it to the infield
+            // rather than hold the caution on it (soak 2026-11-16: a 6-minute caution, race 17).
+            if (raceTime - e.crewHelpT > cfg.crewGiveUpSec)
+            {
+                e.crewHelp = false; e.outOfRace = true; e.outReason = "couldn't restart";
+                if (e.worker >= 0 && e.worker < 2 && workerBusy[e.worker] == e) workerBusy[e.worker] = null;
+                Event($"OUT: {Tag(e)} (workers couldn't get it going in {cfg.crewGiveUpSec:F0} s).");
+                return;
+            }
             if (!e.assistStarted)
             {
                 // the worker for this end of the track takes the job when free, then walks out from the infield
@@ -1150,6 +1174,8 @@ namespace OKT
                 bool rolling = o.kart.ForwardSpeed > 2f * U.Mph;
                 if (dist < 1.6f && !rolling)
                 {
+                    float go = Gap(o, e);
+                    if (go > 0.05f || (Mathf.Abs(go) <= 0.05f && field.IndexOf(o) < field.IndexOf(e))) return; // he's ahead: he goes first
                     // parked right beside another stuck kart (a pile): walk it on up the inside edge until it's clear,
                     // rather than wait on a kart that is itself waiting (the deadlock behind a 300 s caution)
                     float s2 = w.track.WrapS(ai.s + cfg.crewWalkMph * U.Mph * dt / w.track.centerLength * w.track.N);
@@ -1218,6 +1244,7 @@ namespace OKT
             if (phase != RacePhase.Green) return;
             phase = RacePhase.Caution; phaseTime = 0; cautions++;
             cautionStart = raceTime; oneToGo = false; cautionDumped = false; cautionLeaderLap = -1; goDist = float.MaxValue;
+            fsStage = 0; fsOrder.Clear(); orderFails = 0;
             // order from ~2 s before the incident (the spinner has already lost spots by now)
             List<Entry> snap = null;
             foreach (var sn in orderSnaps) if (raceTime - sn.t >= 2f) snap = sn.order;
@@ -1255,9 +1282,7 @@ namespace OKT
         /// <summary>Distance from e forward to the kart ahead of it in the queue (laps folded: a kart a lap down lines up physically).</summary>
         float QueueGap(Entry pred, Entry e)
         {
-            float g = pred.ai.raceDist - e.ai.raceDist;
-            while (g > 0.75f * L) g -= L;
-            return g;
+            return Mathf.Repeat(pred.ai.raceDist - e.ai.raceDist + 0.25f * L, L) - 0.25f * L;
         }
 
         /// <summary>Under caution: single file behind the leader at pace speed; catch up at up to pace + 5 mph; a kart
@@ -1267,6 +1292,7 @@ namespace OKT
             var ai = e.ai; ai.recovering = e.recovering;
             if (e.recovering) { ai.formation = false; ai.paceMode = false; return; }
             ai.formation = true; ai.paceMode = true; ai.trafficGoal = 0f;
+            if (fsStage != 0 && fsOrder.Contains(e)) { FieldStopDrive(e, paceS, paceC); return; }
             float lane = cfg.cautionLaneFrac;
             Entry pred = null;
             var st = ai.kart.setup; float bl = (st.FootFront + st.FootRear);
@@ -1283,18 +1309,18 @@ namespace OKT
                 // depends on a kart behind me, so nothing can wait on itself.
                 // Only karts that belong AHEAD of me in the queue (else the leader chased the tail a lap ahead, the tail
                 // chased the next kart, and the whole loop ran pace + 5 with the gaps never closing).
-                float best = 0.5f * L; int myIdx = cautionQueue.IndexOf(e);
+                float best = 0.95f * L; int myIdx = cautionQueue.IndexOf(e);
                 for (int qi = 0; qi < myIdx; qi++)
                 {
                     var o = cautionQueue[qi];
                     if (o.dropping || o.recovering || Hazard(o)) continue;
-                    float g = Gap(o, e);
-                    if (g > 0f && g < best) { best = g; pred = o; }
+                    float g = Mathf.Repeat(o.ai.raceDist - e.ai.raceDist, L); // forward, all the way round
+                    if (g > 0.05f && g < best) { best = g; pred = o; }
                 }
             }
             if (pred != null)
             {
-                float gap = Gap(pred, e);
+                float gap = Mathf.Repeat(pred.ai.raceDist - e.ai.raceDist, L);
                 float want = bl + (oneToGo ? cfg.restartBunchGapFt : cfg.cautionGapFt) * U.Ft;
                 {
                     float cap = pred.kart.ForwardSpeed + cfg.followGain * (gap - want);
@@ -1320,22 +1346,22 @@ namespace OKT
             e.cdbg = $"v{e.kart.ForwardSpeed / U.Mph:F0} cap{(float.IsInfinity(ai.speedCap) ? -1 : ai.speedCap / U.Mph):F0} lane{lane:F2} d{ai.d:F1} pred#{(pred != null ? pred.driver.number : 0)} u{ai.s / w.track.N:F2}";
         }
 
-        string notReady;
+        string notReady; bool notReadyOrder, notReadyCrew;
         bool QueueReady()
         {
-            notReady = null;
+            notReady = null; notReadyOrder = false; notReadyCrew = false;
             foreach (var e in field)
             {
-                if (e.beingCleared && !e.cleared) { notReady = $"crew clearing {Tag(e)}"; return false; }
-                if (e.recovering && !e.outOfRace) { notReady = $"{Tag(e)} still recovering"; return false; }
-                if (e.crewHelp) { notReady = $"track workers getting {Tag(e)} going"; return false; }
+                if (e.beingCleared && !e.cleared) { notReady = $"crew clearing {Tag(e)}"; notReadyCrew = true; return false; }
+                if (e.recovering && !e.outOfRace) { notReady = $"{Tag(e)} still recovering"; notReadyCrew = true; return false; }
+                if (e.crewHelp) { notReady = $"track workers getting {Tag(e)} going"; notReadyCrew = true; return false; }
             }
             for (int i = 1; i < cautionQueue.Count; i++)
             {
                 var a = cautionQueue[i - 1]; var b = cautionQueue[i];
                 float bl = (b.kart.setup.FootFront + b.kart.setup.FootRear);
                 float g = QueueGap(a, b);
-                if (g < 0.6f || g > bl + 20f * U.Ft) { notReady = $"{Tag(b)} {(g < 0.6f ? "not behind" : "too far behind")} {Tag(a)} ({g / U.Ft:F0} ft) [#{b.driver.number}: {b.cdbg}] [#{a.driver.number}: {a.cdbg}]"; return false; } // out of order or strung out
+                if (g < 0.6f || g > bl + 20f * U.Ft) { notReadyOrder = g < 0.6f; notReady = $"{Tag(b)} {(g < 0.6f ? "not behind" : "too far behind")} {Tag(a)} ({g / U.Ft:F0} ft) [#{b.driver.number}: {b.cdbg}] [#{a.driver.number}: {a.cdbg}]"; return false; } // out of order or strung out
             }
             return true;
         }
@@ -1355,6 +1381,7 @@ namespace OKT
             }
             RebuildQueue();
             if (cautionQueue.Count == 0) return;
+            if (fsStage != 0) { FieldStopStep(); return; }
             // who is out of place: a rolling kart that belongs ahead of me is physically behind (or beside) me
             for (int k = 0; k < cautionQueue.Count; k++)
             {
@@ -1373,12 +1400,21 @@ namespace OKT
                 bool first = cautionLeaderLap < 0; cautionLeaderLap = lapIdx;
                 bool ready = !first && raceTime - cautionStart > cfg.minCautionSec && QueueReady();
                 if (!first && !ready && notReady != null) Event($"CAUTION continues: {notReady}.");
+                if (!first && !ready && notReadyOrder)
+                {
+                    orderFails++;
+                    int mixed = 0; foreach (var q in cautionQueue) if (q.dropping) mixed++;
+                    if (orderFails >= cfg.fieldStopAfterChecks || mixed >= cfg.fieldStopMixedKarts)
+                    { BeginFieldStop(orderFails >= cfg.fieldStopAfterChecks ? $"line still out of order after {orderFails} laps" : $"{mixed} karts out of place"); return; }
+                }
                 if (ready)
                 {
                     oneToGo = true; goDist = lapIdx * L + w.track.ArcAt(w.track.goU * w.track.N);
                     Event($"ONE TO GO: queue verified ({cautionQueue.Count} karts, {Tag(lead)} leads). Bunch up for the restart.");
                 }
             }
+            if (!oneToGo && raceTime - cautionStart > cfg.fieldStopWatchdogSec && raceTime - fsLastEnd > cfg.fieldStopWatchdogSec && !QueueReady() && !notReadyCrew)
+            { BeginFieldStop($"caution {raceTime - cautionStart:F0} s and the line won't sort itself"); return; }
             if (oneToGo && lead.ai.raceDist >= goDist)
             {
                 phase = RacePhase.Green; phaseTime = 0; greenTime = raceTime; oneToGo = false;
@@ -1405,6 +1441,144 @@ namespace OKT
             }
         }
 
+
+        // ---------------- field stop (Franklin, q18) ----------------
+        public int fsStage; public int fieldStops;   // 0 none, 1 stopping, 2 releasing
+        public readonly List<Entry> fsOrder = new List<Entry>();
+        int fsNext, orderFails; float fsT, fsLastEnd = -1000f;
+        float FieldStopLine => w.track.ArcAt(cfg.workerPostU[0] * w.track.N); // the turns 1-2 worker's post
+
+        void BeginFieldStop(string why)
+        {
+            fsStage = 1; fieldStops++; fsT = raceTime; fsNext = 0; oneToGo = false;
+            fsOrder.Clear();
+            foreach (var q in cautionQueue) if (!q.outOfRace && !q.finished && !q.recovering && !q.crewHelp) fsOrder.Add(q);
+            // each kart's stopping spot: single file back from the worker, in the order they physically come to him
+            var arriving = new List<(Entry e, float toLine)>();
+            float line = FieldStopLine;
+            foreach (var q in fsOrder)
+            {
+                float v = q.kart.ForwardSpeed, pos = Mathf.Repeat(q.ai.raceDist, L);
+                float toLine = Mathf.Repeat(line - pos, L);
+                if (toLine < v * v / (2f * 1.5f) + 3f) toLine += L; // can't stop in time: next time round
+                arriving.Add((q, toLine));
+                q.fsHeld = false; q.fsReleased = false; q.dropping = false;
+            }
+            arriving.Sort((a, b) => a.toLine.CompareTo(b.toLine));
+            float pitch = 0f;
+            for (int i = 0; i < arriving.Count; i++)
+            {
+                var q = arriving[i].e;
+                q.fsStopAt = q.ai.raceDist + arriving[i].toLine - pitch;
+                pitch += q.kart.setup.FootFront + q.kart.setup.FootRear + cfg.fieldStopGapFt * U.Ft;
+            }
+            Event($"FIELD STOP: {why}. The turns 1-2 worker stops the field to line it up.");
+        }
+
+        void FieldStopStep()
+        {
+            if (fsStage == 1)
+            {
+                bool all = true;
+                foreach (var q in fsOrder) if (!q.outOfRace && !q.recovering && !q.crewHelp && !q.fsHeld) { all = false; break; }
+                if (all || raceTime - fsT > cfg.fieldStopGatherSec)
+                {
+                    fsStage = 2; fsNext = 0; fsT = raceTime - cfg.fieldStopReleaseSec;
+                    var sb = new StringBuilder("FIELD STOPPED: worker has the order —");
+                    foreach (var q in fsOrder) sb.Append($" #{q.driver.number}");
+                    Event(sb.ToString() + (all ? "" : " (not everyone made it to the line)"));
+                }
+                return;
+            }
+            // releasing: point at the next kart once the last one is clear (or has had its chance)
+            while (fsNext < fsOrder.Count && (fsOrder[fsNext].outOfRace || fsOrder[fsNext].finished)) fsNext++;
+            if (fsNext < fsOrder.Count && raceTime - fsT >= cfg.fieldStopReleaseSec)
+            {
+                var nx = fsOrder[fsNext];
+                Entry prev = null; for (int i = fsNext - 1; i >= 0; i--) if (!fsOrder[i].outOfRace) { prev = fsOrder[i]; break; }
+                bool clear = prev == null || Gap(prev, nx) > nx.kart.setup.FootFront + nx.kart.setup.FootRear + 1f || raceTime - fsT > cfg.fieldStopNextWaitSec;
+                if (clear)
+                {
+                    nx.fsHeld = false; nx.fsReleased = true; fsNext++; fsT = raceTime;
+                    Event($"WORKER POINTS: #{nx.driver.number} goes ({fsNext}/{fsOrder.Count}).");
+                }
+            }
+            if (fsNext >= fsOrder.Count && raceTime - fsT > cfg.fieldStopReleaseSec)
+            {
+                fsStage = 0; fsLastEnd = raceTime; orderFails = 0;
+                foreach (var q in fsOrder) { q.fsHeld = false; q.fsReleased = false; }
+                fsOrder.Clear();
+                cautionLeaderLap = cautionQueue.Count > 0 ? Mathf.FloorToInt(cautionQueue[0].ai.raceDist / L) : -1;
+                Event("FIELD RELEASED: everyone's been pointed off. Pace in order.");
+            }
+        }
+
+        /// <summary>Under a field stop: drive to my stopping spot behind whoever is ahead, wait to be pointed at,
+        /// then ease past the karts still stopped and pace behind the kart I was released after. All by driving.</summary>
+        void FieldStopDrive(Entry e, float paceS, float paceC)
+        {
+            var ai = e.ai; var st = ai.kart.setup; float bl = st.FootFront + st.FootRear;
+            float v = ai.kart.ForwardSpeed;
+            ai.grooveLane = 0; ai.laneFrac = cfg.cautionLaneFrac;
+            // the nearest kart physically ahead in my lane (anyone: stopped karts are obstacles until they go)
+            Entry ahead = null; float ga = 25f;
+            foreach (var o in field)
+            {
+                if (o == e || o.cleared || o.outOfRace && o.beingCleared) continue;
+                float g = Gap(o, e);
+                if (g > 0f && g < ga && Mathf.Abs(o.ai.d - ai.d) < 1.3f) { ga = g; ahead = o; }
+            }
+            if (!e.fsReleased)
+            {
+                float rem = e.fsStopAt - ai.raceDist;
+                float cap = Mathf.Sqrt(2f * 1.2f * Mathf.Max(0f, rem - 0.3f));
+                if (ahead != null) cap = Mathf.Min(cap, Mathf.Max(0f, ahead.kart.ForwardSpeed + cfg.followGain * (ga - bl - cfg.fieldStopGapFt * U.Ft)));
+                float catchUp = Mathf.Clamp(cap - paceS, 0f, cfg.cautionCatchUpMph * U.Mph);
+                ai.paceStraight = paceS + catchUp; ai.paceCorner = paceC + catchUp;
+                ai.speedCap = cap;
+                if (fsStage == 2 || (v < 0.3f && (rem < 1.0f || (ahead != null && ahead.fsHeld && ga < bl + cfg.fieldStopGapFt * U.Ft + 1.5f))))
+                { if (!e.fsHeld) e.fsHeldAt = raceTime; e.fsHeld = true; ai.speedCap = 0f; }
+                e.cdbg = $"FS stop rem{rem:F1} v{v / U.Mph:F0} held{(e.fsHeld ? 1 : 0)}";
+                return;
+            }
+            // released: a stopped kart in my way -> go round it slowly on whichever side has room
+            Entry block = null; float gb = 15f;
+            foreach (var o in field)
+            {
+                if (o == e || !o.fsHeld && !(o.outOfRace && !o.cleared)) continue;
+                float g = Gap(o, e);
+                if (g > -bl - 0.5f && g < gb && Mathf.Abs(o.ai.d - ai.d) < 2.6f) { gb = g; block = o; }
+            }
+            var f = w.track.Frame(ai.s);
+            if (block != null)
+            {
+                float lo = ai.LowLimit(f), hi = ai.PaceHigh(f), side = 2.2f;
+                float dIn = block.ai.d - side, dOut = block.ai.d + side;
+                float want = dIn >= lo ? dIn : dOut <= hi ? dOut : (block.ai.d - lo > hi - block.ai.d ? lo : hi);
+                ai.grooveLane = KartAI.NoGrooveLane; ai.laneFrac = Mathf.Clamp(want / f.halfWidth, -0.95f, 0.95f);
+                ai.speedCap = cfg.fieldStopPassMph * U.Mph; ai.paceStraight = ai.paceCorner = ai.speedCap;
+                e.cdbg = $"FS pass #{block.driver.number} d{ai.d:F1}->{want:F1}";
+                return;
+            }
+            // clear: pace behind the kart released before me
+            Entry pred = null; int idx = fsOrder.IndexOf(e);
+            for (int i = idx - 1; i >= 0; i--) if (!fsOrder[i].outOfRace && fsOrder[i].fsReleased) { pred = fsOrder[i]; break; }
+            if (pred == null)
+            {   // first away: slow until everyone's been pointed off
+                ai.paceStraight = ai.paceCorner = Mathf.Min(paceC, cfg.fieldStopLeadMph * U.Mph);
+                ai.speedCap = ahead != null ? Mathf.Max(0f, ahead.kart.ForwardSpeed + cfg.followGain * (ga - bl - cfg.cautionGapFt * U.Ft)) : float.PositiveInfinity;
+            }
+            else
+            {
+                float gap = Gap(pred, e), want = bl + cfg.cautionGapFt * U.Ft;
+                float cap = gap > 0f ? pred.kart.ForwardSpeed + cfg.followGain * (gap - want) : cfg.fieldStopPassMph * U.Mph * 0.5f;
+                float catchUp = Mathf.Clamp(cap - paceS, 0f, cfg.cautionCatchUpMph * U.Mph);
+                ai.paceStraight = paceS + catchUp; ai.paceCorner = paceC + catchUp;
+                ai.speedCap = Mathf.Max(0f, cap);
+                if (ahead != null && ahead != pred) ai.speedCap = Mathf.Min(ai.speedCap, Mathf.Max(0f, ahead.kart.ForwardSpeed + cfg.followGain * (ga - want)));
+            }
+            e.cdbg = $"FS go pred#{(pred != null ? pred.driver.number : 0)} v{v / U.Mph:F0}";
+        }
 
         void Finish(Entry e)
         {
