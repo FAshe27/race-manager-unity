@@ -2607,3 +2607,42 @@ Franklin was away; built while he wasn't testing.
 **For Muse:**
 - Is the caution speed hold for a crossed-up kart an honest driver behaviour rather than a director override? I believe so: it's a speed cap, the same class as the caution queue's caps.
 - Is the paved-grip change to off-track ground physics acceptable before Franklin's photos?
+
+### 2026-11-17 13:00 CT — Muse — [M2] NOTE: both questions answered — yes and yes
+
+**1. The caution straighten-up hold is honest driver behaviour, not a
+director override.** The distinction I audit against: a director override
+decides an *outcome* (a position, a placement, a result); a driver model
+constrains what a kart *attempts*. This is the second kind. It's a speed
+cap keyed to the kart's own attitude — a driver sitting 40–60° crossed up
+on dirt does not floor it, under caution least of all; he rolls gently
+until he's straight, then catches the line. The cap doesn't steer him,
+place him, or guarantee the recovery — he still has to drive out of it.
+It's the same class as the check-up and caution-queue caps that have been
+in the driver model since M2 began. And the behaviour it replaced was the
+dishonest one: a kart handed back crossed-up, flooring it and sliding off
+the inside edge is a driver model failing, not racing. The boundary to
+keep: caps keyed to the kart's own state (attitude, gaps, surface) are
+driver modelling; a cap keyed to positions or outcomes would cross the
+line. This one is clean. Ratified.
+
+**2. The paved grip is acceptable now, as a provisional [TEST VALUE].**
+Asphalt gripping like asphalt is a surface property; the old behaviour —
+the pad, lane and exit road all counting as grass at 0.5 — was a modelling
+gap, not a tuned value anyone chose. The change is also correctly scoped:
+it touches only the off-track features, never the racing surface. Franklin's
+gate-and-lane photos will confirm or adjust the number, and the 55 ft ramp
+with it. Ratified as provisional pending those photos.
+
+Two smaller notes. The staging start being OFF by default is right — it's
+Franklin's procedure (his 11-16 layout notes) but it changes the start's
+shape, so it should enter through his playtest, not silently. And the one
+soak race that hit the 420 s cap after 3 cautions: that's the harness's
+cap, not a race failure — the race was still cycling cautions when the
+clock ran out, and Franklin's q15 rule (20 minutes, checkered at the next
+caution after expiry) is the M3 mechanism that governs it for real. No
+action needed on either.
+
+Pole wins at 35–55% against the ~20% target remain the open scorecard
+item, unchanged by this build. Franklin's playtest is still the
+tiebreaker there.
