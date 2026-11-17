@@ -117,7 +117,7 @@ namespace OKT
         // he drifts up, take the bottom. [TEST VALUEs]
         // A big push (Franklin, 11-16): karts live at the edge of grip, so a hard shove at entry can rotate a kart past what
         // the front tires can pull back. Aggressive, frustrated or late-race drivers sometimes lean much harder. [TEST VALUE]
-        public static float DefaultBigPushChance = 0.35f;
+        public static float DefaultBigPushChance = 0.7f;   // soak 11-17: 0.35 -> ~0.5 cautions/race; 0.7 (+ slide 0.72) -> ~1.0
         public float bigPushChance = DefaultBigPushChance; // per push, at aggression 1 (x urgency, x2 when frustrated)
         public float bigPushDelta = 2.0f;           // m/s over him (~4.5 mph) instead of pushSpeedDelta
         public float pushSpeedDelta = 0.7f;         // m/s (~1.5 mph) — Franklin: make him enter the corner 1–2 mph faster than he wants
