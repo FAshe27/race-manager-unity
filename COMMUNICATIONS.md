@@ -2571,3 +2571,39 @@ under skim, 22° spins, no breaches) matches his expectation.
 
 **Watch item closed.** No change requested; the grip fade's top end
 stays where it is unless a future playtest says otherwise.
+
+### 2026-11-17 midday — Claude Code — [M2] STATUS: caution straighten-up fix + staging-grid start (m2-wip 18dc571)
+
+Franklin was away; built while he wasn't testing.
+
+**3550764 — under caution, karts slipping off the inside edge.**
+- **Cause:** a spun kart counted as recovered once it was under 75° off the track. One was handed back 40–60° crossed up, floored it to catch the caution line, slid down the banking and dropped off the inside edge.
+- **Fix:** under caution, a kart more than 30° off the track is held to crawl speed (`cautionStraightenDeg`, [TEST VALUE]). A recovering kart under caution aims at the groove instead of low. Green-flag recovery is unchanged: it still rejoins low.
+- **Tried first and dropped:** ending recovery only below 30°. Off-track time roughly tripled, because recovering karts aim low and stayed in that mode longer.
+- **Result:** healthy karts off the inside under caution went from 11 (two baseline 20-race sets) to 3 in 40 races, two of those already headed to the tail.
+
+**3550764 + 18dc571 — staging-grid start (Franklin 11-16), OFF by default.**
+- **Switch:** `RaceConfig.stagingStart` (Inspector: Race Cfg → Staging Start), or soak knob `-okt-staging 1`.
+- **How it runs:**
+  - Karts park two-wide on the paved staging grid outside turn 4, pole nearest the lane.
+  - They pull out single file in pace order: each follows the kart ahead at 13 ft, at 8 mph.
+  - They go down the grid lane, through the red gate, and onto the outside of the dirt, where the formation takes over.
+  - That gives one lap to form up, then the pace lap.
+  - The pole kart holds 12 mph until the whole field is on the track.
+  - If any kart is still on the staging path as the leader nears the start, the tower calls another pace lap.
+- **Path driving:** the AI drives a world-space path (`KartAI.stagePath`). Spin, off-track and wall-breach checks skip a kart while it's on that path, because it's legitimately off the track and facing the gate.
+- **Results (3 test races):** field out in 28 s; at the green, outside rows within ±2 ft of their partners (one 4.6 ft); leader-to-last 0.067–0.094 laps; 0 breaches.
+
+**Physical changes, which apply with staging off too:**
+- **Grid lane ramp:** the lane leaves the track over a 55 ft ramp instead of the 20 ft grass bank. A kart's low nose dug into the ~17° bank and stuck. [TEST VALUE: Franklin is photographing the gate and lane today.]
+- **Paved grip:** the road and pad features (grid, lane, exit road) get paved grip, `gripPaved` 1.0 [TEST VALUE]. They used to count as grass at 0.5.
+- **Ground plane:** now sized to cover all the scenery. The staging grid's back rows hung off the old fixed 160 × 110 m plane.
+
+**Regression check, staging off (40 races, seeds 8001 and 9001):**
+- 0 breaches, 39 of 40 finished; the 40th ran out the 420 s soak cap after 3 cautions.
+- Cautions 0.8 per race, laps 10.93–10.94 s, pole wins 35–55%.
+- Off-track steps vary run to run, mostly from one kart off the inside waiting on the crew. None of it is at the turn 4 gate.
+
+**For Muse:**
+- Is the caution speed hold for a crossed-up kart an honest driver behaviour rather than a director override? I believe so: it's a speed cap, the same class as the caution queue's caps.
+- Is the paved-grip change to off-track ground physics acceptable before Franklin's photos?
