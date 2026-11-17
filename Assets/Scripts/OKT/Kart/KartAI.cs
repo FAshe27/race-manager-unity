@@ -127,6 +127,12 @@ namespace OKT
         [System.NonSerialized] public float pushedBoost;
         [System.NonSerialized] public float recoverySpeed = 8f * U.Mph;
         /// <summary>Lane limits from karts alongside (absolute lateral m), set by the director each step.</summary>
+        /// <summary>Staging-grid start: world points from the kart's grid slot, down the grid lane and through the gate onto
+        /// the track. While set, the kart drives the path (it's off the track legitimately); cleared once it's on the dirt.</summary>
+        [System.NonSerialized] public bool rejoinOnGroove; // recovering under caution: rejoin on the groove, not low
+        [System.NonSerialized] public List<Vector3> stagePath;
+        [System.NonSerialized] public int stageIdx;
+        [System.NonSerialized] public float lastAimD, lastAimLow; // forensics: the steering target and its low limit
         [System.NonSerialized] public float latMin = float.NegativeInfinity, latMax = float.PositiveInfinity;
 
         /// <summary>
@@ -169,8 +175,8 @@ namespace OKT
             // Leaving through an opening or onto the infield is off-track, not a breach — and a kart
             // already off-track (e.g. out an opening, behind the next rail) is not re-counted.
             bool outside = ratio > 1f;
-            if (kart.Body.isKinematic) { wasOutside = outside; breachedNow = false; } // being moved by the crew: not racing
-            if (outside && !kart.Body.isKinematic)
+            if (kart.Body.isKinematic || stagePath != null) { wasOutside = outside; breachedNow = false; } // moved by the crew / driving out of the staging grid: not racing
+            if (outside && !kart.Body.isKinematic && stagePath == null)
             {
                 if (!wasOutside) { if (d > 0f && barrierHere) { bandBreaches++; breachedNow = true; } else breachedNow = false; }
                 if (breachedNow) bandBreachSteps++; else offTrackSteps++;
@@ -200,6 +206,8 @@ namespace OKT
                 else if (da < -track.centerLength * 0.5f) da += track.centerLength;
                 raceDist += da; prevArc = arcNow;
             }
+
+            if (stagePath != null) { StageStep(fr); return; }
 
             // --- pure pursuit
             lineHint = track.NearestLineIndex(p2, lineHint);
@@ -231,11 +239,14 @@ namespace OKT
                 dWant = formD;
             }
             else formD = float.NaN;
-            if (recovering) dWant = Mathf.Min(d, tf.LineOffset - 1.0f); // rejoin low, off the groove, out of the way
+            // rejoin low, off the groove, out of the way -- under caution there's no traffic at speed to stay clear of,
+            // and aiming low there walked crossed-up karts off the inside edge (soak 2026-11-17)
+            if (recovering) dWant = rejoinOnGroove ? tf.LineOffset : Mathf.Min(d, tf.LineOffset - 1.0f);
             float dT = Mathf.Clamp(dWant, LowLimit(tf), HighLimit(tf));
             // Occupancy as hard lane limits on the STEERING TARGET (karts alongside own their slots).
             if (latMin <= latMax) dT = Mathf.Clamp(dT, latMin, latMax);
             else dT = d; // squeezed from both sides: hold my line
+            lastAimD = dT; lastAimLow = LowLimit(tf);
             var target = tf.pos + tf.outN * dT;
 
             var rear = tr.TransformPoint(0f, 0f, -kart.setup.wheelbase * 0.5f);
@@ -306,6 +317,30 @@ namespace OKT
                         kart.accelCmd *= Mathf.Clamp01(1f - (beta - cfg.featherStartDeg) / cfg.featherRangeDeg);
                 }
             }
+        }
+
+        /// <summary>Drive the staging path: pure pursuit on its points at the director's speed cap. Done once past the
+        /// last point and the whole kart is on the racing surface; then the formation takes over from where it is.</summary>
+        void StageStep(in TrackFrame fr)
+        {
+            var tr = transform;
+            var rear = tr.TransformPoint(0f, 0f, -kart.setup.wheelbase * 0.5f);
+            float look = cfg.minLookahead * 0.6f;
+            while (stageIdx < stagePath.Count - 1)
+            {
+                var q = stagePath[stageIdx]; q.y = rear.y;
+                if (Vector3.Distance(q, rear) < look) stageIdx++; else break;
+            }
+            var target = stagePath[stageIdx];
+            var local = tr.InverseTransformDirection(new Vector3(target.x - rear.x, 0f, target.z - rear.z));
+            float alpha = Mathf.Atan2(local.x, local.z);
+            float dist = Mathf.Max(0.5f, new Vector2(local.x, local.z).magnitude);
+            float kappa = 2f * Mathf.Sin(alpha) / dist;
+            kart.steerDeg = Mathf.Clamp(Mathf.Atan(kart.setup.wheelbase * kappa) * Mathf.Rad2Deg, -kart.setup.maxSteerDeg, kart.setup.maxSteerDeg);
+            targetSpeed = Mathf.Min(speedCap, 12f * U.Mph);
+            kart.accelCmd = (targetSpeed - kart.ForwardSpeed) * cfg.speedGain;
+            bool onTrack = Mathf.Abs(d) < fr.halfWidth - kart.setup.FootRight - 0.3f;
+            if (stageIdx >= stagePath.Count - 1 && onTrack) { stagePath = null; formD = float.NaN; SnapTrafficOffsetToCurrent(); }
         }
 
         /// <summary>Front corner of the footprint: on the rounded nose, the point of its corner arc at 45 deg.</summary>

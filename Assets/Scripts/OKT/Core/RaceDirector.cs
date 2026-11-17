@@ -29,6 +29,16 @@ namespace OKT
         public int paceLaps = 1;                   // Franklin (M2): one pace lap from the grid
         public float paceStraightMph = 25f;        // Franklin: ~20–25 mph [TEST VALUE]
         public float paceCornerMph = 20f;
+        // Staging-grid start (Franklin 2026-11-16: karts line up on the paved grid outside turn 4, pull out through the
+        // red gate single file, form up double file over about a lap, then the pace lap). OFF by default for now.
+        public static bool DefaultStagingStart = false; // soak knob -okt-staging 1
+        public bool stagingStart = DefaultStagingStart;
+        public float stagingMph = 8f;              // rolling out of the grid and down the lane [TEST VALUE]
+        public float stagingLeaderMph = 12f;       // the pole kart's speed until the whole field is on the track [TEST VALUE]
+        public float stagingFollowFt = 13f;        // centre to centre behind the kart ahead in the line [TEST VALUE]
+        public float stagingFirstRowFt = 66f;      // first row, feet beyond the outside edge (the grid starts at 55 ft) [TEST VALUE]
+        public float stagingRowFt = 9f;            // row to row on the grid [TEST VALUE]
+        public float stagingColumnFt = 4f;         // each column's offset from the lane's centre line [TEST VALUE]
         public float gridLeaderU = 0.95f;          // front row: front straight, just past the grid entrance (top of T4) [TEST VALUE]
         public float rowGapFt = 6.3f;              // centre to centre: nose ~2.5 in off the kart ahead (Franklin: no daylight between karts in a line); kart 73.1 in (6.1 ft) nose to rear bumper [TEST VALUE]
         public float laneFrac = 0.16f;             // double-file lanes at ±0.16 half-width ≈ 53 in apart: the two lines nearly touching (Franklin) [TEST VALUE]
@@ -148,6 +158,9 @@ namespace OKT
         public float[] workerPostU = { 0.25f, 0.75f };   // mid turns 1-2 and 3-4 on this track [TEST VALUE: read off the groove apexes]
         // Stub incident detection (M2): spins / flips / stops are logged, not judged (M3).
         public float spinAngleDeg = 75f;
+        // Under caution a kart pointed more than this off the track crawls until it's straight (a spun kart handed back
+        // at 40-60 degrees floored it to catch the line, slid down the banking and off the inside edge, soak 2026-11-17)
+        public float cautionStraightenDeg = 30f;    // [TEST VALUE]
         public float stoppedSeconds = 3f;
         public float dnfStoppedSeconds = 15f;
         // Tires after a caution (Franklin: "cautions will cause the tire to cool, and they may not fire off properly
@@ -361,7 +374,8 @@ namespace OKT
         public string Tag(Entry e) => $"#{e.driver.number} {e.driver.name}";
 
         /// <summary>Distance (m) of the S/F line that ends the pace lap and starts green lap 1.</summary>
-        public float GreenLine => cfg.paceLaps * L;
+        public float GreenLine => (cfg.paceLaps + towerLaps) * L;
+        int towerLaps; // extra pace laps the tower called (staging start: someone still coming out of the grid)
         /// <summary>The go line (the red line in turn 4, JSON goU): the green flies here, not at the S/F line (Franklin).
         /// Laps are still scored at the S/F line.</summary>
         public float GoLine => GreenLine - (L - w.track.ArcAt(w.track.goU * w.track.N));
@@ -387,12 +401,33 @@ namespace OKT
             return best;
         }
 
+        bool staged, stagingAnnounced;
+        bool AnyStaging() { foreach (var o in field) if (!o.outOfRace && o.ai.stagePath != null) return true; return false; }
+
+        /// <summary>Staging-grid start: out of the grid single file in pace order, each kart following the one ahead of it
+        /// (the kart beside it on the grid waits its turn). The AI drives the lane path itself; this sets its speed.</summary>
+        void StagingDrive(Entry e)
+        {
+            var ai = e.ai; ai.formation = false; ai.paceMode = true; ai.trafficGoal = 0f;
+            float cap = cfg.stagingMph * U.Mph;
+            var prev = field.Find(x => x.gridPos == e.gridPos - 1);
+            if (prev != null && !prev.outOfRace)
+            {
+                float dist = Vector3.Distance(prev.kart.transform.position, e.kart.transform.position);
+                cap = Mathf.Min(cap, Mathf.Max(0f, prev.kart.ForwardSpeed + 1.0f * (dist - cfg.stagingFollowFt * U.Ft)));
+                if (prev.ai.stagePath != null && prev.ai.stageIdx == 0 && dist < cfg.stagingFollowFt * U.Ft * 1.5f) cap = 0f; // not rolling yet
+            }
+            ai.speedCap = cap;
+        }
+
         float startRollMph = 20f;
         public void Start()
         {
             phase = RacePhase.Pace; phaseTime = 0;
             startRollMph = cfg.startRollMinMph + (float)rng.NextDouble() * (cfg.startRollMaxMph - cfg.startRollMinMph);
-            Event($"Field rolls off the grid — pace lap. Leader will roll the start at {startRollMph:F0} mph.");
+            staged = AnyStaging();
+            if (staged) Event($"Field pulls out of the staging grid single file and forms up double file, then the pace lap. Leader will roll the start at {startRollMph:F0} mph.");
+            else Event($"Field rolls off the grid — pace lap. Leader will roll the start at {startRollMph:F0} mph.");
         }
 
         /// <summary>Called every physics step before the AIs drive.</summary>
@@ -411,9 +446,12 @@ namespace OKT
                 ai.paceStraight = paceS; ai.paceCorner = paceC;
                 ai.speedCap = float.PositiveInfinity; ai.attackBoost = 0f; ai.pushedBoost = 0f;
                 ai.latMin = float.NegativeInfinity; ai.latMax = float.PositiveInfinity; ai.grooveLane = KartAI.NoGrooveLane;
+                ai.rejoinOnGroove = false;
                 if (e.outOfRace) { ai.paceMode = true; ai.speedCap = 0f; continue; }
 
                 if (phase == RacePhase.Grid) { ai.paceMode = true; ai.speedCap = 0f; continue; }
+                if (ai.stagePath != null) { StagingDrive(e); continue; }
+                if (staged && !stagingAnnounced && !AnyStaging()) { stagingAnnounced = true; Event("STAGING: the whole field is out of the grid and on the track. Forming up double file."); }
 
                 if (phase == RacePhase.Pace)
                 {
@@ -425,10 +463,12 @@ namespace OKT
                     Entry ahead = null; float gap = float.MaxValue;
                     foreach (var o in field)
                     {
-                        if (o == e || o.outOfRace || o.gridPos % 2 != e.gridPos % 2) continue;
+                        if (o == e || o.outOfRace || o.gridPos % 2 != e.gridPos % 2 || o.ai.stagePath != null) continue;
                         float g = o.ai.raceDist - ai.raceDist; if (g > 0f && g < gap) { gap = g; ahead = o; }
                     }
                     // the leader rolls the start at his chosen speed over the last third of the pace lap (Franklin q24)
+                    if (e.gridPos == 0 && AnyStaging())
+                    { ai.paceStraight = Mathf.Min(paceS, cfg.stagingLeaderMph * U.Mph); ai.paceCorner = Mathf.Min(paceC, cfg.stagingLeaderMph * U.Mph); }
                     if (e.gridPos == 0 && ai.raceDist > GoLine - 0.35f * L)
                     { ai.paceStraight = Mathf.Min(paceS, startRollMph * U.Mph); ai.paceCorner = Mathf.Min(paceC, startRollMph * U.Mph); }
                     if (ahead != null)
@@ -994,6 +1034,12 @@ namespace OKT
                     if (e.recovering && !e.outOfRace && PackNear(e)) { ThrowCaution($"{Tag(e)} still spun with traffic arriving"); SendToTail(e, "spun"); break; }
             }
             else if (phase == RacePhase.Caution) CautionStep(dt);
+            // the tower won't start it with karts still coming out of the staging grid: another lap
+            if (phase == RacePhase.Pace && lead != null && staged && lead.ai.raceDist > GoLine - 0.4f * L && AnyStaging())
+            {
+                towerLaps++;
+                Event($"STAGING: tower holds the start — still karts coming out of the grid. Another pace lap ({towerLaps} extra).");
+            }
             if (phase == RacePhase.Pace && lead != null && lead.ai.raceDist >= GoLine)
             {
                 phase = RacePhase.Green; phaseTime = 0; greenTime = raceTime; firstGreenTime = raceTime;
@@ -1034,6 +1080,7 @@ namespace OKT
                 {
                     e.offLogged = true; var fo = w.track.Frame(ai.s);
                     Event($"OFF TRACK: {Tag(e)} u={ai.s / w.track.N:F3} d={ai.d:F2} m (edge {fo.halfWidth:F2}) v={e.kart.ForwardSpeed / U.Mph:F0} mph recovering={e.recovering} toTail={e.toTail} phase={phase} crewHelped={e.crewHelped}");
+                    if (phase == RacePhase.Caution && !e.recovering) foreach (var h in e.hist) events.Add("      before: " + h);
                 }
                 // ---- wall breach forensics (CLAUDE.md: stop-and-report) — every kart, out or not
                 if (ai.bandBreaches > e.breachesSeen)
@@ -1077,7 +1124,7 @@ namespace OKT
                         var fh = w.track.Frame(ai.s); var k = e.kart;
                         e.hist.Enqueue($"u{ai.s / w.track.N:F2} v{k.ForwardSpeed / U.Mph:F0} tgt{ai.targetSpeed / U.Mph:F0} acc{k.accelCmd:F1} st{k.steerDeg:F0} dOff{ai.d - fh.LineOffset:F1} tOff{ai.TrafficOffset:F1} lat[{(float.IsInfinity(ai.latMin) ? "-" : ai.latMin.ToString("F1"))},{(float.IsInfinity(ai.latMax) ? "-" : ai.latMax.ToString("F1"))}] {(e.attackTarget >= 0 ? "ATK " : "")}{(e.concedeT > 0 ? "CONC " : "")}{(e.bobbleT > 0 ? "BOB " : "")}slide{(k.sliding[2] ? 1 : 0)}{(k.sliding[3] ? 1 : 0)} dust{k.dust[3]:F1} grip{k.surfaceGripNow[3]:F2} " +
                             $"roll{Vector3.SignedAngle(Vector3.up, Vector3.ProjectOnPlane(k.transform.up, k.transform.forward), k.transform.forward):F0} rollRate{Vector3.Dot(k.Body.angularVelocity, k.transform.forward):F1} yawRate{Vector3.Dot(k.Body.angularVelocity, Vector3.up):F1} gnd{(k.grounded[0] ? 1 : 0)}{(k.grounded[1] ? 1 : 0)}{(k.grounded[2] ? 1 : 0)}{(k.grounded[3] ? 1 : 0)} load{k.load[0]:F0}/{k.load[1]:F0}/{k.load[2]:F0}/{k.load[3]:F0} slipAng{Vector3.SignedAngle(k.transform.forward, Vector3.ProjectOnPlane(k.Body.linearVelocity, k.transform.up), k.transform.up):F0} " +
-                            $"inEdge{(ai.d + fh.halfWidth - k.setup.FootLeft) / U.In:F0}in tc[{(k.GetComponent<KartContact>() != null ? k.GetComponent<KartContact>().lastTrackContact : "")}]");
+                            $"inEdge{(ai.d + fh.halfWidth - k.setup.FootLeft) / U.In:F0}in aim{(ai.lastAimD - ai.lastAimLow) / U.In:F0}in d{ai.d:F2} tc[{(k.GetComponent<KartContact>() != null ? k.GetComponent<KartContact>().lastTrackContact : "")}]");
                         while (e.hist.Count > 12) e.hist.Dequeue();
                     }
                 }
@@ -1085,7 +1132,7 @@ namespace OKT
                 // ---- incident stub (logged, not judged — M3)
                 var f = w.track.Frame(ai.s);
                 float yaw = Vector3.Angle(new Vector3(f.tan.x, 0, f.tan.y), Vector3.ProjectOnPlane(e.kart.transform.forward, Vector3.up));
-                bool spun = yaw > cfg.spinAngleDeg, flipped = e.kart.UpsideDown;
+                bool spun = yaw > cfg.spinAngleDeg && ai.stagePath == null, flipped = e.kart.UpsideDown; // a kart driving out of the staging grid faces the gate, not the track
                 bool stopped = (phase == RacePhase.Green || phase == RacePhase.Caution) && e.kart.ForwardSpeed < 2f * U.Mph && !e.finished && !e.fsHeld && fsStage == 0;
                 e.stoppedT = stopped ? e.stoppedT + dt : 0f;
                 bool stuck = (e.stoppedT > cfg.stoppedSeconds && !e.blocked && phase == RacePhase.Green)
@@ -1404,7 +1451,7 @@ namespace OKT
         void CautionDrive(Entry e, float paceS, float paceC)
         {
             var ai = e.ai; ai.recovering = e.recovering;
-            if (e.recovering) { ai.formation = false; ai.paceMode = false; return; }
+            if (e.recovering) { ai.formation = false; ai.paceMode = false; ai.rejoinOnGroove = true; return; }
             ai.formation = true; ai.paceMode = true; ai.trafficGoal = 0f;
             if (fsStage != 0 && fsOrder.Contains(e)) { FieldStopDrive(e, paceS, paceC); return; }
             if (cautionGapsOpen && cautionQueue.Count > 0 && cautionQueue[0] == e && !oneToGo)
@@ -1472,6 +1519,11 @@ namespace OKT
                     lane = o.ai.d > 0f ? -0.6f : 0.6f;
                     ai.speedCap = Mathf.Min(ai.speedCap, 10f * U.Mph);
                 }
+            }
+            {   // still crossed up after a spin: crawl until it's pointed down the track
+                var fy = w.track.Frame(ai.s);
+                float yawOff = Vector3.Angle(new Vector3(fy.tan.x, 0, fy.tan.y), Vector3.ProjectOnPlane(e.kart.transform.forward, Vector3.up));
+                if (yawOff > cfg.cautionStraightenDeg) ai.speedCap = Mathf.Min(ai.speedCap, ai.recoverySpeed);
             }
             ai.laneFrac = lane;
             ai.grooveLane = lane == cfg.cautionLaneFrac ? 0 : KartAI.NoGrooveLane; // single file on the groove (Franklin's playtest 11-16)
