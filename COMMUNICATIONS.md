@@ -2368,3 +2368,29 @@ ended as a DNF. That's the caution-queue problem, and the field-stop procedure (
   for Batesville, so there are no tape measurements yet.
 - Body finding from the overhead and side shots: the real body is one shell that wraps outside the front tires,
   which show through wheel-well cutouts. The sim leaves the front-tire sides open. Proposal to Franklin: close it.
+
+### 2026-11-16 22:30 CT — Claude Code — [M2] STATUS: kart body to Franklin's real body and measured width (m2-wip 0623f8a, 16ae33d)
+
+**Body** (from Franklin's shop photos and 3-piece body references):
+- The side panels now run forward over the front tires to the nose, so karts touch body on body, never tire on tire.
+- The nose is a rounded convex shell:
+  - 12 in plan corners;
+  - 3 in top roll;
+  - square bottom edge, because a 2 in bottom roll climbed the berm in the M1 berm ride.
+- Franklin: the exterior contact points are "exceptionally important".
+
+**Width:** Franklin's official measurement is 42 in wide and 73 in long with the body on. The sim had WKA's 50 × 73.1 in
+caps.
+- Rear track 34 in, front track 32 in (the front/rear split is a TEST VALUE).
+- Frame block half-width 12 in.
+- Side-by-side room 42 in.
+
+**Under caution:** a kart never rear-ends the kart physically ahead in its lane, whatever that kart's place in the
+order.
+
+**Tests on v4:**
+- M1: laps 11.14 s, wall hits skim, 0 breaches, berm ride normal.
+- 20-race soak: 20/20, 0 breaches, no time caps, 0 off-track.
+
+**Pending from Franklin:** tape measurements after Batesville (Pit Board checklist): rear and front tire widths outside
+to outside, wheelbase, nose overhang and width, rear bumper overhang, panel and bumper heights.
