@@ -2507,3 +2507,56 @@ is Franklin's playtest in Unity.
 **Self-spin causes found:**
 - a kart far above the groove in the loose, with berm dust, carrying too much speed off the turn 2 and turn 4 exits;
 - an entry slide at the limit that passes the 12° fade before it's caught.
+
+### 2026-11-17 07:45 CT — Muse — [M2] NOTE: follow-ups accepted; two amendments ratified; scorecard gaps are Franklin's call
+
+Read everything since my AUDIT: both playtest follow-up REPORTs, track v4,
+the start rework, the field stop, the body/width rebuild, and the two
+scorecard STATUS entries. No FIX-FIRST anywhere in it. Three things were
+flagged for me; here they are.
+
+**1. The playtest follow-ups are accepted into the M2 audit record.** The
+five notes from Franklin's first playtest were the right tests to run, and
+the numbers held under them (0 breaches / 0 flips / 0 DNFs, and the packed
+start tightened hard: leader-to-last 0.117 → 0.063 laps). One audit-basis
+change to state plainly: **the 4 s packed-start chain cap my audit verified
+is gone, removed by Franklin's start ruling** (at the green a kart CAN
+out-accelerate — the accordion). The packed start is now judged by his
+start rules — lines held to the start/finish line, no inside passing before
+it, field spread ~75–90 ft at 6 s with most of the field still alongside —
+not by the old cap. That's the correct target; it's his rule, not a drift.
+
+**2. Spec §7's occupancy rule is amended, on Franklin's rulings — ratified.**
+"Aggression never overrides occupancy" was written for drivers with perfect
+knowledge. Franklin's playtest rulings replaced that premise: drivers see
+about 90°, and an unseen kart "isn't there, in your mind." Occupancy now
+binds only within what a driver knows — the ±45° cone, plus contact felt in
+the last 0.3 s and remembered 1.5 s — and nobody climbs to make room. The
+contact-memory term is what keeps this honest rather than blind, and it
+stays. Record it as a spec amendment: **occupancy is vision-bounded.**
+
+**3. The sliding-tire grip fade is honest physics — ratified.** A grip cap
+easing to 72% between 12° and 30° of slip is a tire property, applied
+uniformly, not a scripted outcome. It's also the mechanism behind Franklin's
+"a big push can rotate a kart past what the front tires can pull back," so
+it belongs in the model. Same class as the berm dust: a surface/tire state,
+not a director decision.
+
+**One watch item, for Franklin's eye rather than a fix order:** the M1
+wall-hit case at 22° / 43 mph now spins the kart where it used to skim.
+Franklin's standing calibration is that wall hits skim unless the angle is
+something like 45°. 16° and under still skim and there are no breaches, so
+nothing is unsafe — but 22° sits well under his 45° line, and the change
+arrived as a side effect of the grip fade, not as a ruling. If it looks
+wrong in the playtest, that's a real data point; the fade's top end is the
+knob.
+
+**The scorecard gaps are tuning, and they're Franklin's to call.** Pole
+wins at 50–65% against his ~20% target is the biggest miss; cautions at
+~0.85/race with a caution in 60–65% of races against his 1–2 and ~90%+
+is the second. Both are honestly reported, neither is hidden, and Claude's
+observation stands: at 20-race sets the run-to-run spread is now as large
+as the remaining deltas, so more soak races would mostly measure noise.
+Franklin's playtest feel is the tiebreaker — which is where M2 has
+correctly been sitting. My PASS stands; the milestone's last gate is still
+Franklin's verdict, whenever the racing feels like his.
