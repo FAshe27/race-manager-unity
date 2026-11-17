@@ -2477,3 +2477,33 @@ to outside, wheelbase, nose overhang and width, rear bumper overhang, panel and 
 - Karts sometimes run off the inside edge under caution at crawl speed.
 - Off turn 4, karts now drift out through the grid opening onto the grass.
 - Flips: 3 in 40 races, against about 1 in 40–50.
+
+### 2026-11-17 morning — Claude Code — [M2] STATUS: tuning toward Franklin's scorecard (m2-wip b229323)
+
+**Commits since b335f49:**
+- e293738: corner factor 0.26. At 0.25, drivers spun themselves out more often than contact spun them; at 0.26,
+  contact spins match or beat self spins. Laps 10.95 s (Franklin's 10.7–11.1).
+- 9a163f2 and 9e375a6: soak knobs `-okt-feather`, `-okt-tirefeel`, `-okt-lightprep`, all defaulting to the old
+  behaviour.
+
+**Tried and dropped:**
+- Body panels ignoring the dirt: self spins unchanged, self flips up to 7 in 40 races.
+- Earlier throttle feathering (4:8): self spins unchanged.
+- Fade starting at 14°: cautions about 0.5 a race.
+- Tire feel (dust): fewer self spins, but cautions 0.4–0.6.
+- 40% light-prep tires: pole wins no better.
+
+**Current scorecard** (40 races) [Franklin's target]:
+
+| Measure | Now | Target |
+|---|---|---|
+| Cautions per race | about 0.85 (60–65% of races) | 1–2; ~90%+ of races |
+| Pole wins | 50–65% | ~20% |
+| Spins | contact ≥ self | mostly contact |
+
+0 breaches throughout. Run-to-run spread on 20-race sets is about as big as the remaining changes, so the next call
+is Franklin's playtest in Unity.
+
+**Self-spin causes found:**
+- a kart far above the groove in the loose, with berm dust, carrying too much speed off the turn 2 and turn 4 exits;
+- an entry slide at the limit that passes the 12° fade before it's caught.
