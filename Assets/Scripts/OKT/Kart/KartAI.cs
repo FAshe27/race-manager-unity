@@ -19,7 +19,7 @@ namespace OKT
         // 0.27 -> laps ≈ 10.77 s (Franklin's fast window) but spins on any upset; 0.25 spins on clean laps.
         public float vMaxMph = 52f;            // [TEST VALUE] (spec start: 48.1 mph / 21.5 m/s)
         // Franklin (2026-11-14 playtest): "Safe" 0.30 feels realistic -> default.
-        public static float DefaultCornerSlow = 0.25f;  // closer to the edge of grip (Franklin 11-16; laps 10.8 s vs his 10.7-11.1; was 0.30) // (headless test may override)
+        public static float DefaultCornerSlow = 0.26f;  // closer to the edge of grip (Franklin 11-16; laps 10.8 s vs his 10.7-11.1; was 0.30) // (headless test may override)
         public float cornerSlow = DefaultCornerSlow; // [TEST VALUE] (spec start: 0.30)
         public float pace = 1.0f;              // per-kart pace factor (M2 field spread)
         public float lookaheadTime = 0.25f;    // steering lookahead, s [TEST VALUE] — spec ≈0.6 s overshoots onto the walls (M1 sweep)
