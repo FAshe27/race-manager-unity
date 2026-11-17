@@ -152,7 +152,8 @@ namespace OKT
         public float dnfStoppedSeconds = 15f;
         // Tires after a caution (Franklin: "cautions will cause the tire to cool, and they may not fire off properly
         // again"). [TEST VALUE] all four.
-        public static float QualiFeatureSpreadSec = 0.12f; // qualifying pace = feature pace +- this (was 0.04) [TEST VALUE]
+        public static float QualiFeatureSpreadSec = 0.12f;
+        public static float LightPrepChance = 0.25f, LightPrepFalloffMin = 0.03f, LightPrepFalloffMax = 0.05f; // tires that go off [TEST VALUE] // qualifying pace = feature pace +- this (was 0.04) [TEST VALUE]
         public const float TireCautionCool = 0.6f;     // share of the green-flag cold penalty a restart brings back
         public float tireNoRefireChance = 0.3f;
         public float tireNoRefireMin = 0.005f, tireNoRefireMax = 0.015f; // lap-time fraction, ~0.05-0.16 s
@@ -250,12 +251,12 @@ namespace OKT
                 d.tireColdFrac = K(0.040f, 0.050f);                       // green lap 1: ~0.45-0.55 s off peak
                 d.tireWarmLaps = kr.NextDouble() < 0.5 ? 2 : 3;
                 double t = kr.NextDouble();
-                if (t < 0.25)
+                if (t < RaceConfig.LightPrepChance)
                 {   // too little prep: burns off, skates, loses ~0.3-0.5 s
-                    d.tireHoldLaps = Mathf.RoundToInt(K(4f, 8f)); d.tireFalloffFrac = K(0.03f, 0.05f);
+                    d.tireHoldLaps = Mathf.RoundToInt(K(4f, 8f)); d.tireFalloffFrac = K(RaceConfig.LightPrepFalloffMin, RaceConfig.LightPrepFalloffMax);
                     d.tireFalloffLaps = Mathf.RoundToInt(K(3f, 5f)); d.tireNote = "light prep";
                 }
-                else if (t < 0.45)
+                else if (t < RaceConfig.LightPrepChance + 0.20)
                 {   // too much prep: locked down, a tenth or so slow all race
                     d.tireLockFrac = K(0.005f, 0.015f); d.tireNote = "over-prepped";
                 }
