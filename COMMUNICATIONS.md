@@ -2335,3 +2335,36 @@ ended as a DNF. That's the caution-queue problem, and the field-stop procedure (
 - staging grid and grid gate (track JSON);
 - per-segment barrier types and openings;
 - re-adding the parked playtest-3 features one at a time.
+
+### 2026-11-16 20:00 CT — Claude Code — [M2] STATUS: field stop under caution (m2-wip 2ab4e23)
+
+**Field stop (Pit Board q18):**
+- **Stop:** when the caution line can't sort itself, the field stops single file at the turns 1–2 worker.
+- **Release:** he points at each kart in order. A released kart eases past the karts still stopped at 6 mph, on
+  whichever side has room, then paces behind the kart released before it. The first kart away runs at 12 mph until
+  everyone is out.
+- **Triggers:** 2 leader laps still out of order; 3+ karts out of place at once; or 120 s of caution not waiting on
+  a crew.
+- **Display:** the HUD flag reads "FIELD STOPPED — LINING UP".
+- **No-teleport rule:** all moves are driven. Nothing new for the rule to judge.
+
+**Caution-line bugs found while building it:**
+- The queue gap didn't fold both ways round. A lapped kart read as 1,000 ft "not behind" forever.
+- The caution catch-up only looked half a lap ahead. A kart 0.57 lap back never closed up, and the race hit the time
+  cap.
+- Workers walked a 3-kart pile up the inside edge together, so none ever cleared. Now only the front kart walks on,
+  and a crew job over 75 s retires the kart.
+- A kart held by the worker was judged "stopped in a crash".
+- Lane changes at crawl speed under caution (about 16 ft across with an 8 ft steering lookahead) ran karts off the
+  inside edge onto the ridge. The lane target now slides across: 0.4 m/s + 0.3 × speed.
+
+**Soaks on v4:**
+- 20 races: 20/20, no time caps, 0 field stops needed, restarts after 90–110 s.
+- Forced field stop on every caution (test hook in a scratch copy only): 20/20, each resolves and restarts.
+- M1 suite: wall hits skim, 0 breaches, 0 off-track.
+
+**Other:**
+- Franklin added 140 shop photos (`OKT Racing/OKT Shop Photos`, cataloged in `CATALOG.md`). The karts are torn down
+  for Batesville, so there are no tape measurements yet.
+- Body finding from the overhead and side shots: the real body is one shell that wraps outside the front tires,
+  which show through wheel-well cutouts. The sim leaves the front-tire sides open. Proposal to Franklin: close it.
