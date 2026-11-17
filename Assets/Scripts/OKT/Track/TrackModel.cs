@@ -54,6 +54,14 @@ namespace OKT
         // Grass (infield inside the cones, outside run-off): 50% of the groove's grip (Franklin).
         public float gripGrass = 0.50f;
 
+        // Off the groove (Franklin, Pit Board q17): "sliding all over, almost a drift" -- an 11 s groove lap two kart-widths
+        // up runs 12.5-14 s. Full grip within half the groove width of the line, easing down to offGrooveGrip over
+        // offGrooveRampFt beyond that. [TEST VALUE: 0.70 ~ the low end of his lap-time range on a round track]
+        public float offGrooveGrip = 0.70f;          // ABOVE the groove: the loose stuff
+        public float belowGrooveGrip = 0.92f;        // below it: the narrow apron down to the inside edge -- the groove hugs
+                                                     // the inside at Atoka, so the inside line keeps most of its bite [TEST VALUE]
+        public float offGrooveRampFt = 5f;
+
         // Berm dust (Franklin, after the M1 playtest): running on the loose berm does NOT
         // scrub speed by itself. It coats the tire; a dusted tire has 70% bite until it
         // cleans off, which happens by about halfway through the next corner — and the
@@ -416,7 +424,15 @@ namespace OKT
                 if (x < cfg.insideRidgeWidth + cfg.insideBand) return new GroundSample { grip = 1f, loose = false }; // graded dirt
                 return new GroundSample { grip = cfg.gripGrass, loose = false };
             }
-            return new GroundSample { grip = 1f, loose = d > f.halfWidth - cfg.bermWidth };
+            return new GroundSample { grip = GrooveGrip(f, d), loose = d > f.halfWidth - cfg.bermWidth };
+        }
+
+        /// <summary>Grip on the racing surface: 1 in the groove, down to offGrooveGrip in the loose stuff either side.</summary>
+        public float GrooveGrip(in TrackFrame f, float d)
+        {
+            float off = (Mathf.Abs(d - f.LineOffset) - cfg.grooveWidth * 0.5f) / (cfg.offGrooveRampFt * U.Ft);
+            off = Mathf.Clamp01(off); off = off * off * (3f - 2f * off);
+            return Mathf.Lerp(1f, d >= f.LineOffset ? cfg.offGrooveGrip : cfg.belowGrooveGrip, off);
         }
 
         public float LayerBanking(in TrackFrame f, float d)

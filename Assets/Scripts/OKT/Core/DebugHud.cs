@@ -55,7 +55,7 @@ namespace OKT
             GUILayout.BeginHorizontal();
             GUILayout.Label($"Corner speed {DriverConfig.DefaultCornerSlow:F2}", GUILayout.Width(120));
             if (GUILayout.Toggle(Mathf.Abs(DriverConfig.DefaultCornerSlow - 0.30f) < 0.001f, "Safe 0.30", "Button")) SetCorner(w, 0.30f);
-            if (GUILayout.Toggle(Mathf.Abs(DriverConfig.DefaultCornerSlow - 0.27f) < 0.001f, "Fast 0.27", "Button")) SetCorner(w, 0.27f);
+            if (GUILayout.Toggle(Mathf.Abs(DriverConfig.DefaultCornerSlow - 0.25f) < 0.001f, "Edge 0.25", "Button")) SetCorner(w, 0.25f);
             GUILayout.EndHorizontal();
 
             bool nl = GUILayout.Toggle(showLine, " Show Franklin's groove (overlay)");

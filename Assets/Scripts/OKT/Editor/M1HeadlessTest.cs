@@ -61,6 +61,7 @@ namespace OKT.EditorTools
             int hz = 120; for (int a = 0; a < cl.Length - 1; a++) if (cl[a] == "-okt-hz") hz = int.Parse(cl[a + 1]);
             World.FixedDt = 1f / hz;
             for (int a = 0; a < cl.Length - 1; a++) if (cl[a] == "-okt-cs") DriverConfig.DefaultCornerSlow = float.Parse(cl[a + 1], System.Globalization.CultureInfo.InvariantCulture);
+            for (int a = 0; a < cl.Length - 1; a++) if (cl[a] == "-okt-slide") KartSetup.DefaultSlideGripRatio = float.Parse(cl[a + 1], System.Globalization.CultureInfo.InvariantCulture);
             sb0 = $" cornerSlow {DriverConfig.DefaultCornerSlow:F2}";
             string json = File.ReadAllText(M1SceneSetup.JsonPath);
             var sb = new StringBuilder();

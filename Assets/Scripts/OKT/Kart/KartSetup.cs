@@ -84,6 +84,12 @@ namespace OKT
         public float gripG = 1.3f;
         // Solver gain, not a tire fact: share of a wheel's sideways slip cancelled per physics step.
         public float lateralCancelGain = 0.5f;
+        // Past the peak a sliding tire loses grip (Franklin, 11-16: a kart rotated far enough can't be pulled back by the
+        // front tires). Full grip up to slideFadeStartDeg of slip, easing to slideGripRatio by slideFadeEndDeg. [TEST VALUE]
+        public static float DefaultSlideGripRatio = 0.75f;  // soak 11-17: 0.85 changed nothing, 0.75 from 8 deg spun karts on exit
+        public float slideGripRatio = DefaultSlideGripRatio;
+        public static float DefaultSlideFadeStartDeg = 12f, DefaultSlideFadeEndDeg = 30f; // past normal exit slides (soak 11-17: 8 deg spun karts on exit)
+        public float slideFadeStartDeg = DefaultSlideFadeStartDeg, slideFadeEndDeg = DefaultSlideFadeEndDeg;
 
         // ---- engine & drive. Replaces spec §6.2's flat 4.5 m/s² cap so acceleration fades with
         // speed (momentum matters). Karts brake on the rear axle only.

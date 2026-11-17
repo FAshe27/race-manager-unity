@@ -144,6 +144,13 @@ namespace OKT
                 float dustedGrip = surface != null ? surface.gripDusted : 1f;
                 surfaceGripNow[i] = ground.grip * Mathf.Lerp(1f, dustedGrip, dust[i]);
                 float cap = s.gripMu * surfaceGripNow[i] * N;
+                // a tire sliding at a big angle has less bite than at its peak (real tires; what makes a big rotation unsavable)
+                if (s.slideGripRatio < 1f)
+                {
+                    float slipDeg = Mathf.Atan2(Mathf.Abs(vLat), Mathf.Max(0.5f, Mathf.Abs(vLong))) * Mathf.Rad2Deg;
+                    float fade = Mathf.Clamp01((slipDeg - s.slideFadeStartDeg) / (s.slideFadeEndDeg - s.slideFadeStartDeg));
+                    cap *= Mathf.Lerp(1f, s.slideGripRatio, fade * fade * (3f - 2f * fade));
+                }
 
                 // Lateral: cancel a fraction of the slip of this wheel's share of mass.
                 float share = N / g;

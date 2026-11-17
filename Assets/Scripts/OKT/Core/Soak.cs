@@ -11,6 +11,8 @@ namespace OKT
     public class SoakStats
     {
         public int races, finished, cautions, breaches, incidents, dnfs, fieldStops;
+        // real-race scorecard (Franklin, Pit Board q25-q28)
+        public int racesWithCaution, poleWins, poleTop3, leadChanges, spunKarts, poleRaces;
         public readonly List<float> cleanBest = new List<float>();
         public readonly List<float> winnerTimes = new List<float>();
         public float minClean = float.PositiveInfinity, maxClean;
@@ -59,11 +61,20 @@ namespace OKT
             sb.AppendLine($"Race {st.races} (seed {seed}): {(done ? "complete" : "TIME CAP (did not finish)")}, " +
                           $"sim {d.raceTime:F0} s, from green flag {(d.firstGreenTime >= 0 ? (d.raceTime - d.firstGreenTime) : 0):F0} s");
             if (d.fieldStops > 0) sb.AppendLine($"  field stops {d.fieldStops}");
+            {
+                var pole = d.field.Find(x => x.gridPos == 0);
+                int polePos = pole != null ? order.IndexOf(pole) + 1 : 0;
+                int spun = 0; foreach (var e in d.field) if (e.spins > 0 || e.flips > 0) spun++;
+                if (d.cautions > 0) st.racesWithCaution++;
+                if (pole != null) { st.poleRaces++; if (polePos == 1) st.poleWins++; if (polePos >= 1 && polePos <= 3) st.poleTop3++; }
+                st.leadChanges += d.leadChanges; st.spunKarts += spun;
+                sb.AppendLine($"  scorecard: cautions {d.cautions}  pole finished P{polePos}  lead changes {d.leadChanges}  karts spun {spun}");
+            }
             st.fieldStops += d.fieldStops;
             sb.AppendLine($"  cautions {d.cautions} (Franklin's rules)   " +
                           $"wall breaches {d.WallBreaches}   incidents {d.Incidents} (spins/flips/stops)   DNF {d.Dnfs}   " +
                           $"on-track passes {d.passes}   mean positions moved vs grid {d.MeanPositionsMoved:F1}");
-            sb.AppendLine($"  pass logic (kart-steps): ahead {d.dbgAhead} close {d.dbgClose} faster {d.dbgFaster} heldUp {d.dbgHeld} want {d.dbgWant} insideOk {d.dbgInsideOk} outsideOk {d.dbgOutsideOk} started {d.dbgStarted} hazardAhead {d.dbgHaz} start-battle steps {d.dbgBattle} peeks failed {d.dbgPeeksFailed} pushes {d.dbgPushes} push->dive {d.dbgPushPasses} completed {d.dbgCompleted} | exit runs: seen {d.dbgRuns} started {d.dbgRunStarted} done {d.dbgRunDone} | bump-draft steps {d.dbgBumpDraft}");
+            sb.AppendLine($"  pass logic (kart-steps): ahead {d.dbgAhead} close {d.dbgClose} faster {d.dbgFaster} heldUp {d.dbgHeld} want {d.dbgWant} insideOk {d.dbgInsideOk} outsideOk {d.dbgOutsideOk} started {d.dbgStarted} hazardAhead {d.dbgHaz} start-battle steps {d.dbgBattle} peeks failed {d.dbgPeeksFailed} pushes {d.dbgPushes} push->dive {d.dbgPushPasses} completed {d.dbgCompleted} | exit runs: seen {d.dbgRuns} started {d.dbgRunStarted} done {d.dbgRunDone} | bump-draft steps {d.dbgBumpDraft} | big pushes {d.dbgBigPushes} | defend: cover {d.dbgCover} lean {d.dbgSqueeze} annoyed {d.dbgAnnoyed}");
             sb.AppendLine("  after the green (s: karts alongside / spread ft): " + string.Join("  ", System.Linq.Enumerable.Select(System.Linq.Enumerable.Range(0, d.startAlongside.Count), i => $"{RaceDirector.StartSampleSec[i]:F0}s {d.startAlongside[i]}/{d.startSpreadFt[i]:F0}")));
             sb.AppendLine($"  packed start at the green: largest consecutive gap {d.greenMaxGapLaps:F4} laps ({d.greenMaxGapLaps * d.LapLengthM / U.Ft:F1} ft centre to centre), leader to last {d.greenSpreadLaps:F3} laps");
             sb.AppendLine($"  contacts {d.Contacts} (hard {d.HardContacts})   spins: contact {d.contactSpins} / self {d.selfSpins}   flips: contact {d.contactFlips} / self {d.selfFlips}");
@@ -125,7 +136,12 @@ namespace OKT
         {
             float mean = 0; foreach (var x in st.cleanBest) mean += x; mean = st.cleanBest.Count > 0 ? mean / st.cleanBest.Count : 0;
             float win = 0; foreach (var x in st.winnerTimes) win += x; win = st.winnerTimes.Count > 0 ? win / st.winnerTimes.Count : 0;
-            return $"SOAK SUMMARY: {st.races} races, {st.finished} completed. Cautions {st.cautions} total ({(st.races > 0 ? (float)st.cautions / st.races : 0):F1}/race), field stops {st.fieldStops}. " +
+            float R = Mathf.Max(1, st.races);
+            string card = $"REAL-RACE SCORECARD (Franklin q25-q28 targets in brackets): races with a caution {100f * st.racesWithCaution / R:F0}% [~90%+], " +
+                          $"cautions/race {st.cautions / R:F1} [1-2, up to 5], pole wins {100f * st.poleWins / Mathf.Max(1, st.poleRaces):F0}% [~20%], " +
+                          $"pole top 3 {100f * st.poleTop3 / Mathf.Max(1, st.poleRaces):F0}% [usually], lead changes/race {st.leadChanges / R:F1}, karts spun/race {st.spunKarts / R:F1} [1-2 per spin], " +
+                          $"contacts/race {st.contacts / R:F0} [everyone touches someone].\n";
+            return card + $"SOAK SUMMARY: {st.races} races, {st.finished} completed. Cautions {st.cautions} total ({(st.races > 0 ? (float)st.cautions / st.races : 0):F1}/race), field stops {st.fieldStops}. " +
                    $"Wall breaches {st.breaches}. Incidents {st.incidents} ({(st.races > 0 ? (float)st.incidents / st.races : 0):F1}/race). DNFs {st.dnfs}. " +
                    $"Clean-air best laps: {st.cleanBest.Count} karts, mean {mean:F2} s, range {(st.cleanBest.Count > 0 ? st.minClean : 0):F2}–{st.maxClean:F2} s (Clone band 10.5–11.5). " +
                    $"Mean winner race time {win:F1} s. Off-track steps {st.offTrackSteps}. " +

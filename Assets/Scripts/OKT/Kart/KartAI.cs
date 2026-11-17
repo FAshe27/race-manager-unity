@@ -19,7 +19,7 @@ namespace OKT
         // 0.27 -> laps ≈ 10.77 s (Franklin's fast window) but spins on any upset; 0.25 spins on clean laps.
         public float vMaxMph = 52f;            // [TEST VALUE] (spec start: 48.1 mph / 21.5 m/s)
         // Franklin (2026-11-14 playtest): "Safe" 0.30 feels realistic -> default.
-        public static float DefaultCornerSlow = 0.30f; // (headless test may override)
+        public static float DefaultCornerSlow = 0.25f;  // closer to the edge of grip (Franklin 11-16; laps 10.8 s vs his 10.7-11.1; was 0.30) // (headless test may override)
         public float cornerSlow = DefaultCornerSlow; // [TEST VALUE] (spec start: 0.30)
         public float pace = 1.0f;              // per-kart pace factor (M2 field spread)
         public float lookaheadTime = 0.25f;    // steering lookahead, s [TEST VALUE] — spec ≈0.6 s overshoots onto the walls (M1 sweep)
@@ -71,6 +71,9 @@ namespace OKT
         public const int NoGrooveLane = 99;
         [System.NonSerialized] public int grooveLane = NoGrooveLane;
         [System.NonSerialized] public float grooveLaneHalf = 0.635f; // half the pair's centre-to-centre spacing (m)
+        // How fully the driver allows for the loose stuff off the groove (0 = drives it at groove speed and slides up,
+        // 1 = backs off to what it holds). From consistency: green drivers overdrive it (Franklin's clip). [TEST VALUE]
+        [System.NonSerialized] public float looseAwareness = 0.8f;
         [System.NonSerialized] float formD = float.NaN;               // smoothed formation lane target (m)
         public const float FormLaneRateBase = 0.4f, FormLaneRatePerMps = 0.3f; // lateral m/s: 0.4 + 0.3 x speed [TEST VALUE]
         // Pacing stays off the wall (Franklin, v4 playtest: the outside pace lane rode the backstretch wall where the
@@ -269,6 +272,13 @@ namespace OKT
                     float rLine = rC + tf.LineOffset, rPath = rC + tf.LineOffset + offFromLine;
                     if (rPath < rLine && rPath > 1f) freeSpeed *= Mathf.Sqrt(rPath / rLine);
                 }
+            }
+            // the loose stuff: a corner off the groove holds sqrt(grip) of the speed (here and where I'm aiming)
+            if (!formation && tf.corner > 0.05f)
+            {
+                float gHere = track.GroundAtSD(s, d).grip, gThere = track.GroundAtSD(track.LineS(si0), dT).grip;
+                float g = Mathf.Clamp(Mathf.Min(gHere, gThere), 0.3f, 1f);
+                freeSpeed *= Mathf.Lerp(1f, Mathf.Lerp(1f, Mathf.Sqrt(g), Mathf.Clamp01(tf.corner * 2f)), looseAwareness);
             }
             targetSpeed = paceMode ? Mathf.Lerp(paceStraight, paceCorner, tf.corner) : freeSpeed;
             if (diving && !paceMode) targetSpeed *= divingSpeedFactor;
