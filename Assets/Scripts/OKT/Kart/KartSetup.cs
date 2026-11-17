@@ -53,6 +53,12 @@ namespace OKT
         public float noseAheadOfTiresIn = 13f;       // WKA 401.6: overall length 74 in max -> 73.1 in with the rear bumper 8 in back (Franklin's ~2 ft overshot the cap) [TEST VALUE, split of the 74 in]
         public float noseBottomIn = 2f;              // [TEST VALUE]
         public float noseTopIn = 10f;                // WKA 404.4: nose 8-17 in tall [TEST VALUE]
+        // Rounded nose (Franklin, 11-16: "the actual exterior contact points are exceptionally important"). From his
+        // body photos the nose piece is a wide U in plan: big round front corners blending back into the sides. [TEST VALUEs]
+        public float noseCornerRadiusIn = 12f;       // plan-view radius of the front corners
+        public float noseBottomRoundIn = 0f;         // lower front edge: square. A 2 in roll made a ramp -- the nose climbed the
+                                                     // 3 in berm and the kart swung to 88 deg in the M1 berm ride (11-16)
+        public float noseTopRoundIn = 3f;            // and the upper front edge
         public float bodyFriction = 0.15f;           // fiberglass on fiberglass, slides freely [TEST VALUE]
         public float rearBumperTopIn = 7.5f;           // top of the bumper: WKA 409.3.1 max 7.5 in; lowest bar no lower than the bottom of the rear axle (409.3.2)
         public float rearAxleDiaIn = 1.0f;             // WKA: 1 in min (40 mm max) [TEST VALUE]

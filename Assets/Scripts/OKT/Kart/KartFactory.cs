@@ -55,10 +55,13 @@ namespace OKT
             Tube(tubes, "RearBumperLow", new Vector3(-rw, rLow, rz), new Vector3(rw, rLow, rz), r, tubeMat, bodyMat);
             Tube(tubes, "RearBumperTop", new Vector3(-rw, rTop, rz), new Vector3(rw, rTop, rz), r, tubeMat, bodyMat);
 
-            // --- body (Franklin 2026-11-16, WKA §404): fiberglass side panels between the wheels, outer face 1/4 in
+            // --- body (Franklin 2026-11-16, WKA §404): fiberglass side panels from the nose back to the rear tires, outer face 1/4 in
             // outside the tires, 1/2 in off the ground, with a ROUND bottom edge (a square corner caught the inside lip
             // the way the old box chassis caught the berm); a full-width nose out ahead of the front tires with a round
             // leading edge. Slippery: panels slide along each other. Ends at the rear tires (the rear bumper stays bare).
+            // Franklin's shop photos (11-16): the body is ONE shell that wraps OUTSIDE the front tires (they only show
+            // through wheel-well cutouts), so the panels run forward past the front tires to the nose -- front tires
+            // never touch another kart; side contact is shell on shell.
             if (setup.bodyOn)
             {
                 var panelMat = new PhysicsMaterial("BodyPanel") { dynamicFriction = setup.bodyFriction, staticFriction = setup.bodyFriction,
@@ -66,7 +69,7 @@ namespace OKT
                 var shell = Materials.Solid(bodyColor, 0.5f);
                 var body = new GameObject("Body").transform; body.SetParent(go.transform, false);
                 float th = setup.panelThickIn * U.In, pr = th * 0.5f;
-                float pz0 = -setup.wheelbase * 0.5f + setup.WheelRadius(2), pz1 = setup.wheelbase * 0.5f - setup.WheelRadius(0);
+                float pz0 = -setup.wheelbase * 0.5f + setup.WheelRadius(2), pz1 = setup.FrontTireLead; // to the nose
                 float py0 = setup.panelBottomIn * U.In, py1 = setup.panelTopIn * U.In;
                 foreach (bool right in new[] { true, false })
                 {
@@ -78,11 +81,16 @@ namespace OKT
                 float noseTip = setup.NoseFrontZ;   // trailing edge of the front tires -> nose tip
                 float nx = setup.PanelOuter(true), nxl = setup.PanelOuter(false);
                 float ny0 = setup.noseBottomIn * U.In, ny1 = setup.noseTopIn * U.In, nr = 1.0f * U.In;
-                // nose block ahead of the front tires (wheel openings stay open: it starts at the tires' leading edge)
+                // nose block ahead of the front tires (the side panels cover the front wheels; the nose starts where they end)
                 float nzA = setup.FrontTireLead;
-                Slab(body, "Nose", new Vector3((nx - nxl) * 0.5f, (ny0 + ny1) * 0.5f, (nzA + noseTip - nr) * 0.5f),
-                    new Vector3(nx + nxl, ny1 - ny0, noseTip - nr - nzA), shell, panelMat);
-                Tube(body, "NoseEdge", new Vector3(-nxl + nr, ny0 + nr, noseTip - nr), new Vector3(nx - nr, ny0 + nr, noseTip - nr), nr, shell, panelMat);
+                // one convex, rounded shell: round front corners in plan, rolled lower/upper front edges (a square nose
+                // corner caught on bumpers and panels; a round one glances off, like the real fiberglass)
+                var nose = new GameObject("Nose"); nose.transform.SetParent(body, false);
+                var nm = NoseMesh(-nxl, nx, nzA, noseTip, ny0, ny1, setup.noseCornerRadiusIn * U.In,
+                                  setup.noseBottomRoundIn * U.In, setup.noseTopRoundIn * U.In);
+                nose.AddComponent<MeshFilter>().sharedMesh = nm;
+                nose.AddComponent<MeshRenderer>().sharedMaterial = shell;
+                var nmc = nose.AddComponent<MeshCollider>(); nmc.sharedMesh = nm; nmc.convex = true; nmc.sharedMaterial = panelMat;
             }
 
             // --- tire bodies: solid blocks so karts shove off each other's tires instead of overlapping
@@ -157,6 +165,65 @@ namespace OKT
             c.transform.localScale = size;
             c.GetComponent<MeshRenderer>().sharedMaterial = mat;
             c.GetComponent<BoxCollider>().sharedMaterial = pmat;
+        }
+
+        /// <summary>
+        /// The nose as a lofted convex solid (kart local). Plan outline: straight back edge at zBack, straight sides,
+        /// round front corners of radius R, flat-ish front at zTip. Each height ring is the outline pulled in by the
+        /// front-edge rounding (bottom rB, top rT), so the lower and upper front edges roll over.
+        /// </summary>
+        static Mesh NoseMesh(float xL, float xR, float zBack, float zTip, float y0, float y1, float R, float rB, float rT)
+        {
+            R = Mathf.Min(R, zTip - zBack - 0.01f, (xR - xL) * 0.5f - 0.01f);
+            rB = Mathf.Max(rB, 0.0005f); rT = Mathf.Max(rT, 0.0005f); // a zero roll is a square edge (rings collapse to one)
+            const int cornerSeg = 8, ringsB = 4, ringsT = 4;
+            var heights = new System.Collections.Generic.List<float>(); var insets = new System.Collections.Generic.List<float>();
+            for (int i = 0; i <= ringsB; i++)
+            {   // bottom roll: quarter circle from (inset rB at y0) to (inset 0 at y0 + rB)
+                float a = Mathf.PI * 0.5f * i / ringsB;
+                heights.Add(y0 + rB - rB * Mathf.Cos(a)); insets.Add(rB - rB * Mathf.Sin(a));
+            }
+            for (int i = 0; i <= ringsT; i++)
+            {
+                float a = Mathf.PI * 0.5f * i / ringsT;
+                float y = y1 - rT + rT * Mathf.Sin(a), ins = rT - rT * Mathf.Cos(a);
+                if (y <= heights[heights.Count - 1] + 1e-4f) continue;
+                heights.Add(y); insets.Add(ins);
+            }
+            var verts = new System.Collections.Generic.List<Vector3>(); int ringN = -1;
+            foreach (int k in System.Linq.Enumerable.Range(0, heights.Count))
+            {
+                float ins = insets[k], y = heights[k];
+                float l = xL + ins, r = xR - ins, tip = zTip - ins, rr = Mathf.Max(0.005f, R - ins);
+                var ring = new System.Collections.Generic.List<Vector3>();
+                ring.Add(new Vector3(r, y, zBack));                                   // back right
+                for (int j = 0; j <= cornerSeg; j++)                                  // front right corner
+                {
+                    float a = Mathf.PI * 0.5f * j / cornerSeg;
+                    ring.Add(new Vector3(r - rr + rr * Mathf.Cos(a), y, tip - rr + rr * Mathf.Sin(a)));
+                }
+                for (int j = 0; j <= cornerSeg; j++)                                  // front left corner
+                {
+                    float a = Mathf.PI * 0.5f + Mathf.PI * 0.5f * j / cornerSeg;
+                    ring.Add(new Vector3(l + rr + rr * Mathf.Cos(a), y, tip - rr + rr * Mathf.Sin(a)));
+                }
+                ring.Add(new Vector3(l, y, zBack));                                   // back left
+                ringN = ring.Count; verts.AddRange(ring);
+            }
+            var tris = new System.Collections.Generic.List<int>(); int rings = heights.Count;
+            for (int k = 0; k < rings - 1; k++)
+                for (int j = 0; j < ringN; j++)
+                {
+                    int a0 = k * ringN + j, a1 = k * ringN + (j + 1) % ringN, b0 = a0 + ringN, b1 = a1 + ringN;
+                    tris.AddRange(new[] { a0, b0, a1, a1, b0, b1 });
+                }
+            // caps (each ring is convex): fan from the first vertex
+            for (int j = 1; j < ringN - 1; j++) tris.AddRange(new[] { 0, j + 1, j });
+            int top = (rings - 1) * ringN;
+            for (int j = 1; j < ringN - 1; j++) tris.AddRange(new[] { top, top + j, top + j + 1 });
+            var m = new Mesh { name = "Nose" };
+            m.SetVertices(verts); m.SetTriangles(tris, 0); m.RecalculateNormals(); m.RecalculateBounds();
+            return m;
         }
 
         /// <summary>A round tube from a to b (kart local): capsule primitive = collider and visual.</summary>

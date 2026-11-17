@@ -292,6 +292,15 @@ namespace OKT
             }
         }
 
+        /// <summary>Front corner of the footprint: on the rounded nose, the point of its corner arc at 45 deg.</summary>
+        static Vector3 NoseCorner(KartSetup st, bool right)
+        {
+            float x = right ? st.FootRight : st.FootLeft;
+            if (!st.bodyOn) return new Vector3(right ? x : -x, 0.1f, st.FootFront);
+            float R = st.noseCornerRadiusIn * U.In, c = R * (1f - 0.7071f);
+            return new Vector3((x - c) * (right ? 1f : -1f), 0.1f, st.FootFront - c);
+        }
+
         float WallGap(in TrackFrame fr)
         {
             // Outermost body corner's lateral distance to the outside edge (wall face).
@@ -301,7 +310,7 @@ namespace OKT
             foreach (var corner in new[] {
                 new Vector3(st.FootRight, 0.1f, st.wheelbase * 0.5f), new Vector3(st.FootRight, 0.1f, -st.wheelbase * 0.5f),
                 new Vector3(-st.FootLeft, 0.1f, st.wheelbase * 0.5f), new Vector3(-st.FootLeft, 0.1f, -st.wheelbase * 0.5f),
-                new Vector3(st.FootRight, 0.1f, st.FootFront), new Vector3(-st.FootLeft, 0.1f, st.FootFront),
+                NoseCorner(st, true), NoseCorner(st, false), new Vector3(0f, 0.1f, st.FootFront),
                 new Vector3(st.rearBumperHalfWidthIn * U.In, 0.1f, -st.FootRear), new Vector3(-st.rearBumperHalfWidthIn * U.In, 0.1f, -st.FootRear) })
             {
                 var w = transform.TransformPoint(corner);

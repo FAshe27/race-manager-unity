@@ -1329,6 +1329,19 @@ namespace OKT
                     ai.speedCap = Mathf.Max(0f, cap);
                 }
             }
+            // never run into whatever is physically right in front of me in my lane, whatever its place in the order
+            // (soak 2026-11-16, race 3: karts headed to the tail got rear-ended at pace under the yellow, 250-420 N.s)
+            {
+                float myD = ai.d;
+                foreach (var o in field)
+                {
+                    if (o == e || o.cleared || o.beingCleared || Hazard(o)) continue; // wrecks: the go-round below handles them
+                    float g = Gap(o, e);
+                    if (g <= 0f || g > 10f || Mathf.Abs(o.ai.d - myD) > 1.2f) continue;
+                    float c = Mathf.Max(0f, o.kart.ForwardSpeed + cfg.followGain * (g - bl - 0.15f));
+                    if (c < ai.speedCap) ai.speedCap = c;
+                }
+            }
             // a wreck or recovering kart ahead in my lane: go round it, slowly
             float myLaneD = lane == cfg.cautionLaneFrac ? w.track.Frame(ai.s).LineOffset : lane * w.track.Frame(ai.s).halfWidth; // single file runs the groove
             foreach (var o in field)
