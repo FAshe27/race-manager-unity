@@ -24,15 +24,15 @@ namespace OKT
 
         // ---- geometry (spec §6.2; Franklin: "sounds decent enough")
         public float wheelbaseIn = 41.3f;         // 1.05 m
-        public float trackFrontIn = 39.4f;        // 1.0 m
-        public float trackRearIn = 42.0f;         // WKA 401.5: overall width 50 in max -> 49.9 in with the side panels 1/4 in outside the rights (was 43.3 = spec 1.1 m) [WKA cap]
+        public float trackFrontIn = 32.0f;        // Franklin's official width (42 in overall): front scaled with the rear (was 39.4) [TEST VALUE split]
+        public float trackRearIn = 34.0f;         // Franklin (11-16, measured with the body on): 42 in overall -> 41.5 in over the rear tires (panels 1/4 in outside) - (6 + 9)/2 in of tire = 34 in centre to centre (was 42 = WKA's 50 in cap)
         // ---- chassis shape (Franklin, 2026-11-14, with photos; body not mounted).
         // Collider = frame/cockpit box + ROUND TUBES for the bumpers and nerf bars (a round tube
         // rides up a dirt slope; the old single box's square corner dug into the berm).
         public float frameClearanceIn = 0.5f;          // Franklin: frame rails ~1/2 in off the ground
         public float tubeDiameterIn = 1.0f;            // bumper / nerf tubing [TEST VALUE]
         public float tubeBottomIn = 0.5f;              // Franklin: bumpers and nerfs ~1/2 in off the ground
-        public float cockpitHalfWidthIn = 15.75f;      // frame rails + seat + engine, between the wheels [TEST VALUE, from photos]
+        public float cockpitHalfWidthIn = 12f;      // frame rails ~23.5 in apart (road-course frame photo, 11-16); was 15.75, wider than the 34 in rear track allows      // frame rails + seat + engine, between the wheels [TEST VALUE, from photos]
         public float cockpitFrontIn = 23.6f;           // ahead of centre [TEST VALUE]
         public float cockpitRearIn = 23.6f;            // behind centre [TEST VALUE]
         public float cockpitTopIn = 15.4f;             // seat back / engine height [TEST VALUE]

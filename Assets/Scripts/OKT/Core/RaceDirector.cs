@@ -38,7 +38,7 @@ namespace OKT
         public float startRollMinMph = 15f, startRollMaxMph = 25f; // Franklin q24: the leader rolls the start at 15-25 mph, his choice
         // Traffic geometry [TEST VALUEs]
         public float alongsideFt = 7.1f;           // longitudinal window that counts as "alongside" (≈ kart length 6.1 ft + 1 ft)
-        public float sideRoomIn = 50f;             // centre-to-centre side by side: nerfs are 51 in apart, so side by side means rubbing (Franklin: contact is commonplace) [TEST VALUE]
+        public float sideRoomIn = 42f;              // = Franklin's measured overall width (11-16; was 50 = WKA cap)             // centre-to-centre side by side: nerfs are 51 in apart, so side by side means rubbing (Franklin: contact is commonplace) [TEST VALUE]
         public float followGapFt = 1.0f;           // bumper-to-bumper gap a kart settles at when it checks up (Franklin's video: nose to tail, ~a kart length) [TEST VALUE]
         public float lookAheadTime = 0.5f;         // spec §7: slot projected ~0.5 s ahead
         public float passStartGapFt = 11f;         // centre to centre: nose within ~4 ft of his bumper (Franklin: passes tried from way too far back) [TEST VALUE]
