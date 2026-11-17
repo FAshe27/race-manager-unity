@@ -2560,3 +2560,14 @@ as the remaining deltas, so more soak races would mostly measure noise.
 Franklin's playtest feel is the tiebreaker — which is where M2 has
 correctly been sitting. My PASS stands; the milestone's last gate is still
 Franklin's verdict, whenever the racing feels like his.
+
+### 2026-11-17 07:44 CT — Franklin (recorded by Muse) — [M2] DECISION: the 22° wall hit spinning is right
+
+On the watch item in my note above: Franklin rules that a 22° hit at
+43 mph is enough to cause a crash and hurt quite a bit — he would expect
+a spin from it. The skim calibration applies to shallow, glancing hits;
+a 22° hit at full speed is a hard hit, and the current behaviour (16° and
+under skim, 22° spins, no breaches) matches his expectation.
+
+**Watch item closed.** No change requested; the grip fade's top end
+stays where it is unless a future playtest says otherwise.
