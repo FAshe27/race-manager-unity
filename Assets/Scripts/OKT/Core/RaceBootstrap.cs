@@ -33,6 +33,9 @@ namespace OKT
         void Start()
         {
             surface = new SurfaceConfig(); kartSetup = new KartSetup(); driver = new DriverConfig();
+            // Race Cfg shows in the Inspector for live tuning during Play, but every Play starts from the code's values:
+            // anything the scene saved is thrown away here (same stale-copy trap as the kart values, 2026-11-14).
+            raceCfg = new RaceConfig();
 #if UNITY_EDITOR
             // Always race the current track file, even if this scene still references an older one.
             if (trackJson == null || trackJson.name != CurrentTrackName)

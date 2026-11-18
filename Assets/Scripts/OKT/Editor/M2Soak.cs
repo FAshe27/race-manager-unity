@@ -13,6 +13,8 @@ namespace OKT.EditorTools
         [MenuItem("OKT/Run M2 Soak (10 races, headless)")]
         public static void RunFromMenu() { Debug.Log(Execute(10, "soak-results.txt", 1001)); }
 
+        static bool CautionsOn = true; static float PowerMult = 1f, GripMult = 1f; static int FieldSize, Laps;
+
         public static void Run()
         {
             var a = System.Environment.GetCommandLineArgs();
@@ -29,6 +31,11 @@ namespace OKT.EditorTools
                 if (a[i] == "-okt-tirefeel") DriverConfig.UseTireFeel = a[i + 1] == "1";
                 if (a[i] == "-okt-lightprep") { var lp = a[i + 1].Split(':'); RaceConfig.LightPrepChance = float.Parse(lp[0], System.Globalization.CultureInfo.InvariantCulture); RaceConfig.LightPrepFalloffMin = float.Parse(lp[1], System.Globalization.CultureInfo.InvariantCulture); RaceConfig.LightPrepFalloffMax = float.Parse(lp[2], System.Globalization.CultureInfo.InvariantCulture); }
                 if (a[i] == "-okt-bigpush") RaceConfig.DefaultBigPushChance = float.Parse(a[i + 1], System.Globalization.CultureInfo.InvariantCulture);
+                if (a[i] == "-okt-cautions") CautionsOn = a[i + 1] == "1";
+                if (a[i] == "-okt-power") PowerMult = float.Parse(a[i + 1], System.Globalization.CultureInfo.InvariantCulture);
+                if (a[i] == "-okt-grip") GripMult = float.Parse(a[i + 1], System.Globalization.CultureInfo.InvariantCulture);
+                if (a[i] == "-okt-field") FieldSize = int.Parse(a[i + 1]);
+                if (a[i] == "-okt-laps") Laps = int.Parse(a[i + 1]);
                 if (a[i] == "-okt-staging") RaceConfig.DefaultStagingStart = a[i + 1] == "1";
                 if (a[i] == "-okt-cs") DriverConfig.DefaultCornerSlow = float.Parse(a[i + 1], System.Globalization.CultureInfo.InvariantCulture);
             }
@@ -42,7 +49,9 @@ namespace OKT.EditorTools
         {
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             string json = File.ReadAllText(M1SceneSetup.JsonPath);
-            var rc = new RaceConfig();
+            var rc = new RaceConfig { cautionsOn = CautionsOn, powerMult = PowerMult, gripMult = GripMult };
+            if (FieldSize > 0) rc.fieldSize = FieldSize;
+            if (Laps > 0) rc.featureLaps = Laps;
             var sb = new StringBuilder(Soak.Header(n, rc));
             var st = new SoakStats();
             var t0 = System.DateTime.Now;

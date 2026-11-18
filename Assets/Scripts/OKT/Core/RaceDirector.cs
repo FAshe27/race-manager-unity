@@ -26,6 +26,12 @@ namespace OKT
     {
         public int fieldSize = 12;                 // spec §1
         public int featureLaps = 15;               // spec §8 (Franklin: 15 or 20)
+        // Fun / what-if switches (Franklin 2026-11-17). Read when the race is built: hit reset after changing them.
+        public bool cautionsOn = true;             // off: no yellow ever; spun karts sort themselves out under green
+        public float powerMult = 1f;               // engine power x this (hp). Top speed is still set by the gearing: the
+                                                   // engine stops pulling past ~7,600 rpm, so more power mostly means harder pull
+        public float gripMult = 1f;                // tire grip (and brakes, which are tire-limited) x this; drivers corner
+                                                   // faster with it (corner speed goes with the square root of grip)
         public int paceLaps = 1;                   // Franklin (M2): one pace lap from the grid
         // One steady speed all the way round (Franklin's playtest 11-17: 25 straight / 20 corner made the line spread on
         // the straights and bunch in the corners -- an accordion). Franklin: ~20-25 mph. [TEST VALUE]
@@ -46,7 +52,7 @@ namespace OKT
         public float laneFrac = 0.16f;             // double-file lanes at ±0.16 half-width ≈ 53 in apart: the two lines nearly touching (Franklin) [TEST VALUE]
         public float packedStartSeconds = 4f;      // pass COUNTING only (soak metric continuity); lines are held to the S/F line now
         public float launchSec = 3f;               // accordion: for this long after a green, close right up on the kart ahead [TEST VALUE]
-        public float launchLead = 0.4f;            // m/s over the kart ahead while closing up -- the push that runs up the line [TEST VALUE]
+        public float launchLeadMph = 0.9f;         // mph over the kart ahead while closing up -- the push that runs up the line [TEST VALUE]
         public float startRollMinMph = 15f, startRollMaxMph = 25f; // Franklin q24: the leader rolls the start at 15-25 mph, his choice
         // Traffic geometry [TEST VALUEs]
         public float alongsideFt = 7.1f;           // longitudinal window that counts as "alongside" (≈ kart length 6.1 ft + 1 ft)
@@ -77,12 +83,12 @@ namespace OKT
         public float runRoomFt = 4f;               // extra gap the follower leaves mid-corner so he can carry speed off it [TEST VALUE]
         public float runAbandonSec = 5f;
         public float bumpDraftAggression = 0.45f;  // drivers above this bumper-draft on the straights even when not faster [TEST VALUE]
-        public float bumpLean = 0.3f;              // m/s extra while leaning on his bumper [TEST VALUE]           // straight + entry take longer than a dive [TEST VALUE]
+        public float bumpLeanMph = 0.67f;          // mph extra while leaning on his bumper [TEST VALUE]           // straight + entry take longer than a dive [TEST VALUE]
         public float fasterBy = 1.002f;            // needs a pace edge (like-for-like free speed) to start a pass; was 1.005 (too polite) [TEST VALUE]
         // Conceding the inside (Franklin, 23:55): established inside me at corner entry -> drag the brakes, file in behind.
         public float concedeEntryCorner = 0.25f;    // corner value at my speed-lookahead that counts as "entry" [TEST VALUE]
         public float concedeNoseFt = 3.0f;          // his nose may be up to this far behind mine and still be "established" (overlapped); was 5 (too polite) [TEST VALUE]
-        public float concedeSpeedDrop = 0.3f;       // m/s below his speed while I drop in behind; was 0.6 [TEST VALUE]
+        public float concedeSpeedDropMph = 0.67f;   // mph below his speed while I drop in behind; was 1.3 [TEST VALUE]
         public float concedeHoldSec = 0.8f;         // how long the concession lasts once made; was 1.2 [TEST VALUE]
         public float pushRate = 3f;                 // push likelihood per second at aggression 1 (5 tried 11-16: 4 contact spins a race); late-race urgency raises it [TEST VALUE]
         // Franklin (11-16): "some aggression and awareness that it's only a 15 lap race... Gotta get moving!" -- but no
@@ -359,7 +365,7 @@ namespace OKT
             public readonly Queue<string> hist = new Queue<string>(); public float histT;
             public bool recovering; public float recoverT;     // spun kart driving itself out (spec §8.3)
             public bool cleared; public bool beingCleared;      // wreck moved off by the crew (spec §8.4 step 3)
-            public bool crewHelp, crewHelped, assistStarted; public float assistWait; // stuck kart separated + pull-started by track workers
+            public bool crewHelp, crewHelped, assistStarted; public float assistWait; public float crewS; // crewS: where the crew has it (own track position: the AI's s re-projects from the body each step) // stuck kart separated + pull-started by track workers
             public int worker = -1; public float workerArrives; public bool offLogged;                        // which infield worker, and when they get to it
         }
         public readonly List<Entry> field = new List<Entry>();
@@ -379,7 +385,7 @@ namespace OKT
             // Pace follows lap time (the same convention as feature pace); grip = pace^2 (corner speed ~ sqrt(grip)).
             float tp = 1f / (1f + TireFrac(e));
             e.kart.setup.gripG = e.baseGripG * tp * tp;
-            e.ai.cfg.pace *= tp;
+            e.ai.cfg.pace *= tp * Mathf.Sqrt(cfg.gripMult);
         }
 
         /// <summary>Is a quicker than b where it counts? A pace edge, or (off a corner) a shorter gear with pace close.</summary>
@@ -397,10 +403,18 @@ namespace OKT
             float h1 = Hash01(d.number * 7919 + 11), h2 = Hash01(d.number * 104729 + 3), h3 = Hash01(d.number * 1299709 + 5);
             field.Add(new Entry
             {
-                ai = ai, kart = kart, driver = d, gridPos = gridPos, baseGripG = kart.setup.gripG,
+                ai = ai, kart = kart, driver = d, gridPos = gridPos, baseGripG = ScaleKart(kart),
                 paceGapFt = Mathf.Lerp(cfg.cautionGapMinFt, cfg.cautionGapMaxFt, h1),
                 weaver = h2 < cfg.weaverShare, weaveClock = Mathf.Lerp(cfg.weaveOffMinSec, cfg.weaveOffMaxSec, h3),
             });
+        }
+        /// <summary>Apply the power / grip multipliers to a new kart's setup once; returns its base grip.</summary>
+        float ScaleKart(KartPhysics kart)
+        {
+            kart.setup.crankHp *= cfg.powerMult;
+            kart.setup.gripG *= cfg.gripMult;
+            kart.setup.brakeCapG *= cfg.gripMult;
+            return kart.setup.gripG;
         }
         float Aggr(Entry e) => Mathf.Min(1f, e.driver.aggression + (e.mad ? cfg.madAggression : 0f));
         static float Hash01(int x) { unchecked { uint h = (uint)x; h ^= h >> 16; h *= 0x7feb352d; h ^= h >> 15; h *= 0x846ca68b; h ^= h >> 16; return (h & 0xFFFFFF) / 16777216f; } }
@@ -913,7 +927,7 @@ namespace OKT
                 {
                     var o = field[e.concedeTo];
                     if (!o.outOfRace && Gap(o, e) > -kartLen)
-                        ai.speedCap = Mathf.Min(ai.speedCap, Mathf.Max(0f, o.kart.ForwardSpeed - cfg.concedeSpeedDrop / Urgency(e)));
+                        ai.speedCap = Mathf.Min(ai.speedCap, Mathf.Max(0f, o.kart.ForwardSpeed - cfg.concedeSpeedDropMph * U.Mph / Urgency(e)));
                     else e.concedeT = 0f;
                 }
             }
@@ -988,7 +1002,7 @@ namespace OKT
                 // the accordion (Franklin): off the green everyone's on the gas and closes right up on the kart ahead
                 bool accordion = launch && !Hazard(ahead);
                 if (accordion) settle = Mathf.Min(settle, bumperLen + 0.3f);
-                float cap = va + cfg.followGain * (gapA - settle) + (bumpDraft ? cfg.bumpLean : 0f) + (accordion ? cfg.launchLead : 0f);
+                float cap = va + cfg.followGain * (gapA - settle) + (bumpDraft ? cfg.bumpLeanMph * U.Mph : 0f) + (accordion ? cfg.launchLeadMph * U.Mph : 0f);
                 // Never demand far below the kart ahead's speed unless contact is imminent — a check-up eases
                 // back to his pace; it doesn't collapse (a hard cap cascaded the whole field to a stop).
                 // "Imminent" = within a few inches of his bumper (was 1.6 ft of air, which kept everyone off each other).
@@ -1082,7 +1096,7 @@ namespace OKT
                 }
                 // a lone spinner still sitting there when traffic arrives -> caution after all
                 foreach (var e in field)
-                    if (e.recovering && !e.outOfRace && PackNear(e)) { ThrowCaution($"{Tag(e)} still spun with traffic arriving"); SendToTail(e, "spun"); break; }
+                    if (cfg.cautionsOn && e.recovering && !e.outOfRace && PackNear(e)) { ThrowCaution($"{Tag(e)} still spun with traffic arriving"); SendToTail(e, "spun"); break; }
             }
             else if (phase == RacePhase.Caution) CautionStep(dt);
             // the tower won't start it with karts still coming out of the staging grid: another lap
@@ -1362,16 +1376,20 @@ namespace OKT
                     }
                 }
                 if (raceTime < e.workerArrives) { e.assistWait += dt; return; }
-                e.assistStarted = true; rb.isKinematic = true; SetKartCollisions(e, false);
+                e.assistStarted = true; rb.isKinematic = true; SetKartCollisions(e, false); e.crewS = ai.s;
             }
-            var f = w.track.Frame(ai.s);
+            // Work from the crew's own track position. Using ai.s, the walk up the inside edge never got anywhere: the AI
+            // re-read s from the body (not moved yet) every step, so two stuck karts 5 ft apart waited on each other until
+            // one was retired (seed 9001 staging: a 140 s caution, found with the race recorder 2026-11-17).
+            ai.s = e.crewS;
+            var f = w.track.Frame(e.crewS);
             float targetD = ai.LowLimit(f) + 0.3f;
             float nd = Mathf.MoveTowards(ai.d, targetD, cfg.crewWalkMph * U.Mph * dt);
             // Set it down the way a kart sits on this patch of the (banked) dirt: level with the surface, at its static
             // ride height. Standing it level to the WORLD buried the low side in the bank, and every kart helped this
             // way flipped as it was let go (soak 2026-11-16).
-            float g1 = w.track.SurfaceHeightSD(ai.s, nd);
-            float slope = (w.track.SurfaceHeightSD(ai.s, nd + 0.5f) - w.track.SurfaceHeightSD(ai.s, nd - 0.5f)) / 1.0f;
+            float g1 = w.track.SurfaceHeightSD(e.crewS, nd);
+            float slope = (w.track.SurfaceHeightSD(e.crewS, nd + 0.5f) - w.track.SurfaceHeightSD(e.crewS, nd - 0.5f)) / 1.0f;
             var outN3 = new Vector3(f.outN.x, 0f, f.outN.y);
             var nrm = (Vector3.up - outN3 * slope).normalized;
             var fwd = Vector3.ProjectOnPlane(new Vector3(f.tan.x, 0f, f.tan.y), nrm).normalized;
@@ -1396,7 +1414,7 @@ namespace OKT
                     if (go > 0.05f || (Mathf.Abs(go) <= 0.05f && field.IndexOf(o) < field.IndexOf(e))) return; // he's ahead: he goes first
                     // parked right beside another stuck kart (a pile): walk it on up the inside edge until it's clear,
                     // rather than wait on a kart that is itself waiting (the deadlock behind a 300 s caution)
-                    float s2 = w.track.WrapS(ai.s + cfg.crewWalkMph * U.Mph * dt / w.track.centerLength * w.track.N);
+                    float s2 = w.track.WrapS(e.crewS + cfg.crewWalkMph * U.Mph * dt / w.track.centerLength * w.track.N);
                     var f2 = w.track.Frame(s2);
                     float g2 = w.track.SurfaceHeightSD(s2, nd);
                     float sl2 = (w.track.SurfaceHeightSD(s2, nd + 0.5f) - w.track.SurfaceHeightSD(s2, nd - 0.5f)) / 1.0f;
@@ -1404,7 +1422,7 @@ namespace OKT
                     var p2 = f2.pos + f2.outN * nd;
                     rb.MovePosition(new Vector3(p2.x, g2, p2.y) + n2 * 0.03f);
                     rb.MoveRotation(Quaternion.LookRotation(Vector3.ProjectOnPlane(new Vector3(f2.tan.x, 0f, f2.tan.y), n2).normalized, n2));
-                    ai.s = s2;
+                    ai.s = s2; e.crewS = s2;
                     return;
                 }
                 if (dist < 1.6f || (dist < 2.5f && (rolling || e.assistWait < 8f))) return;
@@ -1434,6 +1452,7 @@ namespace OKT
                 bool inPack = other != null || PackNear(e);
                 string why = flipped ? "flip" : (stuck && onTrack) ? "kart stopped on the track" : inPack ? "spin in traffic" : cfg.cautionForLoneSpin ? "spin" : null;
                 if (why == null) { Event($"GREEN STAYS OUT: {Tag(e)} spun alone with nobody close."); return; }
+                if (!cfg.cautionsOn) { Event($"NO CAUTION (cautions off): {why}: {Tag(e)}"); return; }
                 ThrowCaution($"{why}: {Tag(e)}");
             }
             if (phase != RacePhase.Caution) return;

@@ -24,7 +24,7 @@ namespace OKT
 
     public static class Soak
     {
-        public const float MaxRaceSeconds = 420f;
+        public const float MaxRaceSeconds = 900f; // 15 min (was 420): Atoka Clone features ran 9-21 min with cautions (Race Monitor, 2026)
         public static bool TraceFirstGreen;
 
         /// <summary>Run one race to completion (or the time cap). Returns the director's world; caller destroys it.</summary>
