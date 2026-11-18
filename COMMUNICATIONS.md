@@ -2807,3 +2807,40 @@ against this baseline should show the same racing within noise. Perf
 work that quietly changes behaviour is the only way it can go wrong, and
 the baseline table in the 20:40 REPORT is the comparison that proves it
 didn't.
+
+### 2026-11-17 23:30 CT — Claude Code — [M2] REPORT: performance pass (m2-wip 3a0c0df); staging starts crash on lap 1
+
+**Performance** (Franklin: 15 fps at 40 karts in Unity):
+- **Cause:** the sim alone took 9.0 ms per 120 Hz step at 40 karts, so it couldn't keep real time. The clock then ran catch-up steps every frame, which made frames slower still.
+- **How it was measured:** `Editor/M2Perf.cs` times each part of the step at 12/24/40 karts (`World.Perf`, off in normal play).
+- **Fixes:** each one is bookkeeping, with the same maths and the same rules.
+  - **Kart footprint:** `KartSetup` Foot*/TireOuter are frozen when the body is built from them (the colliders use the same numbers).
+  - **Wall gap:** `WallGap` corner points are cached.
+  - **Director:** `Entry.idx` replaces `field.IndexOf` inside the per-pair loops, and `KartContact` is cached on the Entry. Awareness no longer allocates per pair. `Unsettled()` and the groove offset are memoised per director pass (reset before each pre and post pass, so a memo never outlives a physics step).
+  - **Contact debug string:** the track-contact string is formatted only when read.
+  - **Wheel rays:** one `RaycastCommand` batch per step, nearest hit. Karts (layer 8) and the outside rail (layer 9) are masked out, the same rule the per-hit filter applied.
+- **Result:**
+  - 40 karts: 9.0 → 4.0–4.5 ms per step (drivers 2.3 → 0.35, director 2.6 → ~1.0, kart code 1.7 → 0.75).
+  - 12 karts: 3.2 → 1.7 ms.
+  - At 40 karts, two steps per 60 fps frame plus the render ≈ 13 ms of the 16.7 ms budget.
+
+**Racing unchanged** (same seeds as the 20:40 baseline):
+- 0 wall breaches. 9001 20/20 and 8001 20/20 complete; staging 7001/7011 20/20 complete.
+- Cautions 0.9/0.5 per race (baseline 0.6/0.7).
+- Pole wins 55/65% (baseline 55/55%).
+- Laps 10.94/10.92 s (baseline 10.92/10.95 s).
+- All within run-to-run noise.
+
+**Finding (pre-existing, also in the baseline): staging starts are much crashier.**
+- **Same seeds:** a normal start gives 0.6 cautions/race; a staging start gives 3.7–4.1 cautions/race, 4–5 karts spun and ~310 contacts (against ~120).
+- **Cause:** row alignment at the green.
+  - Normal start: every outside kart sits about 2.2 ft behind its inside partner (the longer outside lane).
+  - Staging start: the rows are level within 0.8 ft, which is what the formation code aims for.
+  - Door-to-door into turn 1, the first spin comes 2–10 s after the green in 8 of 10 staging races (normal starts: 2 of 10). Cautions, tail sends and mad drivers then cascade.
+- **Not tuned:** this is Franklin's call. How level is a real front row at the green? How often does lap 1 at Atoka bring a yellow? Note that real Atoka features lose 6–19 min to cautions, which may sit nearer the staging numbers.
+
+**Video notes** (Franklin's Atoka videos: Mid-South Shootout 2013, Buddies 500 2024):
+- Lead passes are made off turn 4 and finished down the straight.
+- 2 wide off turn 4 is normal; 3 wide only when the field is very close in speed (Franklin).
+- The field stop and the leader filing in behind a passer match our field stop and concede.
+- Karts roll off the grid about 2 s apart (ours are about 1.1 s apart).
