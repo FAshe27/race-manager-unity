@@ -87,11 +87,12 @@ namespace OKT
             for (int i = 0; i < w.drivers12.Count; i++)
             {
                 var dp = w.drivers12[i];
-                int row = i / 2;
+                int lanes = race.singleFileStart ? 1 : 2;   // single-file start: one line, nose to tail
+                int row = i / lanes;
                 float arc = a0 - row * race.rowGapFt * U.Ft;
                 float s = ArcToS(w.track, arc);
                 var f = w.track.Frame(s);
-                float dLane = (i % 2 == 0 ? -1f : 1f) * race.laneFrac * f.halfWidth;
+                float dLane = lanes == 1 ? race.cautionLaneFrac * f.halfWidth : (i % 2 == 0 ? -1f : 1f) * race.laneFrac * f.halfWidth;
                 var dc = new DriverConfig { pace = dp.paceFactor, lateralOffsetFt = dp.lateralOffsetIn / 12f };
                 var kp = w.SpawnKartAt(dp.number, dp.color, new KartSetup { axleTeeth = dp.axleTeeth }, dc, s, dLane);
                 var ai = w.drivers[w.drivers.Count - 1];

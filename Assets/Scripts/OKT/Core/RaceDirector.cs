@@ -40,6 +40,10 @@ namespace OKT
         // Staging-grid start (Franklin 2026-11-16: karts line up on the paved grid outside turn 4, pull out through the
         // red gate single file, form up double file over about a lap, then the pace lap). OFF by default for now.
         public static bool DefaultStagingStart = false; // soak knob -okt-staging 1
+        // Initial start single file instead of double file (Franklin 11-18: "a toggle ... I can experiment with both").
+        // Single file: one line on the groove, nose to tail, from the grid (or out of the staging grid) to the green.
+        public static bool DefaultSingleFileStart = false; // soak knob -okt-singlefile 1
+        public bool singleFileStart = DefaultSingleFileStart;
         public bool stagingStart = DefaultStagingStart;
         public float stagingMph = 8f;              // rolling out of the grid and down the lane [TEST VALUE]
         public float stagingLeaderMph = 10f;       // the pole kart's speed until the whole field is on the track (was 12: he lapped round to the gate before the grid was empty) [TEST VALUE]
@@ -505,15 +509,17 @@ namespace OKT
         }
 
         bool staged, stagingAnnounced, anticipating; int formHolds;
+        /// <summary>Lanes in the initial start formation: 2 (double file) or 1 (single file).</summary>
+        int Lanes => cfg.singleFileStart ? 1 : 2;
 
-        /// <summary>The kart furthest back from its spot in the double-file line (the kart two grid spots ahead, same lane).</summary>
+        /// <summary>The kart furthest back from its spot in the start line (the kart ahead of it in its lane).</summary>
         Entry Straggler(out float back)
         {
             Entry worst = null; back = 0f;
             foreach (var e in field)
             {
-                if (e.outOfRace || e.gridPos < 2) continue;
-                var p = field.Find(x => x.gridPos == e.gridPos - 2);
+                if (e.outOfRace || e.gridPos < Lanes) continue;
+                var p = field.Find(x => x.gridPos == e.gridPos - Lanes);
                 if (p == null || p.outOfRace) continue;
                 float b = p.ai.raceDist - e.ai.raceDist - cfg.rowGapFt * U.Ft;
                 if (b > back) { back = b; worst = e; }
@@ -576,7 +582,7 @@ namespace OKT
             phase = RacePhase.Pace; phaseTime = 0;
             startRollMph = cfg.startRollMinMph + (float)rng.NextDouble() * (cfg.startRollMaxMph - cfg.startRollMinMph);
             staged = AnyStaging();
-            if (staged) Event($"Field pulls out of the staging grid single file and forms up double file, then the pace lap. Leader will roll the start at {startRollMph:F0} mph.");
+            if (staged) Event($"Field pulls out of the staging grid single file and forms up {(Lanes == 1 ? "single" : "double")} file, then the pace lap. Leader will roll the start at {startRollMph:F0} mph.");
             else Event($"Field rolls off the grid — pace lap. Leader will roll the start at {startRollMph:F0} mph.");
         }
 
@@ -620,19 +626,23 @@ namespace OKT
                     if (pv != null && pv.joinedFromGrid && !pv.outOfRace)
                         ai.raceDist = pv.ai.raceDist - Mathf.Repeat(w.track.ArcAt(pv.ai.s) - w.track.ArcAt(ai.s), L);
                 }
-                if (staged && !stagingAnnounced && !AnyStaging()) { stagingAnnounced = true; Event("STAGING: the whole field is out of the grid and on the track. Forming up double file."); }
+                if (staged && !stagingAnnounced && !AnyStaging()) { stagingAnnounced = true; Event($"STAGING: the whole field is out of the grid and on the track. Forming up {(Lanes == 1 ? "single" : "double")} file."); }
 
                 if (phase == RacePhase.Pace)
                 {
                     // Double-file formation, pace speed, hold the row spacing to the kart ahead in the same lane;
                     // the outside row holds alongside the inside row. Nobody accelerates to racing speed.
                     ai.formation = true; ai.paceMode = true; ai.trafficGoal = 0f;
-                    ai.laneFrac = (e.gridPos % 2 == 0 ? -1f : 1f) * cfg.laneFrac;
-                    ai.grooveLane = e.gridPos % 2 == 0 ? -1 : 1; ai.grooveLaneHalf = room * 0.5f;
+                    if (Lanes == 1) { ai.laneFrac = cfg.cautionLaneFrac; ai.grooveLane = 0; } // single file on the groove, like a caution line
+                    else
+                    {
+                        ai.laneFrac = (e.gridPos % 2 == 0 ? -1f : 1f) * cfg.laneFrac;
+                        ai.grooveLane = e.gridPos % 2 == 0 ? -1 : 1; ai.grooveLaneHalf = room * 0.5f;
+                    }
                     Entry ahead = null; float gap = float.MaxValue;
                     foreach (var o in field)
                     {
-                        if (o == e || o.outOfRace || o.gridPos % 2 != e.gridPos % 2 || o.ai.stagePath != null) continue;
+                        if (o == e || o.outOfRace || o.gridPos % Lanes != e.gridPos % Lanes || o.ai.stagePath != null) continue;
                         float g = o.ai.raceDist - ai.raceDist; if (g > 0f && g < gap) { gap = g; ahead = o; }
                     }
                     // the leader rolls the start at his chosen speed over the last third of the pace lap (Franklin q24)
@@ -660,7 +670,7 @@ namespace OKT
                     // outside row ran a full row back). The outside lane is longer through the turns, so at plain
                     // pace speed it lost ground every corner and could never make it up — let it run faster than
                     // pace to stay level, never slower than its row partner.
-                    if (e.gridPos % 2 == 1)
+                    if (Lanes == 2 && e.gridPos % 2 == 1)
                     {
                         var partner = field.Find(x => x.gridPos == e.gridPos - 1);
                         if (partner != null && !partner.outOfRace)
@@ -679,7 +689,7 @@ namespace OKT
                     // round to the gate while others were still pulling out and hit them)
                     if (stagingNow) { float sc = (cfg.stagingLeaderMph + cfg.paceCatchUpMph) * U.Mph; ai.paceStraight = Mathf.Min(ai.paceStraight, sc); ai.paceCorner = Mathf.Min(ai.paceCorner, sc); }
                     // anticipating the green: nose onto the bumper ahead and lean on it
-                    if (anticipating && ahead != null && e.gridPos >= 2)
+                    if (anticipating && ahead != null && e.gridPos >= Lanes)
                     {
                         var stA = ai.kart.setup; float bl = stA.FootFront + stA.FootRear;
                         ai.speedCap = Mathf.Max(0f, ahead.kart.ForwardSpeed + 1.0f * (gap - bl) + cfg.anticipateLeanMph * U.Mph);
@@ -1262,6 +1272,7 @@ namespace OKT
             if (phase == RacePhase.Pace && lead != null && lead.ai.raceDist >= GoLine)
             {
                 phase = RacePhase.Green; phaseTime = 0; greenTime = raceTime; firstGreenTime = raceTime;
+                if (Lanes == 2)
                 {
                     var sb = new System.Text.StringBuilder("GRID AT GREEN — outside kart vs its inside partner (ft, + = behind):");
                     foreach (var o in field) if (o.gridPos % 2 == 1) { var p = field.Find(x => x.gridPos == o.gridPos - 1); if (p != null) sb.Append($" row{o.gridPos / 2 + 1} {(p.ai.raceDist - o.ai.raceDist) / U.Ft:+0.0;-0.0}"); }

@@ -39,6 +39,7 @@ namespace OKT.EditorTools
                 if (a[i] == "-okt-size") { var p = a[i + 1].Split('x'); w = int.Parse(p[0]); h = int.Parse(p[1]); }
                 if (a[i] == "-okt-focus") focus = a[i + 1];
                 if (a[i] == "-okt-staging") RaceConfig.DefaultStagingStart = a[i + 1] == "1";
+                if (a[i] == "-okt-singlefile") RaceConfig.DefaultSingleFileStart = a[i + 1] == "1";
                 if (a[i] == "-okt-field") Field = int.Parse(a[i + 1]);
                 if (a[i] == "-okt-stagemph") StageMph = float.Parse(a[i + 1], ci);
                 if (a[i] == "-okt-gatemph") GateMph = float.Parse(a[i + 1], ci);

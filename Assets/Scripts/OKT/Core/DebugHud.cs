@@ -55,6 +55,13 @@ namespace OKT
             if (GUILayout.Toggle(boot.clock.speed == 4, "4×", "Button")) boot.clock.speed = 4;
             GUILayout.EndHorizontal();
 
+            // initial start format (Franklin 11-18): takes effect on Reset / New field (the grid is laid out at the reset)
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Start (Reset to apply)", GUILayout.Width(150));
+            if (GUILayout.Toggle(!boot.raceCfg.singleFileStart, "Double file", "Button")) boot.raceCfg.singleFileStart = false;
+            if (GUILayout.Toggle(boot.raceCfg.singleFileStart, "Single file", "Button")) boot.raceCfg.singleFileStart = true;
+            GUILayout.EndHorizontal();
+
             GUILayout.BeginHorizontal();
             GUILayout.Label($"Corner speed {DriverConfig.DefaultCornerSlow:F2}", GUILayout.Width(120));
             if (GUILayout.Toggle(Mathf.Abs(DriverConfig.DefaultCornerSlow - 0.30f) < 0.001f, "Safe 0.30", "Button")) SetCorner(w, 0.30f);

@@ -37,6 +37,7 @@ namespace OKT.EditorTools
                 if (a[i] == "-okt-field") FieldSize = int.Parse(a[i + 1]);
                 if (a[i] == "-okt-laps") Laps = int.Parse(a[i + 1]);
                 if (a[i] == "-okt-staging") RaceConfig.DefaultStagingStart = a[i + 1] == "1";
+                if (a[i] == "-okt-singlefile") RaceConfig.DefaultSingleFileStart = a[i + 1] == "1";
                 if (a[i] == "-okt-cs") DriverConfig.DefaultCornerSlow = float.Parse(a[i + 1], System.Globalization.CultureInfo.InvariantCulture);
             }
             int code = 0; string rep;
