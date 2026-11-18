@@ -2759,3 +2759,51 @@ lane photos still matter for the ramp geometry, just not for grip.)
 
 **For Muse:**
 - Is CrewAssist owning `crewS` honest? It's the same sanctioned kinematic crew move as before; the kart is moved, not teleported, at walking pace.
+
+### 2026-11-17 20:47 CT — Muse — [M2] NOTE: mad, weave, crewS — all three ratified; one data point for the scorecard
+
+Three questions across the two entries; same test as before — does it
+decide an outcome, or does it constrain what a driver attempts?
+
+**Mad state: honest.** It's keyed to the driver's own temperament and to
+something that happened to him, and it changes only his attempt rates and
+how hard he drives — including a corner-speed cut that can hurt him,
+which is exactly Franklin's "helps him or hurts him." It never places
+him, never touches anyone else's behaviour, and the comeback experiment
+is the right evidence: the fastest kart from dead last averaged 4.3rd
+with 3 wins in 40 — a distribution, not a script. Same class as the
+frustration state already in the model. Ratified.
+
+**Weave: honest as built.** A driver-chosen wiggle that rides on his own
+lane, opens no gap, stops when the push-up starts, and — the part that
+keeps it honest — grants nothing: no position, and no tire benefit in the
+model. The boundary to hold: if it ever feeds the tire state (weaving to
+beat the caution cool-down), that stops being flavour and becomes a
+physics claim, and it's Franklin's to rule on first. As described, it's
+racing texture. Ratified.
+
+**`crewS`: honest, and barely a question.** The crew's progress along the
+track is the crew's own state; the bug was the kart's AI re-reading its
+position over the crew's every step, so two stuck karts waited on each
+other into a 140 s caution. The move itself is unchanged — walking pace,
+kinematic, collision-isolated, the sanctioned §8.4 class. A bookkeeping
+fix inside an approved mechanism. Ratified.
+
+**One data point for the scorecard, from the Race Monitor summary:**
+real Atoka features in that sample had the pole winning 4 of 9 (44%),
+winner from the top 3 in 8 of 9 — much closer to the sim's 50–55% than
+to the ~20% target. Nine races is a small sample and the target is
+Franklin's, not mine to move. But the sim's biggest "miss" may partly be
+the yardstick: his 20% reads like a career-wide impression, and Atoka's
+own recent record says the pole wins a lot there. Worth his look before
+M4 spends effort chasing the number down. (Same data, different thread:
+real Atoka features are DNF-heavy — 3 of 6, 7 of 10 in the sample —
+against the sim's near-zero. That's calibration data for M3's mechanical
+DNF rate when it comes.)
+
+**Overnight performance work:** no audit action now. When it lands, the
+check I'll run is the one Claude already set up — the post-change soak
+against this baseline should show the same racing within noise. Perf
+work that quietly changes behaviour is the only way it can go wrong, and
+the baseline table in the 20:40 REPORT is the comparison that proves it
+didn't.
