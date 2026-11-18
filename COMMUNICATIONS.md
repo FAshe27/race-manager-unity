@@ -2844,3 +2844,58 @@ didn't.
 - 2 wide off turn 4 is normal; 3 wide only when the field is very close in speed (Franklin).
 - The field stop and the leader filing in behind a passer match our field stop and concede.
 - Karts roll off the grid about 2 s apart (ours are about 1.1 s apart).
+
+### 2026-11-18 02:30 CT — Claude Code — [M2] REPORT: starts, flips, staging grid from the aerial, caution button (m2-wip bc3b2b5)
+
+Franklin's 11-17 playtest notes, worked overnight on his go-ahead ("If there's anything else that comes up that you want to work on, feel free to take action").
+
+**Starts** (Franklin: "the trailing karts are anticipating the green"):
+- **Problem:** each row only reacted after the row ahead sped up. 2 s after the green the last row was at 20 mph against the leader's 35, with rows 14 ft apart.
+- **Fix:** from 0.5 s before the green, rows 2+ lean on the bumper ahead. At the green, a kart with its nose on a bumper has no speed cap (the contact pushes).
+- **Gotcha:** Traffic's `gapA` is centreline raceDist and reads about 1.3 ft long in the lanes. Contact tests use kart-to-kart distance.
+- **Result:** at +1.5 s the leader is at 30 mph and the last row at 29, with rows 6–9 ft apart.
+- **Tower:** holds the start (its own counter, at most 2 laps) while a kart is more than 40 ft off its spot.
+- **Formation catch-up:** capped at pace + 15 mph. The outside-row term had no ceiling; a straggler ran 44 mph round the pace lap and rolled.
+
+**Flips** (Franklin: they "stay on their side"; a tossed Hot Wheels car keeps rolling):
+- **Cause:** not physics. The director called a flip the moment `up.y < 0` and the crew froze the kart kinematic mid-roll.
+- **Rule now:** flipped means on its side or back (`up.y < 0.5`) and still for 1 s. Franklin: about 80% are out (bent chassis); 20% are put back on their wheels and rejoin at the tail (crew assist).
+- **Driver body:** the kart was a 42 × 15 in slab. It now has driver torso and helmet colliders, shape only.
+  - Inertia is pinned from the kart alone at the first physics step. Reading it while the colliders were still being added got a half-built tensor (yaw 21 vs 53 kg m², axes twisted 38°), and the karts spun and rolled far too easily. Caught by the soak and fixed.
+  - `Editor/M2RollTest` has the rollover probe and `Info` (CoM and inertia with/without the driver; identical now).
+
+**Staging grid re-laid from the aerial** (Franklin's sketch plus his blue/red lines in `Track Photos/atoka-openings-aerial-markup.webp`):
+- **Grid:** the paved strip north from the turn 4 exit, x 797..848 on the aerial. Lane A east, Lane B west, white strip between (Franklin).
+- **Link and gate:** a link west to the gate at the end of the turn 4 wall. The opening's east end moved to u 0.853.
+- **Exit road:** traced up the east side to the scale house.
+- **Scale house:** a footprint building. Pads follow the ground.
+- **Tool:** `Tools/atoka_aerial_layout.py` converts pixels to (u, ft out), solved against TrackModel's Catmull-Rom frame (a nearest-sample version wiggled), and reproduces the JSON features exactly.
+- **Exit:**
+  - Down the column, along the link, through the gate at 8 mph. 6 mph beached karts on the edge crest; the old ~90° turn in ~8 ft put karts into the wall above ~10 mph. The hidden 12 mph cap on staging speed is gone.
+  - Ordering by path progress (`ToGate`), a gate yield, and the leader paced so the line can't lap round to the gate.
+  - On reaching the track, each kart's race distance is set from the kart ahead. Counted from the gate, late karts read a lap down, and in the first staging soak 11 of 12 races hit the time cap.
+- **Caution button:** on the HUD, live under green, works with cautions off.
+
+**Soak** (12 karts; same seeds as last night's start soak):
+- **Normal starts (9001, 30 races):** 30/30 complete.
+  - Cautions 1.0/race (was 1.3).
+  - Spins 1.6/race (was 2.5).
+  - Pole wins 17% (was 17%).
+  - Laps 10.95 s (was 11.00).
+  - Flips 3 in 30 races (Franklin's target ~1 in 40–50). Karts at rest on their side now count as flips; they used to be "stopped" and were righted by the crew.
+- **Staging (9101–9112):** 12/12 complete, 0 breaches, 0 field stops, 0.7–1.7 cautions/race (was ~4).
+- **Perf:** 12 karts 1.6 ms per step; 40 karts 3.4 ms (mostly under caution).
+
+**STOP AND REPORT: 1 wall breach** (9001 soak, race 4, seed 9004, 101.3 s):
+- #94 spun at about 8 mph at u 0.905, the west end of the grid opening where the front-stretch guardrail starts.
+- It slid into the rail end, rolled onto its side against it, and lay with its centre 1.03 m above the rail base (rail 0.61 m). It did not go over.
+- It didn't reproduce in a standalone run (the race diverges after earlier races in the same session).
+- Likely related to rolls now running free and the helmet raising a side-lying kart. Not tuned; Franklin's call.
+
+**Known limit:** staging with 30–40 karts still jams where karts merge onto the track (walking-pace bumps, a stuck kart during the pace laps; incidents aren't handled during the pace laps). 20 karts run cleanly from the grid to the green.
+
+**Open for Franklin:**
+- The breach above.
+- The flip rate (3 in 30 against ~1 in 40–50).
+- Whether the driver shape and size look right (hips 8 in, shoulders 28 in, helmet top ~40.5 in, all test values).
+- Rows level at a staging green (still crashier on lap 1 than normal starts).
