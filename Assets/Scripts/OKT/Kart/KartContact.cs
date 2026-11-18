@@ -19,7 +19,11 @@ namespace OKT
         void OnCollisionStay(Collision c) => Record(c);
 
         // debug: last contact with a non-kart collider (rail, wall, surface) — which of my parts, which surface, normal
-        [System.NonSerialized] public string lastTrackContact = "";
+        // Kept as raw values and only formatted when read (the forensics, ~10 Hz): formatting it on every contact,
+        // every step, for every kart was a measurable slice of Physics.Simulate at 40 karts (perf pass 2026-11-17).
+        Collider tcThis, tcOther; Vector3 tcNormal; float tcImp, tcY;
+        public string lastTrackContact => tcThis == null || tcOther == null ? ""
+            : $"{tcThis.name}->{tcOther.name} n({tcNormal.x:F2},{tcNormal.y:F2},{tcNormal.z:F2}) imp{tcImp:F0} y{tcY:F2}";
         void Record(Collision c)
         {
             if (c.rigidbody == null)
@@ -27,7 +31,7 @@ namespace OKT
                 if (c.contactCount > 0)
                 {
                     var cp = c.GetContact(0);
-                    lastTrackContact = $"{cp.thisCollider.name}->{c.collider.name} n({cp.normal.x:F2},{cp.normal.y:F2},{cp.normal.z:F2}) imp{c.impulse.magnitude:F0} y{cp.point.y:F2}";
+                    tcThis = cp.thisCollider; tcOther = c.collider; tcNormal = cp.normal; tcImp = c.impulse.magnitude; tcY = cp.point.y;
                 }
                 return;
             }

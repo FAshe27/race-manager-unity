@@ -12,6 +12,7 @@ namespace OKT
     {
         public static KartPhysics Create(string name, int number, Color bodyColor, KartSetup setup, Transform parent)
         {
+            setup.FreezeFootprint();
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             go.AddComponent<Rigidbody>();
@@ -152,6 +153,10 @@ namespace OKT
             var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (font != null) { tm.font = font; num.GetComponent<MeshRenderer>().sharedMaterial = font.material; }
 
+            // Every collider of the kart on the kart layer, so wheel rays (batched, nearest hit only) skip karts by mask --
+            // the same rule GroundRay applied hit by hit (wheels stand on the track only).
+            foreach (var col in go.GetComponentsInChildren<Collider>(true))
+                if (col.gameObject.layer != 2) col.gameObject.layer = KartPhysics.KartLayer;
             return kp;
         }
 

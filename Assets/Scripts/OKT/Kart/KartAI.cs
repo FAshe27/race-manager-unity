@@ -163,7 +163,7 @@ namespace OKT
 
         public void Step(float dt, float simTime)
         {
-            var tr = transform;
+            var tr = transform; long pt = Perf.T();
             var p2 = new Vector2(tr.position.x, tr.position.z);
 
             // --- progress, laps, band
@@ -184,7 +184,9 @@ namespace OKT
             }
             else breachedNow = false;
             wasOutside = outside;
+            Perf.Add(0, ref pt);
             wallGapNow = barrierHere ? WallGap(fr) : float.PositiveInfinity;
+            Perf.Add(1, ref pt);
             if (wallGapNow < minWallGap) minWallGap = wallGapNow;
             if (prevS >= 0f && prevS > track.N * 0.75f && s < track.N * 0.25f)
             {
@@ -208,6 +210,7 @@ namespace OKT
                 raceDist += da; prevArc = arcNow;
             }
 
+            Perf.Add(2, ref pt);
             if (stagePath != null) { StageStep(fr); return; }
 
             // --- pure pursuit
@@ -217,6 +220,7 @@ namespace OKT
             int ti = track.LineAdvance(lineHint, ld);
             float ts = track.LineS(ti);
             var tf = track.Frame(ts);
+            Perf.Add(3, ref pt);
             // Never aim through a wall (spec §7): keep the target where the whole kart fits on the dirt.
             trafficOffset += Mathf.Clamp(trafficGoal - trafficOffset, -trafficRate * dt, trafficRate * dt);
             // personal offset fades out through the corner: everyone runs the optimal line there (Franklin: the line is
@@ -266,6 +270,7 @@ namespace OKT
             kart.steerDeg = Mathf.Clamp(steerRad * Mathf.Rad2Deg, -kart.setup.maxSteerDeg, kart.setup.maxSteerDeg);
             if (steerOverride) kart.steerDeg = steerOverrideDeg; // debug/test only: a driver error
 
+            Perf.Add(4, ref pt);
             // Speed is read further ahead (spec: ≈0.6 s) so braking anticipates the corner.
             var tfSteer = tf; int si0 = ti;
             if (cfg.speedLookaheadTime != cfg.lookaheadTime)
@@ -274,6 +279,7 @@ namespace OKT
                 tf = track.Frame(track.LineS(si)); si0 = si;
             }
 
+            Perf.Add(5, ref pt);
             // --- speed: corner profile read at the lookahead point
             freeSpeed = cfg.vMax * cfg.pace * (1f - Mathf.Max(0f, cfg.cornerSlow - attackBoost) * tf.corner);
             // Off-line corner speed: the profile is tuned for Franklin's groove. A tighter line (an inside dive,
@@ -290,6 +296,7 @@ namespace OKT
                     if (rPath < rLine && rPath > 1f) freeSpeed *= Mathf.Sqrt(rPath / rLine);
                 }
             }
+            Perf.Add(6, ref pt);
             // the loose stuff: a corner off the groove holds sqrt(grip) of the speed (here and where I'm aiming)
             if (!formation && tf.corner > 0.05f)
             {
@@ -301,6 +308,7 @@ namespace OKT
                 g = Mathf.Clamp(g, 0.3f, 1f);
                 freeSpeed *= Mathf.Lerp(1f, Mathf.Lerp(1f, Mathf.Sqrt(g), Mathf.Clamp01(tf.corner * 2f)), looseAwareness);
             }
+            Perf.Add(7, ref pt);
             targetSpeed = paceMode ? Mathf.Lerp(paceStraight, paceCorner, tf.corner) : freeSpeed;
             if (diving && !paceMode) targetSpeed *= divingSpeedFactor;
             if (!paceMode) targetSpeed += pushedBoost;
@@ -321,6 +329,7 @@ namespace OKT
                         kart.accelCmd *= Mathf.Clamp01(1f - (beta - cfg.featherStartDeg) / cfg.featherRangeDeg);
                 }
             }
+            Perf.Add(8, ref pt);
         }
 
         /// <summary>Drive the staging path: pure pursuit on its points at the director's speed cap. Done once past the
@@ -357,19 +366,25 @@ namespace OKT
             return new Vector3((x - Rx * (1f - 0.7071f)) * (right ? 1f : -1f), 0.1f, st.FootFront - Rz * (1f - 0.7071f));
         }
 
+        Vector3[] wallCorners;
         float WallGap(in TrackFrame fr)
         {
             // Outermost body corner's lateral distance to the outside edge (wall face).
             // Outermost point of the plan-view footprint (nerf bars / bumper ends) to the outside edge.
             var st = kart.setup;
             float best = float.PositiveInfinity;
-            foreach (var corner in new[] {
-                new Vector3(st.FootRight, 0.1f, st.wheelbase * 0.5f), new Vector3(st.FootRight, 0.1f, -st.wheelbase * 0.5f),
-                new Vector3(-st.FootLeft, 0.1f, st.wheelbase * 0.5f), new Vector3(-st.FootLeft, 0.1f, -st.wheelbase * 0.5f),
-                NoseCorner(st, true), NoseCorner(st, false), new Vector3(0f, 0.1f, st.FootFront),
-                new Vector3(st.rearBumperHalfWidthIn * U.In, 0.1f, -st.FootRear), new Vector3(-st.rearBumperHalfWidthIn * U.In, 0.1f, -st.FootRear) })
+            // the nine footprint corners in kart space, built once (they were rebuilt -- a new array, two NoseCorner
+            // calls -- every step for every kart near a wall); one world matrix instead of nine engine calls
+            if (wallCorners == null)
+                wallCorners = new[] {
+                    new Vector3(st.FootRight, 0.1f, st.wheelbase * 0.5f), new Vector3(st.FootRight, 0.1f, -st.wheelbase * 0.5f),
+                    new Vector3(-st.FootLeft, 0.1f, st.wheelbase * 0.5f), new Vector3(-st.FootLeft, 0.1f, -st.wheelbase * 0.5f),
+                    NoseCorner(st, true), NoseCorner(st, false), new Vector3(0f, 0.1f, st.FootFront),
+                    new Vector3(st.rearBumperHalfWidthIn * U.In, 0.1f, -st.FootRear), new Vector3(-st.rearBumperHalfWidthIn * U.In, 0.1f, -st.FootRear) };
+            var m = transform.localToWorldMatrix;
+            foreach (var corner in wallCorners)
             {
-                var w = transform.TransformPoint(corner);
+                var w = m.MultiplyPoint3x4(corner);
                 float dd = Vector2.Dot(new Vector2(w.x, w.z) - fr.pos, fr.outN);
                 best = Mathf.Min(best, fr.halfWidth - dd);
             }

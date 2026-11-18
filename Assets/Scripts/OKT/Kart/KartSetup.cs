@@ -132,7 +132,8 @@ namespace OKT
         public float frameClearance => frameClearanceIn * U.In;
 
         /// <summary>Outer edge of the tires on one side (m from centre).</summary>
-        public float TireOuter(bool right) => right
+        public float TireOuter(bool right) => frozen ? (right ? fTireOutR : fTireOutL) : TireOuterCalc(right);
+        float TireOuterCalc(bool right) => right
             ? Mathf.Max(Mathf.Abs(WheelMount(Corner.RF).x) + TireWidth(1) * 0.5f, Mathf.Abs(WheelMount(Corner.RR).x) + TireWidth(3) * 0.5f)
             : Mathf.Max(Mathf.Abs(WheelMount(Corner.LF).x) + TireWidth(0) * 0.5f, Mathf.Abs(WheelMount(Corner.LR).x) + TireWidth(2) * 0.5f);
         /// <summary>Nerf bar tube centre x (m, + = right).</summary>
@@ -149,10 +150,23 @@ namespace OKT
         public float PanelOuter(bool right) => TireOuter(right) + panelOutsideTireIn * U.In;
         /// <summary>Front face of the nose (m ahead of centre).</summary>
         public float NoseFrontZ => FrontTireLead + noseAheadOfTiresIn * U.In;
-        public float FootRight => bodyOn ? Mathf.Max(NerfX(true) + TubeRadius, PanelOuter(true)) : NerfX(true) + TubeRadius;
-        public float FootLeft => bodyOn ? Mathf.Max(-NerfX(false) + TubeRadius, PanelOuter(false)) : -NerfX(false) + TubeRadius;
-        public float FootFront => bodyOn ? Mathf.Max(FrontBumperZ + TubeRadius, NoseFrontZ) : FrontBumperZ + TubeRadius;
-        public float FootRear => -RearBumperZ + TubeRadius;
+        public float FootRight => frozen ? fRight : bodyOn ? Mathf.Max(NerfX(true) + TubeRadius, PanelOuter(true)) : NerfX(true) + TubeRadius;
+        public float FootLeft => frozen ? fLeft : bodyOn ? Mathf.Max(-NerfX(false) + TubeRadius, PanelOuter(false)) : -NerfX(false) + TubeRadius;
+        public float FootFront => frozen ? fFront : bodyOn ? Mathf.Max(FrontBumperZ + TubeRadius, NoseFrontZ) : FrontBumperZ + TubeRadius;
+        public float FootRear => frozen ? fRear : -RearBumperZ + TubeRadius;
+
+        // The plan-view footprint is worked out once, when the kart's body is built from these dimensions (KartFactory):
+        // the colliders are made from the same numbers, so they can't change afterwards. Each Foot* was a chain of
+        // wheel-mount / tire / nerf / panel maths, asked hundreds of times a step by the drivers and the director
+        // (perf pass 2026-11-17: about a third of the driver time at 40 karts).
+        [System.NonSerialized] bool frozen; float fRight, fLeft, fFront, fRear, fTireOutR, fTireOutL;
+        public void FreezeFootprint()
+        {
+            frozen = false;
+            fTireOutR = TireOuterCalc(true); fTireOutL = TireOuterCalc(false);
+            fRight = FootRight; fLeft = FootLeft; fFront = FootFront; fRear = FootRear;
+            frozen = true;
+        }
         public float FootWidth => FootLeft + FootRight;
         public float WheelRadius(int i) => tireCircumferenceIn[i] / (2f * Mathf.PI) * U.In;
         public float TireWidth(int i) => tireWidthIn[i] * U.In;

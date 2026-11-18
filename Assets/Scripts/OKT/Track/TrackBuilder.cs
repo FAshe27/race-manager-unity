@@ -41,6 +41,9 @@ namespace OKT
             root.transform.SetParent(parent, false);
             BuildSurface(t, root.transform);
             BuildBarriers(t, root.transform);
+            // the outside barrier's own colliders on the barrier layer: wheel rays never stand on the rail (see KartPhysics)
+            var ob = root.transform.Find("OutsideBarrier");
+            if (ob != null) foreach (Transform ch in ob) if (ch.GetComponent<Collider>() != null && ch.gameObject.layer != 2) ch.gameObject.layer = KartPhysics.BarrierLayer;
             BuildGround(t, root.transform);
             BuildCones(t, root.transform);
             BuildMarkers(t, root.transform);

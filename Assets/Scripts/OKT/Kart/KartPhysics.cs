@@ -42,6 +42,29 @@ namespace OKT
         readonly float[] prevX = new float[4];
         readonly float[] spinAngle = new float[4];
         int rayMask;
+        public const int KartLayer = 8, BarrierLayer = 9;
+        public int RayMask => rayMask;
+
+        // Batched wheel rays (World.StepOnce): 3 per wheel -- centre, then the two tread edges -- cast for every kart at
+        // once at the start of the step (the bodies don't move until Physics.Simulate, so it's the same rays from the same
+        // place). preTick says which step they belong to; anything else (a lone kart in a test) casts them itself.
+        public const int RaysPerKart = 12;
+        [System.NonSerialized] public RaycastHit[] preHits = new RaycastHit[RaysPerKart];
+        [System.NonSerialized] public long preTick = -1;
+        [System.NonSerialized] public long stepTick;
+        public void FillRays(Unity.Collections.NativeArray<RaycastCommand> cmds, int at, QueryParameters qp)
+        {
+            var up = transform.up; var right = transform.right;
+            for (int i = 0; i < 4; i++)
+            {
+                var mount = transform.TransformPoint(setup.WheelMount((Corner)i));
+                float len = setup.travel + setup.WheelRadius(i);
+                var side = right * (setup.TireWidth(i) * 0.45f);
+                cmds[at + i * 3] = new RaycastCommand(mount, -up, qp, len);
+                cmds[at + i * 3 + 1] = new RaycastCommand(mount - side, -up, qp, len);
+                cmds[at + i * 3 + 2] = new RaycastCommand(mount + side, -up, qp, len);
+            }
+        }
 
         public void Init(KartSetup s)
         {
@@ -58,7 +81,8 @@ namespace OKT
             // Cap how fast the solver may push overlapping bodies apart (Unity default 10 m/s). In multi-kart
             // pile-ups the default fired karts metres into the air and over the fence (M2 soak forensics).
             Body.maxDepenetrationVelocity = s.maxDepenetrationVelocity;
-            rayMask = ~(1 << 2); // everything except Ignore Raycast
+            rayMask = ~((1 << 2) | (1 << KartLayer) | (1 << BarrierLayer)); // not Ignore Raycast, not karts, not the outside rail
+            preTick = -1;
         }
 
         public void Step(float dt)
@@ -70,13 +94,14 @@ namespace OKT
             float g = -Physics.gravity.y;
             ForwardSpeed = Vector3.Dot(rb.linearVelocity, transform.forward);
 
-            float rearLoad = 0f;
+            float rearLoad = 0f; long pt = Perf.T();
             int n = 0;
             for (int i = 0; i < 4; i++)
             {
                 var mount = transform.TransformPoint(s.WheelMount((Corner)i));
                 float r = s.WheelRadius(i);
                 float rayLen = s.travel + r;
+                wheelNow = i;
                 if (TreadRay(mount, -up, rayLen, s.TireWidth(i), out hits[i], out float x))
                 {
                     float xdot = (x - prevX[i]) / dt;
@@ -100,6 +125,7 @@ namespace OKT
                     grounded[i] = false; compression[i] = 0f; load[i] = 0f; prevX[i] = 0f;
                 }
             }
+            Perf.Add(9, ref pt);
             GroundedCount = n;
             if (n == 0) { airTime += dt; if (airTime > maxAirTime) maxAirTime = airTime; }
             else airTime = 0f;
@@ -189,6 +215,7 @@ namespace OKT
                     }
                 }
             }
+            Perf.Add(10, ref pt);
         }
 
         /// <summary>Visual-only: place wheel pivots at the suspended wheel centre, steer and spin.</summary>
@@ -224,17 +251,25 @@ namespace OKT
         bool TreadRay(Vector3 mount, Vector3 dir, float len, float width, out RaycastHit best, out float squash)
         {
             squash = 0f;
-            bool found = GroundRay(mount, dir, len, out best);
+            bool pre = preTick == stepTick;
+            bool found = pre ? PreHit(wheelNow * 3, out best) : GroundRay(mount, dir, len, out best);
             if (found) squash += len - best.distance;
             var side = transform.right * (width * 0.45f);
             for (int e = -1; e <= 1; e += 2)
-                if (GroundRay(mount + side * e, dir, len, out var h))
+                if (pre ? PreHit(wheelNow * 3 + (e < 0 ? 1 : 2), out var h) : GroundRay(mount + side * e, dir, len, out h))
                 {
                     squash += len - h.distance;
                     if (!found) { best = h; found = true; }
                 }
             squash /= 3f;
             return found;
+        }
+
+        int wheelNow;
+        bool PreHit(int k, out RaycastHit h)
+        {
+            h = preHits[k];
+            return h.collider != null && !NotGround(h);
         }
 
         bool GroundRay(Vector3 origin, Vector3 dir, float len, out RaycastHit best)
@@ -249,15 +284,27 @@ namespace OKT
                 // Wheel rays stand on the TRACK only. On another kart's tire/body the stiff tire spring + bump stop
                 // saw "ground" inches high and produced tens of kN — launches at 58 mph (M2 soak forensics). Kart-on-kart
                 // contact (shoving, a tire riding up a rival) belongs to the tire/tube colliders.
-                if (h.rigidbody != null && h.rigidbody.GetComponent<KartPhysics>() != null) continue;
                 // ...and never on a barrier: a tire overlapping the guardrail saw the rail top as "ground" and the stiff
                 // spring lifted that side onto the rail — a 6-degree touch rolled the kart (M1 wall test, 2026-11-15).
                 // The rail belongs to the nerf/bumper tubes.
-                var hp = h.collider.transform.parent;
-                if (hp != null && hp.name == "OutsideBarrier") continue;
+                if (NotGround(h)) continue;
                 if (h.distance < bd) { bd = h.distance; best = h; found = true; }
             }
             return found;
+        }
+
+        // Per-collider answer to "can a wheel stand on this?", worked out once. Asking every hit every step fetched the
+        // parent's name from the engine (a new string each time) and a GetComponent: a slice of every kart's step at 40
+        // karts (perf pass 2026-11-17). Same test as before.
+        static readonly System.Collections.Generic.Dictionary<Collider, bool> notGround = new System.Collections.Generic.Dictionary<Collider, bool>();
+        static bool NotGround(in RaycastHit h)
+        {
+            var col = h.collider;
+            if (notGround.TryGetValue(col, out bool v)) return v;
+            var rb = h.rigidbody; var hp = col.transform.parent;
+            v = (rb != null && rb.GetComponent<KartPhysics>() != null) || (hp != null && hp.name == "OutsideBarrier");
+            notGround[col] = v;
+            return v;
         }
 
         public bool UpsideDown => Vector3.Dot(transform.up, Vector3.up) < 0f;

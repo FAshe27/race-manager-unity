@@ -28,6 +28,7 @@ namespace OKT
         public static void ApplyPhysicsSettings()
         {
             Physics.gravity = new Vector3(0f, -9.81f, 0f);
+            Physics.reuseCollisionCallbacks = true;   // one Collision object reused per callback: no per-contact garbage
             Time.fixedDeltaTime = FixedDt;
             Physics.defaultSolverIterations = 4;          // position (spec §3 [TEST VALUE])
             Physics.defaultSolverVelocityIterations = 8;  // velocity (spec §3 [TEST VALUE])
@@ -201,7 +202,9 @@ namespace OKT
         public void StepOnce()
         {
             float dt = FixedDt;
+            if (Perf.On) { StepTimed(dt); return; }
             director?.PreStep(dt);
+            CastWheelRays();
             for (int i = 0; i < karts.Count; i++)
             {
                 if (karts[i] == null) continue;
@@ -212,6 +215,70 @@ namespace OKT
             simTime += dt;
             steps++;
             director?.PostStep(dt);
+        }
+
+        /// <summary>
+        /// Every kart's wheel rays in one batch, spread over the CPU cores by the job system, instead of 12 casts per kart
+        /// one after another (perf pass 2026-11-17: the biggest piece of the kart code at 40 karts). Nearest hit per ray,
+        /// with karts and the outside rail masked out by layer -- the same rule the per-hit filter applied.
+        /// </summary>
+        void CastWheelRays()
+        {
+            int n = 0; foreach (var k in karts) if (k != null) n++;
+            if (n == 0) return;
+            int total = n * KartPhysics.RaysPerKart;
+            if (!rayCmds.IsCreated || rayCmds.Length < total)
+            {
+                if (rayCmds.IsCreated) { rayCmds.Dispose(); rayHits.Dispose(); }
+                rayCmds = new Unity.Collections.NativeArray<RaycastCommand>(total, Unity.Collections.Allocator.Persistent);
+                rayHits = new Unity.Collections.NativeArray<RaycastHit>(total, Unity.Collections.Allocator.Persistent);
+            }
+            int at = 0;
+            foreach (var k in karts)
+            {
+                if (k == null) continue;
+                k.FillRays(rayCmds, at, new QueryParameters(k.RayMask, false, QueryTriggerInteraction.Ignore, false));
+                at += KartPhysics.RaysPerKart;
+            }
+            var cmds = rayCmds.GetSubArray(0, total); var res = rayHits.GetSubArray(0, total);
+            RaycastCommand.ScheduleBatch(cmds, res, 16, 1).Complete();
+            at = 0;
+            foreach (var k in karts)
+            {
+                if (k == null) continue;
+                for (int j = 0; j < KartPhysics.RaysPerKart; j++) k.preHits[j] = res[at + j];
+                k.stepTick = steps; k.preTick = steps;
+                at += KartPhysics.RaysPerKart;
+            }
+        }
+        Unity.Collections.NativeArray<RaycastCommand> rayCmds;
+        Unity.Collections.NativeArray<RaycastHit> rayHits;
+
+        /// <summary>The same step, timed by part (Perf.On; the M2Perf harness). Identical order and calls.</summary>
+        void StepTimed(float dt)
+        {
+            var sw = Perf.Sw; long t0 = sw.ElapsedTicks;
+            director?.PreStep(dt);
+            long t1 = sw.ElapsedTicks;
+            CastWheelRays();
+            Perf.S[15] += sw.ElapsedTicks - t1; t1 = sw.ElapsedTicks;
+            for (int i = 0; i < karts.Count; i++)
+            {
+                if (karts[i] == null) continue;
+                long a = sw.ElapsedTicks;
+                drivers[i].Step(dt, simTime);
+                long b = sw.ElapsedTicks;
+                karts[i].Step(dt);
+                Perf.Ai += b - a; Perf.Kart += sw.ElapsedTicks - b;
+            }
+            long t2 = sw.ElapsedTicks;
+            Physics.Simulate(dt);
+            long t3 = sw.ElapsedTicks;
+            simTime += dt;
+            steps++;
+            director?.PostStep(dt);
+            long t4 = sw.ElapsedTicks;
+            Perf.Pre += t1 - t0; Perf.Phys += t3 - t2; Perf.Post += t4 - t3; Perf.Steps++;
         }
 
         public void UpdateVisuals(float dt)
@@ -244,6 +311,7 @@ namespace OKT
 
         public void Destroy()
         {
+            if (rayCmds.IsCreated) { rayCmds.Dispose(); rayHits.Dispose(); }
             if (root != null) Object.DestroyImmediate(root);
         }
 
@@ -252,6 +320,30 @@ namespace OKT
             log.AppendLine(msg);
             Debug.Log("[OKT] " + msg);
         }
+    }
+
+    /// <summary>Step-time accounting for the performance harness (off in normal play).</summary>
+    public static class Perf
+    {
+        public static bool On;
+        public static readonly System.Diagnostics.Stopwatch Sw = System.Diagnostics.Stopwatch.StartNew();
+        public static long Pre, Ai, Kart, Phys, Post, Steps;
+        public static void Reset() { Pre = Ai = Kart = Phys = Post = Steps = 0; System.Array.Clear(S, 0, S.Length); }
+        // finer sections (temporary instrumentation for the perf pass): Perf.T() at a section start, Perf.Add(i, ref t) at its end
+        public static readonly long[] S = new long[16];
+        public static readonly string[] SName = { "ai.locate+band", "ai.wallgap", "ai.laps+arc", "ai.pursuit-target", "ai.steer", "ai.speed-lookahead", "ai.curvature", "ai.ground", "ai.rest",
+                                                   "kart.rays", "kart.grip+tires", "kart.rest", "dir.awareness", "dir.traffic(all, incl awareness)", "dir.caution-drive", "world.ray-batch" };
+        public static long T() => On ? Sw.ElapsedTicks : 0;
+        public static void Add(int i, ref long t) { if (!On) return; long n = Sw.ElapsedTicks; S[i] += n - t; t = n; }
+        public static string Sections()
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < S.Length; i++) if (S[i] > 0) sb.Append($"   {SName[i]} {Ms(S[i]):F3}");
+            return sb.ToString();
+        }
+        static double Ms(long t) => t * 1000.0 / System.Diagnostics.Stopwatch.Frequency / System.Math.Max(1, Steps);
+        public static string Report() =>
+            $"per step: total {Ms(Pre + Ai + Kart + Phys + Post):F3} ms = director-pre {Ms(Pre):F3} + drivers {Ms(Ai):F3} + kart-physics-code {Ms(Kart):F3} + Physics.Simulate {Ms(Phys):F3} + director-post {Ms(Post):F3} ({Steps} steps)";
     }
 
     /// <summary>Accumulates real time x speed and runs whole physics steps (spec §10).</summary>
