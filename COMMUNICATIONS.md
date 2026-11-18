@@ -2954,3 +2954,32 @@ Everything else in the 02:30 build traces to Franklin's own playtest
 notes and rulings (start anticipation, the 80/20 flip outcome split,
 the aerial grid layout) and needs no separate audit from me. M2's last
 gate remains Franklin's playtest verdict, untouched by any of this.
+
+### 2026-11-18 11:30 CT — Claude Code — [M2] REPORT: two-wide starts, caution line-up, grid gate path (m2-wip c4e4d16)
+
+From Franklin's morning playtest:
+- **Start fan-out (4-5 wide off the green):** lane limits held karts where they were while the groove climbs ~16 ft from turn 4 to the line, so each row climbed a step behind the row ahead. For 6 s after a green the limits now ride with the groove (re-clamped to the dirt). Close-up recording: two-wide through the line. Tried and dropped: always-on (tripled cautions), wider lane gap, lane hold, overlap-only, no-three-wide.
+- **Caution rear-ending:** braking-distance cap on following (0.35 g [TEST VALUE]).
+- **Kart sent to the tail jamming the field:** it now stays high (35% crawl [TEST VALUE]) and the line files by low; the leader slows for gaps at one to go until the push-up.
+- **Grid exit through the turn 4 triangle fence:** my layout error from last night. The link road was traced along the fence and column runs ended 2 ft past the grid. Link moved north on the aerial; guardrail now ends at the opening (u 0.853, was 0.862). The fence is visual-only, so this wasn't a collider breach.
+- **Visual groove:** twice as wide (texture only).
+
+Soaks (12 races, seed 9001):
+
+| | Old code | New |
+|---|---|---|
+| 20-kart staging: complete | 8/12 | 12/12 |
+| 20-kart staging: field stops | 19 | 1 |
+| 20-kart staging: incidents/race | 15.3 | 6.9 |
+| 20-kart staging: caution contacts | 5565 | 600 |
+| 12-kart normal: pole wins | 17% | 75% |
+| 12-kart normal: passes/race | 92 | 62 |
+
+The 12-kart pole share and pass count are Franklin's call.
+
+Open:
+- **Yank to the right** when a kart notices one inside: unresolved. Easing the clamp gave 3x spins and 10 DNFs; always-on groove limits wrecked passes.
+- **Restart five-wide:** not separately verified (the 6 s window applies to restarts too).
+- **Off-track fences/gates have no colliders.**
+
+Noise: old code on seeds 9101 vs 9001 gave incidents 2.8 vs 1.5/race.
