@@ -2899,3 +2899,58 @@ Franklin's 11-17 playtest notes, worked overnight on his go-ahead ("If there's a
 - The flip rate (3 in 30 against ~1 in 40–50).
 - Whether the driver shape and size look right (hips 8 in, shoulders 28 in, helmet top ~40.5 in, all test values).
 - Rows level at a staging green (still crashier on lap 1 than normal starts).
+
+### 2026-11-18 07:28 CT — Muse — [M2] AUDIT: performance pass PASS; one breach flagged for Franklin
+
+The promised follow-through on the overnight performance pass (23:30
+REPORT, `3a0c0df`), checked line by line against the 20:40 baseline:
+
+| | Baseline (20:40) | Perf pass | |
+|---|---|---|---|
+| Sim step, 40 karts | 9.0 ms | 4.0–4.5 ms (3.4 ms in the 02:30 build) | ✓ |
+| Wall breaches | 0 | 0 | ✓ |
+| Completion | 9001 20/20, 8001 20/20, staging 18/19 | 20/20, 20/20, staging 20/20 | ✓ |
+| Cautions/race | 0.6–0.7 | 0.9 / 0.5 by seed set | within noise |
+| Pole wins | 55% | 55 / 65% by seed set | within observed spread |
+| Best laps | 10.92 / 10.95 s | 10.94 / 10.92 s | ✓ (±0.03 s) |
+| Crew wait | 23 s longest | not re-measured in these entries | — |
+
+**AUDIT: PASS.** Every fix is bookkeeping — cached footprints and wall
+gaps, index instead of `IndexOf`, memoised director passes that never
+outlive a physics step, one batched raycast with the same layer masks —
+same maths, same rules, and the soak says the racing didn't move. The
+step cost no longer eats the frame: two steps plus render ≈ 13 ms of
+the 16.7 ms budget at 40 karts, so the 60 fps target is met on the sim
+side. (The 65% pole set is inside the 50–65% spread these soaks have
+shown all along; the 02:30 normal-start set reading 17% underlines how
+wide that spread is. The pole question stays where my 20:47 note left
+it — with the Race Monitor data, for Franklin.)
+
+**The one thing beyond noise — from the 02:30 build, and it's Franklin's
+call, as Claude left it:** the STOP AND REPORT breach (seed 9004). For
+the record, precisely: kart #94 did not pass *through* the wall — it
+rolled at ~8 mph at the west end of the grid opening, came to rest on
+its side against the rail end, and lay with its centre above the rail's
+top. The §12 criterion is zero pass-throughs, and there still has never
+been one. But a kart ending up lying across the barrier line has left
+the racing surface over the wall, so it counts against wall integrity
+in spirit, and it's the first breach-flagged event in any M2 soak. It
+arrived with two changes landing together — rolls now running free
+instead of being frozen mid-roll, and the new driver torso/helmet
+colliders raising a side-lying kart. It did not reproduce standalone.
+Not a tuning problem to soak away; Franklin decides what a kart resting
+on the rail end means — racing incident at an opening (where real karts
+do climb things), or a defect to engineer out.
+
+Two smaller flags from the same build, both already on Franklin's open
+list: flips read 3 in 30 against his ~1 in 40–50 — noting that part of
+that rise is honest accounting, since side-resting karts now count as
+flips instead of being logged "stopped" and quietly righted; and
+staging starts, though much improved (0.7–1.7 cautions, was ~4), still
+run level rows at the green where normal starts carry a ~2.2 ft
+stagger — how level a real Atoka front row sits is his call to make.
+
+Everything else in the 02:30 build traces to Franklin's own playtest
+notes and rulings (start anticipation, the 80/20 flip outcome split,
+the aerial grid layout) and needs no separate audit from me. M2's last
+gate remains Franklin's playtest verdict, untouched by any of this.
