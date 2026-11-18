@@ -61,7 +61,9 @@ print(f"scale: {PXFT:.2f} px/ft")
 # ---- read off the aerial (pixels of aerial.webp) -----------------------------------------------------------------
 GRID = dict(xW=797, xE=848, yN=128, yS=334)          # the staging grid: Franklin's blue lines on atoka-openings-aerial-markup (x 797..848)
 GATE = [(733, 343), (757, 368)]                       # opening at the end of the turn 4 wall (track edge)
-LINK = [(745, 352), (790, 340), (830, 336)]           # grid's south end -> gate (karts drive it the other way)
+LINK = [(745, 352), (790, 337), (822, 331)]           # grid's south end -> gate (karts drive it the other way); kept 4+ ft north of the
+# triangle fence (11-18: traced along it, karts leaving Lane A drove through the fence's post end)
+GRID_END = (830, 328)                                 # where the link meets the grid's south end, clear of the fence post at (844, 333)
 EXIT = [(703, 746), (735, 745), (762, 737), (797, 718), (821, 681), (846, 640), (864, 600), (870, 560), (871, 520), (867, 470), (863, 420), (867, 370), (872, 336)]
 SCALE = [(871, 279), (931, 279), (931, 320), (871, 320)]  # scale house footprint (blue roof)
 FENCE_W = [(797, 128), (797, 326)]                    # chain link along the grid's west side (grass square)
@@ -72,7 +74,7 @@ TRI_E = [(843, 333), (856, 430)]
 feats = []
 def feat(**k): feats.append(k)
 xm = (GRID['xW'] + GRID['xE']) / 2
-feat(type='road', name='grid lane', widthFt=20, points=[UO(*p) for p in [((GATE[0][0] + GATE[1][0]) / 2, (GATE[0][1] + GATE[1][1]) / 2)] + LINK[1:] + [(xm + (GRID['xE'] - xm) / 2, GRID['yS'] - 2)]])
+feat(type='road', name='grid lane', widthFt=20, points=[UO(*p) for p in [((GATE[0][0] + GATE[1][0]) / 2, (GATE[0][1] + GATE[1][1]) / 2)] + LINK[1:] + [GRID_END]])
 feat(type='gate', name='grid gate (red swing gate)', heightFt=3.5, points=[UO(*p) for p in GATE])
 feat(type='pad', name='staging grid', points=[UO(*p) for p in line_px([(GRID['xW'], GRID['yS']), (GRID['xE'], GRID['yS']), (GRID['xE'], GRID['yN']), (GRID['xW'], GRID['yN']), (GRID['xW'], GRID['yS'])])][:-1])
 feat(type='pad', name='grid link (to the gate)', points=[UO(*p) for p in line_px([(733, 340), (797, 327), (848, 331), (757, 369)])])

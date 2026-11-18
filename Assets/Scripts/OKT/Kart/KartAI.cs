@@ -137,6 +137,7 @@ namespace OKT
         [System.NonSerialized] public int stageGateIdx = int.MaxValue;     // the path point at the gate
         [System.NonSerialized] public float stageGateArc;                  // the gate's distance round the lap (m)
         [System.NonSerialized] public int stageIdx;
+        [System.NonSerialized] public bool limitsRideGroove;     // set by the director for the first seconds after a green
         [System.NonSerialized] public float lastAimD, lastAimLow; // forensics: the steering target and its low limit
         [System.NonSerialized] public float latMin = float.NegativeInfinity, latMax = float.PositiveInfinity;
 
@@ -256,8 +257,15 @@ namespace OKT
             if (recovering) dWant = rejoinOnGroove ? tf.LineOffset : Mathf.Min(d, tf.LineOffset - 1.0f);
             float dT = Mathf.Clamp(dWant, LowLimit(tf), HighLimit(tf));
             // Occupancy as hard lane limits on the STEERING TARGET (karts alongside own their slots).
-            if (latMin <= latMax) dT = Mathf.Clamp(dT, latMin, latMax);
+            // Off a green, while the pack is still double file, carry the limits along with the groove to the aim point --
+            // the karts beside me are following it too. (Franklin 11-18: off the green the field went four and five wide.
+            // The groove climbs ~16 ft from the turn 4 exit to the line; limits held where the karts were let only the
+            // front row climb with it, and every row behind climbed a step later than the row ahead. Only off the green:
+            // in traffic it also let a kart turn down onto one running under it at the apex -- soak 11-18, cautions x3.)
+            float gShift = limitsRideGroove ? tf.LineOffset - LineOffsetHere : 0f;
+            if (latMin <= latMax) dT = Mathf.Clamp(dT, latMin + gShift, latMax + gShift);
             else dT = d; // squeezed from both sides: hold my line
+            if (gShift != 0f) dT = Mathf.Clamp(dT, LowLimit(tf), HighLimit(tf)); // a shifted limit never aims me off the dirt
             lastAimD = dT; lastAimLow = LowLimit(tf);
             var target = tf.pos + tf.outN * dT;
 

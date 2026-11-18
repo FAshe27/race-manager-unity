@@ -62,6 +62,7 @@ namespace OKT
         public float rowGapFt = 6.3f;              // centre to centre: nose ~2.5 in off the kart ahead (Franklin: no daylight between karts in a line); kart 73.1 in (6.1 ft) nose to rear bumper [TEST VALUE]
         public float laneFrac = 0.16f;             // double-file lanes at ±0.16 half-width ≈ 53 in apart: the two lines nearly touching (Franklin) [TEST VALUE]
         public float packedStartSeconds = 4f;      // pass COUNTING only (soak metric continuity); lines are held to the S/F line now
+        public float startLanesSec = 6f;           // off a green the double file's lane limits ride with the groove this long [TEST VALUE]
         public float launchSec = 3f;               // accordion: for this long after a green, close right up on the kart ahead [TEST VALUE]
         public float launchLeadMph = 0.9f;         // mph over the kart ahead while closing up -- the push that runs up the line [TEST VALUE]
         // Franklin 11-17: "the trailing karts are anticipating the green" -- nose on the bumper ahead, in the throttle
@@ -141,7 +142,16 @@ namespace OKT
         public float frustratedPushRate = 4f;       // push likelihood multiplier once frustrated [TEST VALUE]
         public float restartBunchGapFt = 0.25f;     // one to go, after the push-up point: nose on his bumper, pushing him (Franklin 11-17)
         public float cautionLaneFrac = 0.15f;       // single file, a touch above centre
-        public float dropBackLaneFrac = -0.55f;     // a kart dropping back to its spot runs low and lets them by
+        // a kart dropping back (sent to the tail, or out of place) stays HIGH and lets the line filter by underneath; some
+        // slow to a crawl to wait them out (Franklin 11-18: "The kart going to the back should remain high - and sometimes
+        // they'll even slow to a crawl"). It used to run low -- right where the line runs on the straights -- and a tail
+        // kart that stopped in the groove jammed the whole field behind it.
+        public float dropBackLaneFrac = 0.7f;
+        public float dropCrawlChance = 0.35f;       // [TEST VALUE]
+        public float passDropperLaneFrac = -0.25f;  // the line goes by a dropping kart this low [TEST VALUE]
+        // under caution a kart brakes for the kart ahead in time: never faster than what slows to his speed at this
+        // decel before the gap closes (Franklin 11-18: lining up, they ran into each other "as if their brakes don't work")
+        public float cautionBrakeG = 0.35f;         // [TEST VALUE]
         public float minCautionSec = 15f;
         // Franklin q23: "the leader will go a little bit slow at first because he knows karts are trying to get lined up".
         // While the caution line has gaps, the leader runs this slow so the field can close up. [TEST VALUE]
@@ -382,6 +392,7 @@ namespace OKT
             public readonly Dictionary<int, float> knowT = new Dictionary<int, float>(); public float glanceT; // awareness
             public int defendedAgainst = -1; public float defendedT = -99f; // I last defended against this kart (he gets annoyed)
             public bool fsHeld, fsReleased; public float fsStopAt, fsHeldAt; // field stop: stopped and waiting / pointed at and gone
+            public bool dropCrawl;
             public bool toTail, spotBack, dropping; // caution: sent to the tail / keeps his spot (the kart that wrecked him goes back)   // a kart right in front of me: stopped here means waiting in a jam, not wrecked
             public float bobbleT;
             public float concedeT; public int concedeTo = -1;
@@ -592,7 +603,8 @@ namespace OKT
                 ai.paceStraight = paceS; ai.paceCorner = paceC;
                 ai.speedCap = float.PositiveInfinity; ai.attackBoost = 0f; ai.pushedBoost = 0f;
                 ai.latMin = float.NegativeInfinity; ai.latMax = float.PositiveInfinity; ai.grooveLane = KartAI.NoGrooveLane;
-                ai.rejoinOnGroove = false; ai.weaveAmp = 0f; // the weave is caution-only: CautionDrive turns it back on
+                ai.rejoinOnGroove = false; ai.weaveAmp = 0f;
+                ai.limitsRideGroove = green && raceTime - greenTime < cfg.startLanesSec; // the weave is caution-only: CautionDrive turns it back on
                 if (e.outOfRace) { ai.paceMode = true; ai.speedCap = 0f; continue; }
 
                 if (phase == RacePhase.Grid) { ai.paceMode = true; ai.speedCap = 0f; continue; }
@@ -1689,7 +1701,8 @@ namespace OKT
             if (e.recovering) { ai.formation = false; ai.paceMode = false; ai.rejoinOnGroove = true; return; }
             ai.formation = true; ai.paceMode = true; ai.trafficGoal = 0f;
             if (fsStage != 0 && fsOrder.Contains(e)) { FieldStopDrive(e, paceS, paceC); return; }
-            if (cautionGapsOpen && cautionQueue.Count > 0 && cautionQueue[0] == e && !oneToGo)
+            // (at one to go too, until the push-up: Franklin 11-18, the back half wasn't caught up when the green came)
+            if (cautionGapsOpen && cautionQueue.Count > 0 && cautionQueue[0] == e && !PushingUp(e))
             {
                 paceS = Mathf.Min(paceS, cfg.cautionLeaderSlowMph * U.Mph); paceC = Mathf.Min(paceC, cfg.cautionLeaderSlowMph * U.Mph);
                 e.ai.paceStraight = Mathf.Min(e.ai.paceStraight, paceS); e.ai.paceCorner = Mathf.Min(e.ai.paceCorner, paceC);
@@ -1702,7 +1715,7 @@ namespace OKT
                 // Out of place (a kart that belongs ahead of me is physically behind me): drop low at a fixed slow speed and
                 // let them by. Fixed, not tied to anyone's speed — tying speeds through the queue order deadlocked.
                 lane = cfg.dropBackLaneFrac;
-                ai.speedCap = paceC * 0.6f;
+                ai.speedCap = e.dropCrawl ? cfg.crawlMph * 1.5f * U.Mph : paceC * 0.6f;
             }
             else
             {
@@ -1727,7 +1740,7 @@ namespace OKT
                     float cap = pred.kart.ForwardSpeed + cfg.followGain * (gap - want);
                     float catchUp = Mathf.Clamp(cap - paceS, 0f, cfg.cautionCatchUpMph * U.Mph);
                     ai.paceStraight = paceS + catchUp; ai.paceCorner = paceC + catchUp;
-                    ai.speedCap = Mathf.Max(0f, cap);
+                    ai.speedCap = Mathf.Max(0f, Mathf.Min(cap, BrakeCap(pred.kart.ForwardSpeed, gap - want)));
                 }
             }
             // never run into whatever is physically right in front of me in my lane, whatever its place in the order
@@ -1739,7 +1752,7 @@ namespace OKT
                     if (o == e || o.cleared || o.beingCleared) continue;
                     float g = Gap(o, e);
                     if (g <= 0f || g > 10f || Mathf.Abs(o.ai.d - myD) > 1.2f) continue;
-                    float c = Mathf.Max(0f, o.kart.ForwardSpeed + cfg.followGain * (g - bl - 0.15f));
+                    float c = Mathf.Max(0f, Mathf.Min(o.kart.ForwardSpeed + cfg.followGain * (g - bl - 0.15f), BrakeCap(o.kart.ForwardSpeed, g - bl - 0.15f)));
                     // a wreck or a recovering kart right in my path: the go-round below steers me off his line, but until
                     // I'm clear I don't close on him faster than a walking-pace nudge (Franklin's playtest 11-17: a kart
                     // ran straight into a slow recovering kart under caution)
@@ -1747,6 +1760,14 @@ namespace OKT
                     if (c < ai.speedCap) ai.speedCap = c;
                 }
             }
+            // a kart dropping back ahead of me or beside me: the line files by underneath him
+            if (!e.dropping)
+                foreach (var o in field)
+                {
+                    if (o == e || !o.dropping || o.cleared || Hazard(o)) continue;
+                    float g = Gap(o, e);
+                    if (g > -bl && g < 25f) { lane = cfg.passDropperLaneFrac; break; }
+                }
             // a wreck or recovering kart ahead in my lane: go round it, slowly
             float myLaneD = lane == cfg.cautionLaneFrac ? w.track.Frame(ai.s).LineOffset : lane * w.track.Frame(ai.s).halfWidth; // single file runs the groove
             foreach (var o in field)
@@ -1769,6 +1790,11 @@ namespace OKT
             UpdateWeave(e, Time.fixedDeltaTime, lane == cfg.cautionLaneFrac && !PushingUp(e) && !e.dropping && !e.toTail);
             e.cdbg = $"v{e.kart.ForwardSpeed / U.Mph:F0} cap{(float.IsInfinity(ai.speedCap) ? -1 : ai.speedCap / U.Mph):F0} lane{lane:F2} d{ai.d:F1} pred#{(pred != null ? pred.driver.number : 0)} u{ai.s / w.track.N:F2}";
         }
+
+        /// <summary>The fastest I can be going and still slow to vAhead at cautionBrakeG within `room` metres (less the
+        /// speed controller's lag, ~1.5 m/s at that decel).</summary>
+        float BrakeCap(float vAhead, float room)
+            => Mathf.Sqrt(vAhead * vAhead + 2f * cfg.cautionBrakeG * U.G * Mathf.Max(0f, room - 0.5f));
 
         /// <summary>Under caution, stopped in a corner with the nose down at the inside berm (the driver can sort it himself).</summary>
         bool InBermCorner(Entry e)
@@ -1837,13 +1863,14 @@ namespace OKT
             // who is out of place: a rolling kart that belongs ahead of me is physically behind (or beside) me
             for (int k = 0; k < cautionQueue.Count; k++)
             {
-                var e = cautionQueue[k]; e.dropping = false;
+                var e = cautionQueue[k]; bool was = e.dropping; e.dropping = false;
                 for (int j = 0; j < k; j++)
                 {
                     var a = cautionQueue[j];
                     if (a.recovering || Hazard(a)) continue;
                     if (QueueGap(a, e) < 0.6f) { e.dropping = true; break; }
                 }
+                if (e.dropping && !was) e.dropCrawl = Hash01(e.driver.number * 6151 + Mathf.RoundToInt(cautionStart * 10f)) < cfg.dropCrawlChance;
             }
             var lead = cautionQueue[0];
             int lapIdx = Mathf.FloorToInt(lead.ai.raceDist / L);

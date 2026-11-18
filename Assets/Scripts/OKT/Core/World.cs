@@ -137,8 +137,9 @@ namespace OKT
                 var ai = drivers[drivers.Count - 1];
                 var path = new List<Vector3>();
                 void Seg(Vector3 from, Vector3 to, float stepFt) { float d = Vector3.Distance(from, to); int m = Mathf.Max(1, Mathf.CeilToInt(d / (stepFt * U.Ft))); for (int j = 1; j <= m; j++) path.Add(Vector3.Lerp(from, to, (float)j / m)); }
-                // down my column to the grid's exit end
-                var colEnd = S0 + west * col - axis * (2f * U.Ft);
+                // down my column to just inside the grid's exit end (was 2 ft past it: the east column ran out onto the post
+                // at the end of the turn 4 triangle fence and drove through the fence -- Franklin's playtest 11-18)
+                var colEnd = S0 + west * col + axis * (1.5f * U.Ft);
                 Seg(pos, colEnd, 3f);
                 // along the link to the gate (the road run backwards), from the first road point nearer the gate than I am
                 ai.stageSlowIdx = path.Count;
