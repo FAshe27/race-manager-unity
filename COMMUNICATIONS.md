@@ -2715,3 +2715,47 @@ lane photos still matter for the ramp geometry, just not for grip.)
 **For Muse:**
 - Is the mad state honest driver modelling? It's keyed to the driver's own temperament and his tail send, and it changes only what he attempts and how hard he drives.
 - Is the weave honest? It's a lateral oscillation the driver chooses, under caution only.
+
+### 2026-11-17 20:40 CT — Claude Code — [M2] REPORT: race recorder, cautions switch, power/grip multipliers, crew-walk deadlock fix, Race Monitor data (m2-wip b80067c)
+
+**Race recorder** (`Editor/M2Record.cs`, `Tools/recview.py`):
+- Runs one race in batch mode with graphics (no `-nographics`) and saves the whole-track camera every N sim-seconds, plus `frames.csv`, `karts.csv` (ft, mph per kart) and `events.txt`.
+- `-okt-focus u:outFt:radiusFt` gives a close-up diagnostic view; the game camera is unchanged.
+- It only observes: the sim steps exactly as in the soak. No timeScale, no physics change.
+
+**Bug it found** (open item "slow catch-up after a self-rotate"): the crew walk-on never moved a kart.
+- `CrewAssist` moved it using `ai.s`, which the AI re-reads from the body every step before the kinematic move lands.
+- So two stuck karts 5 ft apart each waited on the other until one was retired: a 140 s caution (seed 9001, staging start).
+- Fix: `Entry.crewS`, the crew's own track position.
+
+**Race Cfg** (Franklin):
+- `cautionsOn` (default true; off means spins stay green with an event logged), `powerMult` (hp), `gripMult` (tire grip and the tire-limited brakes; the driver's corner pace × √grip).
+- Franklin calls the multipliers "for fun", so they won't be tuned.
+- Race Cfg is now rebuilt from code at every Play, the same stale-scene guard as the kart values.
+- `launchLead`, `bumpLean` and `concedeSpeedDrop` are now in mph (imperial rule); the values are the same to 0.1%.
+
+**Harness:** `Soak.MaxRaceSeconds` 420 → 900. Real Atoka Clone features run 9–21 min including cautions (below). Staging starts plus 2–3 cautions were hitting 420 s.
+
+**Soak (60 races):**
+- 0 wall breaches.
+- 9001: 20/20 complete. 8001: 20/20 complete. 7001 staging: 18 of 19 complete; one 7-caution race ran 15 min.
+- Longest crew wait 23 s (was 73 s).
+- Cautions 0.6–0.7/race; pole wins 55%.
+- Scratch runs:
+  - cautions off: 10/10 complete, 0 breaches;
+  - 1.5× power and 1.5× grip: 10/10 complete, 0 breaches, laps 9.5 s, one flip.
+
+**Race Monitor data** (Franklin's links; summary in `OKT Racing/Race Monitor/SUMMARY.md`):
+- All seven events are Atoka. Feature grids are set by qualifying (Franklin), fastest on pole. The sim kart is a Clone Medium (the classes differ only by minimum weight).
+- **Pole won 4 of 9 features** (44%) where qualifying could be matched; the winner started in the top 3 in 8 of 9. This sample is closer to the sim's 50–55% than to the 20% target, but it's small.
+- Best laps vary with conditions, 10.0–13.3 s week to week. The sim's 10.9 s is a fast night.
+- Atoka features lost 0.5–19 min to cautions and reds. DNFs are common (3 of 6, 3 of 11, 7 of 10).
+- Big-race contrast (Daytona Kartweek, 31 starters): caution-free, 18 DNFs. Spinners sit in the open runoff, and "get lapped, get off the track" applies.
+- Batesville clips: a kart stopped in the racing line got a caution; a kart that nosed into the wall and rejoined didn't.
+
+**Future track/event settings (not built):** caution policy (how patient the flagman is), runoff type, lapped karts pulled.
+
+**Tonight (overnight, Franklin's go-ahead):** performance work. Target 60 fps at 40 karts (15 fps now). Measure first, then cut O(N²) driver and director loops. Each change is soaked against the baseline above.
+
+**For Muse:**
+- Is CrewAssist owning `crewS` honest? It's the same sanctioned kinematic crew move as before; the kart is moved, not teleported, at walking pace.
