@@ -132,6 +132,10 @@ namespace OKT
         [System.NonSerialized] public float weaveAmp, weavePeriod = 1.6f; float weavePhase, weaveNow; // tire-warming weave (m, s)
         [System.NonSerialized] public bool rejoinOnGroove; // recovering under caution: rejoin on the groove, not low
         [System.NonSerialized] public List<Vector3> stagePath;
+        [System.NonSerialized] public int stageSlowIdx = int.MaxValue;   // from this path point on: gate speed (director)
+        [System.NonSerialized] public Vector3 stageGatePos;
+        [System.NonSerialized] public int stageGateIdx = int.MaxValue;     // the path point at the gate
+        [System.NonSerialized] public float stageGateArc;                  // the gate's distance round the lap (m)
         [System.NonSerialized] public int stageIdx;
         [System.NonSerialized] public float lastAimD, lastAimLow; // forensics: the steering target and its low limit
         [System.NonSerialized] public float latMin = float.NegativeInfinity, latMax = float.PositiveInfinity;
@@ -350,7 +354,7 @@ namespace OKT
             float dist = Mathf.Max(0.5f, new Vector2(local.x, local.z).magnitude);
             float kappa = 2f * Mathf.Sin(alpha) / dist;
             kart.steerDeg = Mathf.Clamp(Mathf.Atan(kart.setup.wheelbase * kappa) * Mathf.Rad2Deg, -kart.setup.maxSteerDeg, kart.setup.maxSteerDeg);
-            targetSpeed = Mathf.Min(speedCap, 12f * U.Mph);
+            targetSpeed = speedCap; // the director's staging speed (was also held under 12 mph here, which hid the setting)
             kart.accelCmd = (targetSpeed - kart.ForwardSpeed) * cfg.speedGain;
             bool onTrack = Mathf.Abs(d) < fr.halfWidth - kart.setup.FootRight - 0.3f;
             if (stageIdx >= stagePath.Count - 1 && onTrack) { stagePath = null; formD = float.NaN; SnapTrafficOffsetToCurrent(); }

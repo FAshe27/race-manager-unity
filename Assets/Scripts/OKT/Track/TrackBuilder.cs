@@ -253,13 +253,17 @@ namespace OKT
             var fenceMat = Materials.Solid(new Color(0.55f, 0.58f, 0.60f), 0.3f);
             var gateMat = Materials.Solid(new Color(0.80f, 0.12f, 0.10f), 0.3f);
             var houseMat = Materials.Solid(new Color(0.88f, 0.86f, 0.82f), 0.2f);
+            var roofMat = Materials.Solid(new Color(0.24f, 0.30f, 0.40f), 0.3f);   // the scale house's blue-grey roof (aerial)
+            var paint = Materials.Solid(new Color(0.95f, 0.95f, 0.93f), 0.2f);
             foreach (var ft in t.features)
             {
                 var go = new GameObject(ft.type + ": " + ft.name); go.transform.SetParent(root, false); go.isStatic = true;
                 var verts = new List<Vector3>(); var tris = new List<int>(); Material mat;
-                if (ft.type == "road" || ft.type == "dirtroad")
+                if (ft.type == "lane") { Object.DestroyImmediate(go); continue; } // data only (staging grid lanes)
+                if (ft.type == "road" || ft.type == "dirtroad" || ft.type == "paint")
                 {
-                    var path = FeaturePath(t, ft, ft.type == "road" ? 0.03f : 0.02f); float hw = ft.widthFt * U.Ft * 0.5f;
+                    // paint: a painted line on a pad (the staging grid's centre strip), just above the asphalt
+                    var path = FeaturePath(t, ft, ft.type == "road" ? 0.03f : ft.type == "paint" ? 0.045f : 0.02f); float hw = ft.widthFt * U.Ft * 0.5f;
                     for (int i = 0; i < path.Count; i++)
                     {
                         var dir = path[Mathf.Min(i + 1, path.Count - 1)] - path[Mathf.Max(i - 1, 0)]; dir.y = 0f; dir.Normalize();
@@ -267,14 +271,38 @@ namespace OKT
                         verts.Add(path[i] - side * hw); verts.Add(path[i] + side * hw);
                         if (i > 0) { int a = 2 * i - 2; tris.AddRange(new[] { a, a + 2, a + 1, a + 1, a + 2, a + 3 }); }
                     }
-                    mat = ft.type == "road" ? asphalt : dirtRoad;
+                    mat = ft.type == "road" ? asphalt : ft.type == "paint" ? paint : dirtRoad;
                 }
                 else if (ft.type == "pad")
                 {
-                    var ring = FeaturePath(t, ft, 0.035f); ring.Add(ring[0]);
-                    var c = Vector3.zero; foreach (var p in ring) c += p; c /= ring.Count;
-                    verts.Add(c); verts.AddRange(ring);
-                    for (int i = 1; i < verts.Count - 1; i++) tris.AddRange(new[] { 0, i, i + 1 });
+                    // Scanlines across the outline in (u, feet out), every foot, each sampled on the ground there: the pad lies on
+                    // the real ground (a flat fan from its centre floated over the ramp up to the track and hid the grid's paint)
+                    var P = new List<Vector2>(); float u0 = ft.points[0].x;
+                    foreach (var q in ft.points) P.Add(new Vector2(u0 + Mathf.DeltaAngle(u0 * 360f, q.x * 360f) / 360f, q.y));
+                    float oMin = float.MaxValue, oMax = float.MinValue; foreach (var q in P) { oMin = Mathf.Min(oMin, q.y); oMax = Mathf.Max(oMax, q.y); }
+                    const int M = 32; int rows = 0;
+                    for (float o = oMin; o <= oMax + 0.999f; o += 1f)
+                    {
+                        float oo = Mathf.Min(o, oMax - 0.01f); oo = Mathf.Max(oo, oMin + 0.01f);
+                        float lo = float.MaxValue, hi = float.MinValue;
+                        for (int i = 0, j = P.Count - 1; i < P.Count; j = i++)
+                        {
+                            var A = P[i]; var B = P[j];
+                            if ((A.y > oo) == (B.y > oo)) continue;
+                            float x = A.x + (oo - A.y) / (B.y - A.y) * (B.x - A.x); lo = Mathf.Min(lo, x); hi = Mathf.Max(hi, x);
+                        }
+                        if (lo > hi) continue;
+                        for (int k = 0; k < M; k++) verts.Add(FeaturePoint(t, Mathf.Lerp(lo, hi, k / (M - 1f)), oo, 0.035f));
+                        rows++;
+                    }
+                    for (int r = 0; r + 1 < rows; r++)
+                        for (int k = 0; k + 1 < M; k++)
+                        {
+                            int a0 = r * M + k, a1 = a0 + 1, b0 = a0 + M, b1 = b0 + 1;
+                            tris.AddRange(new[] { a0, b0, a1, a1, b0, b1 });
+                        }
+                    if (tris.Count >= 3 && Vector3.Cross(verts[tris[1]] - verts[tris[0]], verts[tris[2]] - verts[tris[0]]).y < 0f)
+                        for (int i = 0; i < tris.Count; i += 3) { int tmp = tris[i + 1]; tris[i + 1] = tris[i + 2]; tris[i + 2] = tmp; } // face up
                     mat = asphalt;
                 }
                 else if (ft.type == "fence" || ft.type == "gate")
@@ -291,6 +319,32 @@ namespace OKT
                         tris.AddRange(new[] { b, b + 2, b + 1, b + 2, b + 3, b + 1 });
                     }
                     mat = ft.type == "gate" ? gateMat : fenceMat;
+                }
+                else if (ft.type == "building" && ft.points.Count >= 3)
+                {
+                    // a footprint (corners, read off the aerial) stood up heightFt, with a roof
+                    var ring = new List<Vector3>(); float baseY = float.MaxValue;
+                    foreach (var q in ft.points) { var p0 = FeaturePoint(t, q.x, q.y, 0f); ring.Add(p0); baseY = Mathf.Min(baseY, p0.y); }
+                    { float area = 0f; for (int i = 0; i < ring.Count; i++) { var a0 = ring[i]; var a1 = ring[(i + 1) % ring.Count]; area += a0.x * a1.z - a1.x * a0.z; }
+                      if (area < 0f) ring.Reverse(); } // counter-clockwise seen from above: walls face out, roof faces up
+                    float h = (ft.heightFt > 0f ? ft.heightFt : 9f) * U.Ft; int n = ring.Count;
+                    var wv = new List<Vector3>(); var wt = new List<int>();
+                    for (int i = 0; i < n; i++)
+                    {
+                        var p0 = ring[i]; var p1 = ring[(i + 1) % n]; p0.y = p1.y = baseY; int v = wv.Count;
+                        wv.Add(p0); wv.Add(p1); wv.Add(p1 + Vector3.up * h); wv.Add(p0 + Vector3.up * h);
+                        wt.AddRange(new[] { v, v + 3, v + 2, v, v + 2, v + 1 }); // outward face
+                    }
+                    var wm = new Mesh { name = ft.name + " walls" }; wm.SetVertices(wv); wm.SetTriangles(wt, 0); wm.RecalculateNormals(); wm.RecalculateBounds();
+                    go.AddComponent<MeshFilter>().sharedMesh = wm; go.AddComponent<MeshRenderer>().sharedMaterial = houseMat;
+                    var roof = new GameObject("roof"); roof.transform.SetParent(go.transform, false);
+                    var rv = new List<Vector3>(); var rt = new List<int>(); var cc = Vector3.zero;
+                    foreach (var p0 in ring) cc += p0; cc /= n; cc.y = baseY + h + 0.4f;
+                    rv.Add(cc); foreach (var p0 in ring) rv.Add(new Vector3(p0.x, baseY + h, p0.z));
+                    for (int i = 0; i < n; i++) rt.AddRange(new[] { 0, 1 + (i + 1) % n, 1 + i });
+                    var rm = new Mesh { name = ft.name + " roof" }; rm.SetVertices(rv); rm.SetTriangles(rt, 0); rm.RecalculateNormals(); rm.RecalculateBounds();
+                    roof.AddComponent<MeshFilter>().sharedMesh = rm; roof.AddComponent<MeshRenderer>().sharedMaterial = roofMat;
+                    continue;
                 }
                 else if (ft.type == "building")
                 {

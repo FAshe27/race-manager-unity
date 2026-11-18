@@ -43,6 +43,9 @@ namespace OKT
             GUI.enabled = true;
             if (GUILayout.Button("Reset")) boot.ResetWorld(false);
             if (GUILayout.Button("New field")) boot.ResetWorld(true);
+            GUI.enabled = d != null && d.CanCaution;
+            if (GUILayout.Button("Caution")) d.ManualCaution();
+            GUI.enabled = true;
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();

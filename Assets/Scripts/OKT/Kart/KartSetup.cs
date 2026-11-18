@@ -36,6 +36,21 @@ namespace OKT
         public float cockpitFrontIn = 23.6f;           // ahead of centre [TEST VALUE]
         public float cockpitRearIn = 23.6f;            // behind centre [TEST VALUE]
         public float cockpitTopIn = 15.4f;             // seat back / engine height [TEST VALUE]
+        // ---- the driver (2026-11-17 night). Without him the kart was a 42 x 15 in brick: on its side it sat on a flat
+        // 15 in face and every rollover stopped dead at 90 deg (Franklin: "think of a Hot Wheels car getting tossed on
+        // its side -- inertia would carry it up and over"). Seated in a Clone, the shoulders and helmet stand ~40 in
+        // up, so on its side the kart lies on a long slanted face from the tires to the helmet and can roll on over
+        // the helmet onto its back. Shape only: the weight, balance and handling are the kart's as before. [TEST VALUEs]
+        public static bool DefaultDriverBody = true;
+        public bool driverBody = DefaultDriverBody;
+        public float driverHipZIn = -6f;               // hips, ahead (+) / behind (-) the kart centre
+        public float driverHipYIn = 8f;
+        public float driverShoulderYIn = 28f;
+        public float driverLeanBackIn = 6f;            // shoulders this far behind the hips (reclined seat)
+        public float driverTorsoRadiusIn = 7f;
+        public float helmetRadiusIn = 5.5f;
+        public float helmetYIn = 35f;                  // centre; top of helmet ~40.5 in
+        public float driverOffsetLeftIn = 2f;          // seat a touch left of centre on an offset dirt chassis
         public float frontBumperAheadIn = 10f;         // inside the nose; WKA 401.6 length cap (74 in) forced it in from Franklin's ~14 [TEST VALUE]
         public float frontBumperHalfWidthIn = 13f;     // [TEST VALUE, from photos]
         public float frontBumperTopIn = 7.75f;         // top of the upper hoop: WKA 409.1 minimum 7.75 in

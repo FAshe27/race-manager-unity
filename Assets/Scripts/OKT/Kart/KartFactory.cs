@@ -117,6 +117,37 @@ namespace OKT
             var kp = go.AddComponent<KartPhysics>();
             kp.Init(setup);
 
+            // --- the driver: torso + helmet (shape only -- see KartSetup.driverBody). The kart's rotational inertia is
+            // kept as it was without him, so handling doesn't change; he only adds what can touch the ground or a rival.
+            if (setup.driverBody)
+            {
+                var rb = kp.Body;
+                var drv = new GameObject("Driver").transform; drv.SetParent(go.transform, false);
+                float dx = -setup.driverOffsetLeftIn * U.In, tr = setup.driverTorsoRadiusIn * U.In;
+                var hip = new Vector3(dx, setup.driverHipYIn * U.In, setup.driverHipZIn * U.In);
+                var sh = new Vector3(dx, setup.driverShoulderYIn * U.In, (setup.driverHipZIn - setup.driverLeanBackIn) * U.In);
+                var torso = GameObject.CreatePrimitive(PrimitiveType.Capsule); torso.name = "Torso";
+                torso.transform.SetParent(drv, false);
+                torso.transform.localPosition = (hip + sh) * 0.5f;
+                torso.transform.localRotation = Quaternion.FromToRotation(Vector3.up, sh - hip);
+                float len = (sh - hip).magnitude + 2f * tr;
+                torso.transform.localScale = new Vector3(2f * tr, len * 0.5f, 2f * tr); // capsule primitive: 1 wide, 2 tall
+                torso.GetComponent<Collider>().sharedMaterial = bodyMat;
+                torso.GetComponent<MeshRenderer>().sharedMaterial = Materials.Solid(new Color(0.1f, 0.1f, 0.12f), 0.3f);
+                var helm = GameObject.CreatePrimitive(PrimitiveType.Sphere); helm.name = "Helmet";
+                helm.transform.SetParent(drv, false);
+                helm.transform.localPosition = new Vector3(dx, setup.helmetYIn * U.In, sh.z - 1f * U.In);
+                helm.transform.localScale = Vector3.one * (2f * setup.helmetRadiusIn * U.In);
+                helm.GetComponent<Collider>().sharedMaterial = bodyMat;
+                helm.GetComponent<MeshRenderer>().sharedMaterial = Materials.Solid(bodyColor, 0.6f);
+                // He's built switched off: KartPhysics turns him on at its first step, once the engine has worked out the
+                // kart's inertia from the kart's own parts, and pins that (see KartPhysics.Step). Reading the inertia here,
+                // as the parts were still being added, got a half-built tensor -- yaw 21 instead of 53 kg m2, axes twisted
+                // 38 deg -- and the karts spun and rolled far too easily (soak 2026-11-18: 3 flips in 8 races).
+                kp.driverColliders = drv.GetComponentsInChildren<Collider>();
+                foreach (var dc in kp.driverColliders) dc.enabled = false;
+            }
+
             // --- wheels (visual only): pivot (steer) -> spin -> cylinder
             var tireMat = Materials.Solid(new Color(0.08f, 0.08f, 0.08f), 0.15f);
             for (int i = 0; i < 4; i++)

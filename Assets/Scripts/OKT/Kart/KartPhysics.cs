@@ -85,9 +85,19 @@ namespace OKT
             preTick = -1;
         }
 
+        [System.NonSerialized] public Collider[] driverColliders;   // the driver's body, switched on at the first step
+
         public void Step(float dt)
         {
             var rb = Body;
+            if (driverColliders != null)
+            {
+                // the inertia the engine worked out from the kart alone, pinned, then the driver's shape switched on
+                var it = rb.inertiaTensor; var itr = rb.inertiaTensorRotation;
+                rb.inertiaTensor = it; rb.inertiaTensorRotation = itr;
+                foreach (var dcol in driverColliders) if (dcol != null) dcol.enabled = true;
+                driverColliders = null;
+            }
             var up = transform.up;
             var s = setup;
             float k = s.SpringRate, c = s.DamperRate;

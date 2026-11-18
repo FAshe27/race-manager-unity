@@ -3,10 +3,12 @@
 //   Unity -batchmode -projectPath <proj> -executeMethod OKT.EditorTools.M2Record.Run
 //         -okt-seed 9001 -okt-out <dir> [-okt-every 0.5] [-okt-size 2560x1440] [-okt-from 0] [-okt-to 420]
 //         [-okt-staging 1] [-okt-focus u:outFt:radiusFt]  (close-up: aim at a point off the track, e.g. the grid gate)
+//         [-okt-field 20] [-okt-stagemph 8] [-okt-gatemph 8]  (field size, staging lane / gate speeds)
 // (Do NOT pass -nographics: the camera needs the GPU.) The sim steps exactly as in the soak -- the recorder
 // only looks; it never changes timing, physics or Time.timeScale.
 // Writes <dir>/f00000.jpg ..., frames.csv (time, phase, laps, latest event per frame), karts.csv (every kart's
-// position in feet and speed in mph per frame) and events.txt.
+// position in feet, speed in mph, speed cap, staging-path step, throttle, steering and last contact per frame) and
+// events.txt.
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -20,6 +22,7 @@ namespace OKT.EditorTools
     {
         const float MToFt = 3.28084f, MsToMph = 2.23694f;
 
+        static int Field; static float StageMph, GateMph;
         public static void Run()
         {
             var a = System.Environment.GetCommandLineArgs();
@@ -36,6 +39,9 @@ namespace OKT.EditorTools
                 if (a[i] == "-okt-size") { var p = a[i + 1].Split('x'); w = int.Parse(p[0]); h = int.Parse(p[1]); }
                 if (a[i] == "-okt-focus") focus = a[i + 1];
                 if (a[i] == "-okt-staging") RaceConfig.DefaultStagingStart = a[i + 1] == "1";
+                if (a[i] == "-okt-field") Field = int.Parse(a[i + 1]);
+                if (a[i] == "-okt-stagemph") StageMph = float.Parse(a[i + 1], ci);
+                if (a[i] == "-okt-gatemph") GateMph = float.Parse(a[i + 1], ci);
             }
             int code = 0;
             try { Record(seed, outDir, every, from, to, w, h, focus); }
@@ -43,12 +49,21 @@ namespace OKT.EditorTools
             EditorApplication.Exit(code);
         }
 
+        static RaceConfig MakeCfg()
+        {
+            var c = new RaceConfig();
+            if (Field > 0) c.fieldSize = Field;
+            if (StageMph > 0) c.stagingMph = StageMph;
+            if (GateMph > 0) c.stagingGateMph = GateMph;
+            return c;
+        }
+
         static void Record(int seed, string outDir, float every, float from, float to, int w, int h, string focus)
         {
             Directory.CreateDirectory(outDir);
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             string json = File.ReadAllText(M1SceneSetup.JsonPath);
-            var world = World.BuildRace(json, seed, new RaceConfig());
+            var world = World.BuildRace(json, seed, MakeCfg());
             var d = world.director;
 
             var sun = new GameObject("Sun").AddComponent<Light>();
@@ -76,7 +91,7 @@ namespace OKT.EditorTools
             var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
 
             var frames = new StringBuilder("frame,t_s,phase,leader_laps,cautions,one_to_go,latest_event\n");
-            var karts = new StringBuilder("frame,t_s,number,x_ft,z_ft,mph,mad,weaving,recovering,to_tail\n");
+            var karts = new StringBuilder("frame,t_s,number,x_ft,z_ft,mph,mad,weaving,recovering,to_tail,cap_mph,stage_idx,stage_n,accel,steer,contact\n");
             d.Start();
             int cap = Mathf.RoundToInt(Mathf.Min(to, Soak.MaxRaceSeconds) / World.FixedDt);
             int stepsPer = Mathf.Max(1, Mathf.RoundToInt(every / World.FixedDt));
@@ -103,7 +118,9 @@ namespace OKT.EditorTools
                     var p = e.kart.transform.position; float v = e.kart.Body != null ? e.kart.Body.linearVelocity.magnitude : 0f;
                     karts.AppendLine(string.Join(",", frame, d.raceTime.ToString("F2", CultureInfo.InvariantCulture), e.driver.number,
                         (p.x * MToFt).ToString("F1", CultureInfo.InvariantCulture), (p.z * MToFt).ToString("F1", CultureInfo.InvariantCulture),
-                        (v * MsToMph).ToString("F1", CultureInfo.InvariantCulture), e.mad ? 1 : 0, e.weaving ? 1 : 0, e.recovering ? 1 : 0, e.toTail ? 1 : 0));
+                        (v * MsToMph).ToString("F1", CultureInfo.InvariantCulture), e.mad ? 1 : 0, e.weaving ? 1 : 0, e.recovering ? 1 : 0, e.toTail ? 1 : 0,
+                        (e.ai.speedCap * MsToMph).ToString("F1", CultureInfo.InvariantCulture), e.ai.stagePath != null ? e.ai.stageIdx : -1, e.ai.stagePath != null ? e.ai.stagePath.Count : -1,
+                        e.kart.accelCmd.ToString("F2", CultureInfo.InvariantCulture), e.kart.steerDeg.ToString("F0", CultureInfo.InvariantCulture), "\"" + (e.kart.GetComponent<KartContact>()?.lastTrackContact ?? "") + "\""));
                 }
                 frame++;
             }

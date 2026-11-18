@@ -81,7 +81,7 @@ namespace OKT
             w.drivers12 = FieldGen.Make(race.fieldSize, seed, baseLap);
             float L = w.track.centerLength;
             float a0 = race.gridLeaderU * L;
-            var lane = race.stagingStart ? w.track.Feature("grid lane") : null;
+            var lane = race.stagingStart && w.track.Feature("grid lane A") != null ? w.track.Feature("grid lane") : null;
             if (race.stagingStart && lane == null) w.Log("Staging start asked for, but the track has no \"grid lane\" feature: starting from the track grid.");
             if (lane != null) { w.SpawnStaging(lane, race); w.LogSetup(); return w; }
             for (int i = 0; i < w.drivers12.Count; i++)
@@ -103,42 +103,68 @@ namespace OKT
             return w;
         }
 
-        /// <summary>Staging-grid start: two columns on the paved grid outside turn 4, pole nearest the lane, facing the
-        /// track. Each kart gets a path down its column, into the lane, through the gate and onto the dirt, where it
-        /// turns down the track. Positions come from the track JSON's "grid lane" feature (u of the gate).</summary>
+        /// <summary>Staging-grid start (Franklin 11-17, laid out from the aerial): the grid is the paved strip running north
+        /// from the turn 4 exit, two lanes with a white strip down the middle -- Lane B west, Lane A east, each about three
+        /// karts wide. The class lines up two-wide in Lane A facing south (toward the track), pole in the west column; a
+        /// field too long for Lane A fills Lane B too. Out single file in pace order: down the column, west along the link
+        /// to the gate at the end of the turn 4 wall, onto the dirt. Positions come from the track JSON's "grid lane"
+        /// (road: gate .. grid) and "grid lane A" / "grid lane B" (centre lines, exit end first) features.</summary>
         void SpawnStaging(TrackFeature lane, RaceConfig race)
         {
+            var laneA = track.Feature("grid lane A"); var laneB = track.Feature("grid lane B");
             float uG = lane.points[0].x, L = track.centerLength;
-            var fg = track.Frame(Mathf.Repeat(uG, 1f) * track.N);
-            var outw = new Vector3(fg.outN.x, 0f, fg.outN.y); var tan = new Vector3(fg.tan.x, 0f, fg.tan.y);
-            Vector3 Ray(float outFt, float sideFt) { var p = track.OffTrackPoint(uG, outFt) + tan * (sideFt * U.Ft); p.y = Mathf.Max(track.InfieldHeight, p.y); return p; }
+            Vector3 FP(Vector2 uo) { var p = track.OffTrackPoint(uo.x, uo.y); p.y = Mathf.Max(track.InfieldHeight, p.y); return p; }
+            Vector3 Flat(Vector3 v) { v.y = 0f; return v.normalized; }
             float gateArc = track.ArcAt(Mathf.Repeat(uG, 1f) * track.N);
-            for (int i = 0; i < drivers12.Count; i++)
+            var road = new List<Vector3>(); foreach (var q in lane.points) road.Add(FP(q)); // gate .. grid end
+            var gatePos = road[0];
+            var aS = FP(laneA.points[0]); var aN = FP(laneA.points[1]);
+            var axis = Flat(aN - aS);                                             // into the grid (north), away from the exit
+            var bS = laneB != null ? FP(laneB.points[0]) : aS + Vector3.Cross(Vector3.up, axis) * 4f;
+            var west = Flat(Vector3.ProjectOnPlane(bS - aS, axis));               // across, toward Lane B
+            float laneLenFt = Vector3.Distance(Flat(aN - aS) * 0f + aN, aS) / U.Ft;
+            int capRows = Mathf.Max(1, Mathf.FloorToInt((laneLenFt - race.stagingFirstRowFt) / race.stagingRowFt) + 1);
+            int n = drivers12.Count, inA = n <= 2 * capRows || laneB == null ? n : (n + 1) / 2;
+            for (int i = 0; i < n; i++)
             {
                 var dp = drivers12[i];
-                int row = i / 2; float side = (i % 2 == 0 ? 1f : -1f) * race.stagingColumnFt; // pole column on the track-forward side
-                float outFt = race.stagingFirstRowFt + row * race.stagingRowFt;
-                var pos = Ray(outFt, side); pos.y += 0.03f;
+                bool inLaneA = i < inA; int k = inLaneA ? i : i - inA;
+                var S0 = inLaneA ? aS : bS;
+                int row = k / 2; float col = (k % 2 == 0 ? 1f : -1f) * race.stagingColumnFt * U.Ft; // pole column to the west
+                var pos = S0 + axis * ((race.stagingFirstRowFt + row * race.stagingRowFt) * U.Ft) + west * col; pos.y += 0.03f;
                 var dc = new DriverConfig { pace = dp.paceFactor, lateralOffsetFt = dp.lateralOffsetIn / 12f };
-                var kp = SpawnKartPose(dp.number, dp.color, new KartSetup { axleTeeth = dp.axleTeeth }, dc, pos, Quaternion.LookRotation(-outw, Vector3.up));
+                var kp = SpawnKartPose(dp.number, dp.color, new KartSetup { axleTeeth = dp.axleTeeth }, dc, pos, Quaternion.LookRotation(-axis, Vector3.up));
                 var ai = drivers[drivers.Count - 1];
                 var path = new List<Vector3>();
-                for (float o = outFt - 3f; o > 52f; o -= 3f) path.Add(Ray(o, side));          // straight out of my slot
-                for (float o = 52f; o >= 0f; o -= 4f) path.Add(Ray(o, side * Mathf.Clamp01((o - 30f) / 22f))); // into the lane's centre
-                // through the gate and onto the dirt, staying against the wall while the banking changes under it (Franklin
-                // 11-17: no suspension -- coming on from the low side, the left front slams down at the crest), then easing
-                // down toward the formation lanes
-                foreach (var (du, frac) in new[] { (0.000f, 0.80f), (0.010f, 0.78f), (0.022f, 0.70f), (0.036f, 0.56f), (0.050f, 0.42f) })
+                void Seg(Vector3 from, Vector3 to, float stepFt) { float d = Vector3.Distance(from, to); int m = Mathf.Max(1, Mathf.CeilToInt(d / (stepFt * U.Ft))); for (int j = 1; j <= m; j++) path.Add(Vector3.Lerp(from, to, (float)j / m)); }
+                // down my column to the grid's exit end
+                var colEnd = S0 + west * col - axis * (2f * U.Ft);
+                Seg(pos, colEnd, 3f);
+                // along the link to the gate (the road run backwards), from the first road point nearer the gate than I am
+                ai.stageSlowIdx = path.Count;
+                var at = colEnd; float myGate = Vector3.Distance(colEnd, gatePos);
+                for (int j = road.Count - 1; j >= 0; j--)
+                    if (Vector3.Distance(road[j], gatePos) < myGate - 1f) { Seg(at, road[j], 3f); at = road[j]; }
+                ai.stageGatePos = gatePos; ai.stageGateIdx = path.Count - 1; ai.stageGateArc = gateArc;
+                // onto the dirt: across the edge and easing down the banking toward the formation lanes, staying in the top
+                // half while the banking changes under it (no suspension: coming on from the low side the left front slams)
                 {
-                    var f = track.Frame(Mathf.Repeat(uG + du, 1f) * track.N); var p = f.pos + f.outN * (frac * f.halfWidth);
-                    path.Add(new Vector3(p.x, 0f, p.y));
+                    var f0 = track.Frame(Mathf.Repeat(uG, 1f) * track.N);
+                    float inEnd = 0.58f * f0.halfWidth;
+                    void At(float alongFt, float inM)
+                    {
+                        var f = track.Frame(Mathf.Repeat(uG + alongFt * U.Ft / L, 1f) * track.N);
+                        var p = f.pos + f.outN * (f.halfWidth - inM); var to = new Vector3(p.x, 0f, p.y);
+                        Seg(at, to, 3f); at = to;
+                    }
+                    At(4f, 2.5f * U.Ft); At(10f, 4.5f * U.Ft); At(18f, 6.5f * U.Ft); At(30f, Mathf.Lerp(6.5f * U.Ft, inEnd, 0.6f)); At(45f, inEnd);
                 }
                 ai.stagePath = path; ai.stageIdx = 0;
                 // one lap to form up from the gate, then the pace lap (Franklin: about a lap before one-to-go)
                 ai.raceDist = gateArc - 2f * L;
                 director.Add(ai, kp, dp, i);
             }
-            Log($"Field: {drivers12.Count} karts on the staging grid (gate u={uG:F3}); grid (pace order): " + string.Join(", ", drivers12.ConvertAll(d => $"#{d.number} {d.tier} q+{d.qualiOffsetSec:F2} race+{d.paceOffsetSec:F2} 12/{d.axleTeeth}{(d.tireNote.Length > 0 ? " " + d.tireNote : "")}{(d.qualiNote.Length > 0 ? " (" + d.qualiNote + ")" : "")}")));
+            Log($"Field: {n} karts on the staging grid, {inA} in Lane A{(n > inA ? $", {n - inA} in Lane B" : "")} (gate u={uG:F3}); grid (pace order): " + string.Join(", ", drivers12.ConvertAll(d => $"#{d.number} {d.tier} q+{d.qualiOffsetSec:F2} race+{d.paceOffsetSec:F2} 12/{d.axleTeeth}{(d.tireNote.Length > 0 ? " " + d.tireNote : "")}{(d.qualiNote.Length > 0 ? " (" + d.qualiNote + ")" : "")}")));
         }
 
         static float ArcToS(TrackModel t, float arc)
