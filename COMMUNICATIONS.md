@@ -3113,3 +3113,19 @@ Soaks, 12 races, 0 breaches, laps 10.85–10.91 s:
 **Open:**
 - Lift time is about 2.6 s a lap, against Franklin's 10–15 ft. Being checked: mid-corner hovering versus real lifts.
 - Self-flips are about 1 in 8 races since the point of no return went on (target 1 in 40–50). Being checked against karts past the point of no return.
+
+## 2026-11-19 night — locked tires skid; flips back down (m2-wip 0cf463e)
+
+**What went wrong:** after the point of no return went on, self-flips rose to about 1 in 7 races. Four of the five flips came 2.5–4 s after a spinning driver locked the brakes, all in the lap-1 turn 2 scramble. A locked rear tire in the sim still held sideways like a rolling one, so the sideways kart tripped over.
+
+**Fix:**
+- A locked tire's grip now all opposes the way it's sliding: it skids.
+- Drivers lock the rears only on purpose, when spinning past the point of no return. Otherwise the brake eases off at 95% of what the tire holds (Franklin: lock-ups only in a panic).
+- Without the easing, the AI locked rears in caution-line and grass braking and spun 10–60 times a race.
+
+Soaks, 12 races, 0 breaches:
+- Self-flips: 2 in 60 races (was 5 in 36).
+- 12 karts: 0.3 / 0.3 / 1.7 incidents per race (seeds 9001 / 9201 / 9101).
+- 20-kart staging: 3.9 / 4.6 (seeds 9003 / 9004). Was 2.3 on 9003; caution check-ups can no longer brake past the tire.
+
+**Not committed:** holding a little gas mid-corner, instead of lifting, only cut lift time from 23% to 19% of the lap. The AI's corner speed plan is the cause. Pit Board q38 asks Franklin for straightaway and mid-corner speeds.
