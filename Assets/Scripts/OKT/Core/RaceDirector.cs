@@ -197,6 +197,10 @@ namespace OKT
         public float freeMergeRate = 2.5f;          // m/s lateral offset change with nobody alongside [TEST VALUE]
         public float trafficMergeRate = 1.0f;       // m/s when side by side / passing (browser sim's capped arc) [TEST VALUE]
         public float followHeadway = 0.03f;        // s of extra following gap at speed (was 0.3: ~20 ft back at speed, real karts run nose to tail) [TEST VALUE]
+        // Under caution a driver matches the kart ahead slowing or speeding up, not only the gap: the driver sees it happen
+        // (soak 11-19: following the gap alone, the line slinkied -- each kart braked a little harder than the one ahead,
+        // the tail stopped to 3 mph off turns 2 and 4 every lap, and the karts behind ran into each other). [TEST VALUE]
+        public float followLeadSec = 1.0f;
         public float followGain = 1.5f;            // check-up: m/s of speed per m of gap error [TEST VALUE]
         public float cleanAirSeconds = 1.0f;       // a lap is clean-air if the kart ahead was always > this far in time [TEST VALUE]
         // Consistency (browser sim stat; Franklin: winners aren't predetermined) [TEST VALUEs]
@@ -374,6 +378,7 @@ namespace OKT
             public int idx; public KartContact kc;
             public int unsetTick, lineTick; public bool unsetV; public float lineV;   // per-pass memos (RaceDirector.Unsettled / LineAt)       // place in field (never reordered) and the contact log: cached, not looked up per step
             public float paceGapFt = 3f;                 // this driver's bumper gap when pacing under caution (2-4 ft)
+            public float vPrev = -1f, aEst, aTime = -1f;  // my speed last step and my smoothed acceleration (m/s, m/s2): what the kart behind sees me doing
             public bool weaver; public float weaveClock;  // tire-warming weave: does he, and time to the next change
             public bool weaving;
             public bool mad;                            // sent to the tail and mad about it: races angrier the rest of the night
@@ -717,8 +722,8 @@ namespace OKT
                 }
                 ai.paceMode = e.finished;
                 ai.looseAwareness = Mathf.Lerp(0.6f, 0.95f, Mathf.InverseLerp(35f, 95f, e.driver.consistency));
-                // catching a slide: the best drivers feel it ~0.06 s late, green ones ~0.15 s (Franklin: slight) [TEST VALUE]
-                ai.reactSec = Mathf.Lerp(0.15f, 0.06f, Mathf.InverseLerp(35f, 95f, e.driver.consistency));
+                // catching a slide: the best drivers feel it ~0.04 s late, green ones ~0.10 s (Franklin: slight; 0.06-0.15 piled up 20-kart fields, he okayed 0.04-0.10 11-19) [TEST VALUE]
+                ai.reactSec = Mathf.Lerp(0.10f, 0.04f, Mathf.InverseLerp(35f, 95f, e.driver.consistency));
                 // ...and how far round it can come before it's gone: 15 deg for green drivers, 20 for the best [TEST VALUE]
                 ai.noReturnDeg = Mathf.Lerp(15f, 20f, Mathf.InverseLerp(35f, 95f, e.driver.consistency));
                 long pt0 = Perf.T(); Traffic(e, dt, kartLen, room, green && e.preLine, launch); Perf.Add(13, ref pt0);
@@ -1730,6 +1735,13 @@ namespace OKT
         void CautionDrive(Entry e, float paceS, float paceC)
         {
             var ai = e.ai; ai.recovering = e.recovering;
+            {
+                float dtS = Time.fixedDeltaTime, vNow = e.kart.ForwardSpeed;
+                if (Time.fixedTime - e.aTime > 1.5f * dtS) { e.vPrev = -1f; e.aEst = 0f; }   // new caution: start fresh, not from last caution's speed
+                e.aTime = Time.fixedTime;
+                if (e.vPrev >= 0f && dtS > 0f) e.aEst = Mathf.Lerp(e.aEst, (vNow - e.vPrev) / dtS, Mathf.Clamp01(dtS / 0.15f));
+                e.vPrev = vNow;
+            }
             if (e.recovering) { ai.formation = false; ai.paceMode = false; ai.rejoinOnGroove = true; return; }
             ai.formation = true; ai.paceMode = true; ai.trafficGoal = 0f;
             if (fsStage != 0 && fsOrder.Contains(e)) { FieldStopDrive(e, paceS, paceC); return; }
@@ -1769,7 +1781,7 @@ namespace OKT
                 float gap = Mathf.Repeat(pred.ai.raceDist - e.ai.raceDist, L);
                 float want = bl + (PushingUp(e) ? cfg.restartBunchGapFt : e.paceGapFt) * U.Ft;
                 {
-                    float cap = pred.kart.ForwardSpeed + cfg.followGain * (gap - want);
+                    float cap = pred.kart.ForwardSpeed + pred.aEst * cfg.followLeadSec + cfg.followGain * (gap - want);
                     float catchUp = Mathf.Clamp(cap - paceS, 0f, cfg.cautionCatchUpMph * U.Mph);
                     ai.paceStraight = paceS + catchUp; ai.paceCorner = paceC + catchUp;
                     ai.speedCap = Mathf.Max(0f, Mathf.Min(cap, BrakeCap(pred.kart.ForwardSpeed, gap - want)));
