@@ -3020,3 +3020,20 @@ Soaks: 0.5–0.6 incidents/race, laps 10.93–10.97 s, cautions 0.3/race.
 **Next, held for Franklin's go:**
 - reaction delay on slide saves;
 - the 15–20° point of no return (his 11-18 ruling, aimed at the 1–2 cautions/race target).
+
+### 2026-11-18 late night CT — Claude Code — [M2] REPORT: slide reaction delay; point of no return held (m2-wip 2f9851c)
+
+From Franklin's rulings, "not superhuman drivers":
+- **Reaction delay:** drivers now feel the kart rotate 0.06 s late (best) to 0.15 s (green) [TEST VALUE]. They still see their line and the karts around them at once.
+- **Point of no return:** built but **off** (`KartAI.NoReturn`). It triggers at 15–20° of inside rotation in a corner: crank right, then lock the brakes once spinning (60°) [TEST VALUE]. In soaks the physics saved about 9 in 10 of those karts, which then snapped into the wall (wall contacts ×3–5). Even with the wheel straight and the brakes on, about two-thirds came back by themselves.
+
+Soaks, 12 races, seeds 9001 / 9101:
+- cautions 1.1 / 1.5 per race (was 0.3);
+- incidents 2.1 / 3.1;
+- contact spins ≥ self spins;
+- laps 10.94 / 10.97 s;
+- 0 breaches.
+
+One field stop: the old tail-bound kart that won't sort in the caution line.
+
+**Open for Franklin:** the physics recovers from 15–20° slides that he says are gone. This is likely the rear tire's grip past its peak slip (sliding grip stays too close to peak).
