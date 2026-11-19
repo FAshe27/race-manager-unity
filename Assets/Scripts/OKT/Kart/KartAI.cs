@@ -197,7 +197,7 @@ namespace OKT
         public void Step(float dt, float simTime)
         {
             var tr = transform; long pt = Perf.T();
-            kart.throttleCmd = -1f; // one pedal unless the racing driver below works the two
+            kart.throttleCmd = -1f; kart.lockBrakes = false; // one pedal unless the racing driver below works the two
             var p2 = new Vector2(tr.position.x, tr.position.z);
 
             // --- progress, laps, band
@@ -423,7 +423,7 @@ namespace OKT
                 }
             }
             bool locking = gone && Mathf.Abs(slipB) * Mathf.Rad2Deg > SpinLockDeg;
-            if (locking) kart.accelCmd = -100f; // spinning: brakes locked (capped at what they hold)
+            kart.lockBrakes = locking; if (locking) kart.accelCmd = -100f; // spinning: brakes locked (capped at what they hold)
             if (TwoPedals && !paceMode && !recovering && !formation)
             {
                 // Two pedals (Franklin 11-19). Gas for speed; into a corner just lift; a touch of slowing behind a kart

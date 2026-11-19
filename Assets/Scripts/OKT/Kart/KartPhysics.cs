@@ -92,6 +92,7 @@ namespace OKT
 
         [System.NonSerialized] public Collider[] driverColliders;   // the driver's body, switched on at the first step
 
+        [System.NonSerialized] public bool lockBrakes; public static int DbgLocked;
         public void Step(float dt)
         {
             var rb = Body;
@@ -207,10 +208,12 @@ namespace OKT
                 float share = N / g;
                 float fLat = -vLat * share * s.lateralCancelGain / dt;
 
-                float fLong = 0f;
+                float fLong = 0f; bool locked = false;
                 if (!front && rearLoad > 1e-3f)
                 {
                     fLong = driveTotal * (N / rearLoad);
+                    if (fLong < 0f && !lockBrakes) fLong = Mathf.Max(fLong, -cap * 0.95f);   // eases off as the rear goes
+                    locked = lockBrakes && fLong < 0f && -fLong >= cap * 0.95f;
                     if (fLong < 0f) // braking never pushes the kart backwards
                     {
                         float stop = Mathf.Max(0f, vLong) * share * s.lateralCancelGain / dt;
@@ -224,6 +227,14 @@ namespace OKT
                 {
                     float sc = cap / mag; fLat *= sc; fLong *= sc;
                     sliding[i] = true;
+                }
+                // A locked tire just skids: all its grip opposes the way it is sliding, none left to hold it sideways
+                // (Franklin 11-18: locking the brakes on dirt slides and probably spins the kart). Drivers only lock
+                // them on purpose (lockBrakes: spinning past the point of no return); otherwise they ease off at the limit.
+                if (locked)
+                {
+                    float vs = Mathf.Sqrt(vLat * vLat + vLong * vLong);
+                    if (vs > 0.3f) { fLat = -vLat / vs * cap; fLong = -vLong / vs * cap; sliding[i] = true; DbgLocked++; }
                 }
                 rb.AddForceAtPosition(side * fLat + fwd * fLong, hits[i].point);
                 if (hits[i].rigidbody != null && hits[i].rigidbody != rb) hits[i].rigidbody.AddForceAtPosition(-(side * fLat + fwd * fLong), hits[i].point);
