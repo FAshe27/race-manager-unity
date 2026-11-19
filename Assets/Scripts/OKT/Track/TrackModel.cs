@@ -29,7 +29,9 @@ namespace OKT
         // Layer 2: groove dig. Depth ≈1.2 in (spec ≈3 cm) [TEST VALUE]; width 6.5 ft
         // [TEST VALUE] — middle of Franklin's 5.2–8.2 ft (1.6–2.5 m) range.
         public float grooveDepthIn = 1.2f;
-        public float grooveWidthFt = 9f;            // Franklin 11-18: the groove (grip band and the drawn strip) is 9 ft
+        public float grooveWidthFt = 9f;
+        public float apexCentreFt = 2.3f;           // groove centre at the apex, from the inside edge: a 42 in kart's left side ~6 in off the bottom [Franklin 11-18; TEST VALUE]
+        public float apexBlendFt = 6f;              // ...blending back to Franklin's drawn groove by here            // Franklin 11-18: the groove (grip band and the drawn strip) is 9 ft
 
         // Layer 3: roughness. Franklin: "generally it's smooth; rises and dips are
         // symptoms of poor track prep." Default ±0.8 in peak (spec low end) with
@@ -202,6 +204,20 @@ namespace OKT
             c = ReadPts(root["centerlineM"], N);
             hw = ReadFloats(root["halfWidthM"], N);
             frac = ReadFloats(root["lineFrac"], N);
+            // Mid-corner the groove runs with the left sides right at the bottom (Franklin 11-18: "They should have those
+            // left sides at the very bottom of the corner in the center" -- karts were leaving room inside). The groove's
+            // lowest point is brought down to apexCentreFt from the inside edge; above apexBlendFt it's untouched.
+            {
+                float lo = float.MaxValue; var hwS = ReadFloats(root["halfWidthM"], N);
+                for (int k = 0; k < N; k++) lo = Mathf.Min(lo, frac[k] * 2f * hwS[k]);
+                float tgt = cfg.apexCentreFt * U.Ft, top = cfg.apexBlendFt * U.Ft;
+                if (lo > tgt && lo < top)
+                    for (int k = 0; k < N; k++)
+                    {
+                        float di = frac[k] * 2f * hwS[k];
+                        if (di < top) frac[k] = (tgt + (di - lo) * (top - tgt) / (top - lo)) / (2f * hwS[k]);
+                    }
+            }
             corner = ReadFloats(root["cornerTable"], N);
 
             // Barrier layout (v3+). Without it (v2 file): one continuous guardrail.

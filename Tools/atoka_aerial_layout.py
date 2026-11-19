@@ -75,7 +75,10 @@ feats = []
 def feat(**k): feats.append(k)
 xm = (GRID['xW'] + GRID['xE']) / 2
 feat(type='road', name='grid lane', widthFt=20, points=[UO(*p) for p in [((GATE[0][0] + GATE[1][0]) / 2, (GATE[0][1] + GATE[1][1]) / 2)] + LINK[1:] + [GRID_END]])
-feat(type='gate', name='grid gate (red swing gate)', heightFt=3.5, points=[UO(*p) for p in GATE])
+# drawn swung open, hinged at the rail end and folded back along the triangle fence on the link side (11-18: drawn
+# closed across the opening, the staging karts drove through it)
+GATE_OPEN = [(757, 366), (789, 353)]
+feat(type='gate', name='grid gate (red swing gate, open)', heightFt=3.5, points=[UO(*p) for p in GATE_OPEN])
 feat(type='pad', name='staging grid', points=[UO(*p) for p in line_px([(GRID['xW'], GRID['yS']), (GRID['xE'], GRID['yS']), (GRID['xE'], GRID['yN']), (GRID['xW'], GRID['yN']), (GRID['xW'], GRID['yS'])])][:-1])
 feat(type='pad', name='grid link (to the gate)', points=[UO(*p) for p in line_px([(733, 340), (797, 327), (848, 331), (757, 369)])])
 feat(type='paint', name='grid centre strip (Lane B west | Lane A east)', widthFt=0.33, points=[UO(*p) for p in line_px([(xm, GRID['yS']), (xm, GRID['yN'])], 10)])

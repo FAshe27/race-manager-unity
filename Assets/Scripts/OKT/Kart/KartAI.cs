@@ -273,12 +273,14 @@ namespace OKT
             if (gShift != 0f) dT = Mathf.Clamp(dT, LowLimit(tf), HighLimit(tf)); // a shifted limit never aims me off the dirt
             // A kart beside me changes where I'm GOING, not where I am (Franklin 11-18): the limit's push on my aim comes in
             // over a moment (the plan ahead reshapes) instead of in one step (a yank of the wheel, toward the wall or into
-            // him), and eases back out as he clears. The hard floor -- rubbing, never across him -- holds throughout.
+            // him), and eases back out as he clears (letting go at once was itself a yank: incidents 0.3 -> 1.4/race). The hard floor -- rubbing, never across him -- holds throughout.
             {
                 float push = dT - dPre;
-                push = Mathf.MoveTowards(planPush, push, PlanEaseMps * dt);
+                // (not off a green: there the limits ride the groove and must move with it at once -- eased, the double
+                // file froze row by row again and fanned out four wide, Franklin's playtest 11-18 evening)
+                if (!limitsRideGroove) push = Mathf.MoveTowards(planPush, push, PlanEaseMps * dt);
                 planPush = push; dT = dPre + push;
-                dT = Mathf.Clamp(dT, Mathf.Min(latHardMin, latHardMax), Mathf.Max(latHardMin, latHardMax));
+                dT = Mathf.Clamp(dT, Mathf.Min(latHardMin, latHardMax) + gShift, Mathf.Max(latHardMin, latHardMax) + gShift);
                 dT = Mathf.Clamp(dT, LowLimit(tf), HighLimit(tf));
             }
             lastAimD = dT; lastAimLow = LowLimit(tf);

@@ -1851,7 +1851,7 @@
   "turn3Entry": 0.5703,
   "turn4Exit": 0.9336
  },
- "notes": "Units are metres (engine units); Franklin-facing values are reported in feet. Sample 0 = start/finish, mid front straight; travel counter-clockwise seen from above; world X = json x, world Z = json y. lineFrac 0 = inside edge, 1 = outside edge. No racingLineM: v2's was mirrored; build the line from lineFrac. 2026-11-17 night: staging grid, link, gate, exit road, scale house and fences re-laid from the Atoka aerial per Franklin's sketch (grid = the paved strip running north from the turn 4 exit, x 797..848 on the aerial per Franklin's blue lines in atoka-openings-aerial-markup; Lane A east, Lane B west, white strip between; exit road up the east side to the scale house). Built by scratch tool aerial_layout.py: aerial pixels -> (u, feet out) with the overlay fit x 165..842, y 318..768. Grid-gate opening's east end moved to u 0.853 (where the turn 4 wall ends on the aerial). 2026-11-18: the grid link road moved north (aerial px (790,337), (822,331), grid end (830,328)) to clear the turn 4 triangle fence -- traced along it, karts leaving Lane A drove through the fence's post end (Franklin's playtest). The turn 4 guardrail now ends at u 0.853 with the opening (it still ran to 0.862, across the karts' way onto the dirt at the gate's middle).",
+ "notes": "Units are metres (engine units); Franklin-facing values are reported in feet. Sample 0 = start/finish, mid front straight; travel counter-clockwise seen from above; world X = json x, world Z = json y. lineFrac 0 = inside edge, 1 = outside edge. No racingLineM: v2's was mirrored; build the line from lineFrac. 2026-11-17 night: staging grid, link, gate, exit road, scale house and fences re-laid from the Atoka aerial per Franklin's sketch (grid = the paved strip running north from the turn 4 exit, x 797..848 on the aerial per Franklin's blue lines in atoka-openings-aerial-markup; Lane A east, Lane B west, white strip between; exit road up the east side to the scale house). Built by scratch tool aerial_layout.py: aerial pixels -> (u, feet out) with the overlay fit x 165..842, y 318..768. Grid-gate opening's east end moved to u 0.853 (where the turn 4 wall ends on the aerial). 2026-11-18: the grid link road moved north (aerial px (790,337), (822,331), grid end (830,328)) to clear the turn 4 triangle fence -- traced along it, karts leaving Lane A drove through the fence's post end (Franklin's playtest). The turn 4 guardrail now ends at u 0.853 with the opening (it still ran to 0.862, across the karts' way onto the dirt at the gate's middle). The red swing gate is drawn open, folded back along the triangle fence on the link side (drawn closed, staging karts drove through it -- Franklin's playtest 11-18 evening).",
  "features": [
   {
    "type": "dirtroad",
@@ -1901,16 +1901,16 @@
   },
   {
    "type": "gate",
-   "name": "grid gate (red swing gate)",
+   "name": "grid gate (red swing gate, open)",
    "heightFt": 3.5,
    "points": [
     [
-     0.870347,
-     2.56
+     0.853833,
+     1.0
     ],
     [
-     0.853193,
-     1.0
+     0.846188,
+     12.63
     ]
    ]
   },

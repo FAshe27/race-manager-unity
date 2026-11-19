@@ -102,7 +102,7 @@ namespace OKT
         public bool concedeOnlyInLoose = true;       // Franklin q29
         public float defendCoverIn = 14f;           // moves down this far below the groove at entry (aggression 1) [TEST VALUE]
         public float defendSqueezeIn = 3f;          // leans this far into the side-by-side spacing (aggression 1) [TEST VALUE]
-        public float sideRoomIn = 42f;              // = Franklin's measured overall width (11-16; was 50 = WKA cap)             // centre-to-centre side by side: nerfs are 51 in apart, so side by side means rubbing (Franklin: contact is commonplace) [TEST VALUE]
+        public float sideRoomIn = 38f;              // side by side, centre to centre: 4 in inside the 42 in overall width, so karts beside each other lean and rub (Franklin 11-18: they were giving each other a wide berth -- median 18 in of daylight at 42) [TEST VALUE]
         public float followGapFt = 1.0f;           // bumper-to-bumper gap a kart settles at when it checks up (Franklin's video: nose to tail, ~a kart length) [TEST VALUE]
         public float lookAheadTime = 0.5f;         // spec §7: slot projected ~0.5 s ahead
         public float passStartGapFt = 11f;         // centre to centre: nose within ~4 ft of his bumper (Franklin: passes tried from way too far back) [TEST VALUE]
