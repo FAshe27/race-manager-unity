@@ -137,7 +137,11 @@ namespace OKT
         [System.NonSerialized] public int stageGateIdx = int.MaxValue;     // the path point at the gate
         [System.NonSerialized] public float stageGateArc;                  // the gate's distance round the lap (m)
         [System.NonSerialized] public int stageIdx;
-        [System.NonSerialized] public bool limitsRideGroove;     // set by the director for the first seconds after a green
+        [System.NonSerialized] public bool limitsRideGroove;
+        public static float WallLookSec = 0.4f;   // sliding past my aim into the wall within this long: drag the brake [TEST VALUE]
+        public static float WallDragFrac = 0.05f; // ...at most this much under my speed (about 1/8 g at 30 mph) [TEST VALUE]
+        [System.NonSerialized] public float latHardMin = float.NegativeInfinity, latHardMax = float.PositiveInfinity, planPush;
+        public static float PlanEaseMps = 1.5f;   // m/s the occupancy push on my aim comes in at [TEST VALUE]     // set by the director for the first seconds after a green
         [System.NonSerialized] public float lastAimD, lastAimLow; // forensics: the steering target and its low limit
         [System.NonSerialized] public float latMin = float.NegativeInfinity, latMax = float.PositiveInfinity;
 
@@ -263,9 +267,20 @@ namespace OKT
             // front row climb with it, and every row behind climbed a step later than the row ahead. Only off the green:
             // in traffic it also let a kart turn down onto one running under it at the apex -- soak 11-18, cautions x3.)
             float gShift = limitsRideGroove ? tf.LineOffset - LineOffsetHere : 0f;
+            float dPre = dT;
             if (latMin <= latMax) dT = Mathf.Clamp(dT, latMin + gShift, latMax + gShift);
             else dT = d; // squeezed from both sides: hold my line
             if (gShift != 0f) dT = Mathf.Clamp(dT, LowLimit(tf), HighLimit(tf)); // a shifted limit never aims me off the dirt
+            // A kart beside me changes where I'm GOING, not where I am (Franklin 11-18): the limit's push on my aim comes in
+            // over a moment (the plan ahead reshapes) instead of in one step (a yank of the wheel, toward the wall or into
+            // him), and eases back out as he clears. The hard floor -- rubbing, never across him -- holds throughout.
+            {
+                float push = dT - dPre;
+                push = Mathf.MoveTowards(planPush, push, PlanEaseMps * dt);
+                planPush = push; dT = dPre + push;
+                dT = Mathf.Clamp(dT, Mathf.Min(latHardMin, latHardMax), Mathf.Max(latHardMin, latHardMax));
+                dT = Mathf.Clamp(dT, LowLimit(tf), HighLimit(tf));
+            }
             lastAimD = dT; lastAimLow = LowLimit(tf);
             var target = tf.pos + tf.outN * dT;
 
@@ -326,6 +341,21 @@ namespace OKT
             if (!paceMode) targetSpeed += pushedBoost;
             if (recovering) targetSpeed = recoverySpeed;
             targetSpeed = Mathf.Min(targetSpeed, speedCap);
+            // Pushing wide toward the wall (an exit, a slide): drag the brake a bit to tighten up rather than bounce off
+            // it (Franklin 11-18: "much more often drag the brake a bit to avoid hitting the wall ... That breaks stuff").
+            if (!paceMode && !recovering && !formation)
+            {
+                var fw = track.Frame(s); var vw = kart.Body.linearVelocity;
+                // only when the slide is carrying me past where I'm aiming and on into the wall -- the groove itself runs
+                // up by the wall on the exits, and dragging the brake for that cost ~0.45 s a lap (soak 11-18)
+                float vOut = vw.x * fw.outN.x + vw.z * fw.outN.y;
+                float dPred = d + vOut * WallLookSec, over = dPred - HighLimit(fw);
+                if (vOut > 0.3f && over > 0f && dPred > lastAimD + 0.3f)
+                {
+                    float urg = Mathf.Clamp01(over / (vOut * WallLookSec));
+                    targetSpeed = Mathf.Min(targetSpeed, kart.ForwardSpeed * (1f - WallDragFrac * urg));
+                }
+            }
             kart.accelCmd = (targetSpeed - kart.ForwardSpeed) * cfg.speedGain;
             // Feather the throttle when the rear steps out: a driver eases off a power slide instead of holding it
             // flat. Held flat, the rear caught grip all at once with the wheel turned against the slide and

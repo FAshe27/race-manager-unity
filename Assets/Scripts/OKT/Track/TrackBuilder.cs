@@ -504,8 +504,9 @@ namespace OKT
                 {
                     float uu = (x + 0.5f) / W;
                     float dm = Mathf.Abs(uu - 0.5f) * 8f; // metres from the groove centre
-                    // the worn strip fades out 2 m either side of the line (Franklin 11-18: twice as wide; was 1 m)
-                    float g = dm < 2f ? 0.5f * (1f + Mathf.Cos(Mathf.PI * dm * 0.5f)) : 0f;
+                    // the worn strip is the groove: 9 ft, solid to 1.0 m either side of the line, faded out by 1.75 m (half
+                    // strength at the band edge, 4.5 ft) -- Franklin 11-18
+                    float g = dm < 1.0f ? 1f : dm < 1.75f ? 0.5f * (1f + Mathf.Cos(Mathf.PI * (dm - 1.0f) / 0.75f)) : 0f;
                     var c = uu > 0.985f ? grass : Color.Lerp(baseC, groove, g);
                     float n = (float)(rnd.NextDouble() - 0.5) * 0.04f;
                     px[y * W + x] = new Color(c.r + n, c.g + n, c.b + n, 1f);

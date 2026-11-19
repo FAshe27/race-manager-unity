@@ -29,7 +29,7 @@ namespace OKT
         // Layer 2: groove dig. Depth ≈1.2 in (spec ≈3 cm) [TEST VALUE]; width 6.5 ft
         // [TEST VALUE] — middle of Franklin's 5.2–8.2 ft (1.6–2.5 m) range.
         public float grooveDepthIn = 1.2f;
-        public float grooveWidthFt = 6.5f;
+        public float grooveWidthFt = 9f;            // Franklin 11-18: the groove (grip band and the drawn strip) is 9 ft
 
         // Layer 3: roughness. Franklin: "generally it's smooth; rises and dips are
         // symptoms of poor track prep." Default ±0.8 in peak (spec low end) with
@@ -62,7 +62,8 @@ namespace OKT
         public float offGrooveGrip = 0.70f;          // ABOVE the groove: the loose stuff
         public float belowGrooveGrip = 0.92f;        // below it: the narrow apron down to the inside edge -- the groove hugs
                                                      // the inside at Atoka, so the inside line keeps most of its bite [TEST VALUE]
-        public float offGrooveRampFt = 5f;
+        public float offGrooveRampFt = 5f;          // below the groove: eases to belowGrooveGrip over this
+        public float offGroovePer4Ft = 0.10f;       // above the groove: every 4 ft costs 10% grip, down to offGrooveGrip (Franklin 11-18)
 
         // Berm dust (Franklin, after the M1 playtest): running on the loose berm does NOT
         // scrub speed by itself. It coats the tire; a dusted tire has 70% bite until it
@@ -538,9 +539,11 @@ namespace OKT
         /// <summary>Grip on the racing surface: 1 in the groove, down to offGrooveGrip in the loose stuff either side.</summary>
         public float GrooveGrip(in TrackFrame f, float d)
         {
-            float off = (Mathf.Abs(d - f.LineOffset) - cfg.grooveWidth * 0.5f) / (cfg.offGrooveRampFt * U.Ft);
-            off = Mathf.Clamp01(off); off = off * off * (3f - 2f * off);
-            return Mathf.Lerp(1f, d >= f.LineOffset ? cfg.offGrooveGrip : cfg.belowGrooveGrip, off);
+            float beyond = Mathf.Abs(d - f.LineOffset) - cfg.grooveWidth * 0.5f;
+            if (beyond <= 0f) return 1f;
+            if (d >= f.LineOffset) return Mathf.Max(cfg.offGrooveGrip, 1f - cfg.offGroovePer4Ft * beyond / (4f * U.Ft));
+            float off = Mathf.Clamp01(beyond / (cfg.offGrooveRampFt * U.Ft)); off = off * off * (3f - 2f * off);
+            return Mathf.Lerp(1f, cfg.belowGrooveGrip, off);
         }
 
         public float LayerBanking(in TrackFrame f, float d)

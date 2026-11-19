@@ -82,6 +82,10 @@ namespace OKT
         public float formCatchUpMph = 15f;
         public float startRollMinMph = 15f, startRollMaxMph = 25f; // Franklin q24: the leader rolls the start at 15-25 mph, his choice
         // Traffic geometry [TEST VALUEs]
+        // A passed driver "changes where he's going to go, not necessarily where he IS" (Franklin 11-18): a kart beside me
+        // reshapes my line ahead over a moment instead of snapping my aim; we may rub (centres down to this x side room
+        // apart) but I never drive across him. [TEST VALUE]
+        public float rubFrac = 0.8f;
         public float alongsideFt = 7.1f;           // longitudinal window that counts as "alongside" (≈ kart length 6.1 ft + 1 ft)
         // Driver awareness (Franklin, 11-16): "you've only got about a 90 degree field of view from your vantage point
         // thanks to the helmet... unless you have a reason to believe there's a kart there -- there isn't, in your mind."
@@ -609,6 +613,7 @@ namespace OKT
                 ai.paceStraight = paceS; ai.paceCorner = paceC;
                 ai.speedCap = float.PositiveInfinity; ai.attackBoost = 0f; ai.pushedBoost = 0f;
                 ai.latMin = float.NegativeInfinity; ai.latMax = float.PositiveInfinity; ai.grooveLane = KartAI.NoGrooveLane;
+                ai.latHardMin = float.NegativeInfinity; ai.latHardMax = float.PositiveInfinity; // (stale floors from the last green lap jammed the caution line)
                 ai.rejoinOnGroove = false; ai.weaveAmp = 0f;
                 ai.limitsRideGroove = green && raceTime - greenTime < cfg.startLanesSec; // the weave is caution-only: CautionDrive turns it back on
                 if (e.outOfRace) { ai.paceMode = true; ai.speedCap = 0f; continue; }
@@ -770,6 +775,15 @@ namespace OKT
                 bool seen = Sees(tr, headL, c, glance);
                 if (!seen) { var otr = o.kart.transform; seen = Sees(tr, headL, otr.TransformPoint(0f, 0f, o.kart.setup.FootFront), glance) || Sees(tr, headL, otr.TransformPoint(0f, 0f, -o.kart.setup.FootRear), glance); }
                 bool felt = kc != null && kc.lastOther == o.kart && w.simTime - kc.lastContactTime < 0.3f;
+                // alongside with his nose at or past my helmet: I know he's there, looking or not (Franklin 11-18, photo of
+                // the white kart: "when your nose is at the yellow line, it's a safe assumption that the white kart sees you")
+                if (!seen && !felt)
+                {
+                    var otr = o.kart.transform;
+                    var noseL = tr.InverseTransformPoint(otr.TransformPoint(0f, 0f, o.kart.setup.FootFront));
+                    var tailL = tr.InverseTransformPoint(otr.TransformPoint(0f, 0f, -o.kart.setup.FootRear));
+                    seen = noseL.z >= headL.z && tailL.z <= e.kart.setup.FootFront && Mathf.Abs(noseL.x) < 2f * cfg.sideRoomIn * U.In;
+                }
                 if (seen || felt) e.knowT[i] = raceTime;
             }
         }
@@ -1002,6 +1016,7 @@ namespace OKT
             // (the target sits down the road where the groove may already have moved — e.g. diving
             // to the apex — so a limit at my current position alone let karts steer into each other).
             float latMin = float.NegativeInfinity, latMax = float.PositiveInfinity;
+            float hardMin = float.NegativeInfinity, hardMax = float.PositiveInfinity;
             foreach (var o in field)
             {
                 if (o == e || o.cleared) continue;
@@ -1010,6 +1025,7 @@ namespace OKT
                 if (!Hazard(o) && !Knows(e, o)) continue; // not in my view and not felt: he isn't there, in my mind (Franklin)
                 float od = o.ai.d;
                 if (myD >= od) latMin = Mathf.Max(latMin, od + room); else latMax = Mathf.Min(latMax, od - room);
+                if (myD >= od) hardMin = Mathf.Max(hardMin, od + room * cfg.rubFrac); else hardMax = Mathf.Min(hardMax, od - room * cfg.rubFrac);
                 // Hold my line; never climb (or dive) to make room for him (Franklin, 11-16: "They'll rub up against each
                 // other ten times before they move apart on purpose once"). Just don't steer further into him.
                 if (Mathf.Abs(goalAbs - od) < room)
@@ -1034,6 +1050,7 @@ namespace OKT
             if (myD < latMin) latMin = myD;
             if (myD > latMax) latMax = myD;
             ai.latMin = latMin; ai.latMax = latMax;
+            ai.latHardMin = Mathf.Min(hardMin, myD); ai.latHardMax = Mathf.Max(hardMax, myD);
             // Merge rate: brisk when nobody is alongside and no move is on (the post-green lane-to-groove merge
             // finishes on the straight — a slow merge unwound mid-corner and swung the pole onto the berm at
             // the turn-2 exit, lap 1, in most races); gentle when side by side or passing.
