@@ -3055,3 +3055,33 @@ Confirmation soaks, 0 breaches:
 - 20-kart staging, seed 9003: 0.4 cautions, 1.1 incidents, 0 field stops.
 
 **Next:** test why the physics saves 15–20° slides: yaw inertia, front vs rear grip, and rear grip while sliding.
+
+## 2026-11-19 afternoon — point of no return at ~35° (m2-wip 0077d53)
+
+Franklin's Pit Board answers (q35–q37):
+- **q35:** a slow, steady slide is much easier to save than a fast snap, and snaps mostly come from contact. After seeing a kart drawn at 10/20/30/40°: "passing roughly 35 degrees is the point of no return". His earlier 15–20° was an underestimate.
+- **q36:** drivers turn the wheel "as fast as you can turn your hands"; the linkage is direct.
+- **q37:** lock-ups only happen in a panic. At Atoka drivers lift about 10–15 ft before the corner centre. On slick days they slightly drag the brake for 15–20 ft; on a perfect track they may not lift at all.
+- **Also:** gas and brake should be two controls. It's not uncommon to keep the throttle full and drag the brake to slow a touch and stay in the powerband.
+
+Committed: the point of no return is ON at 33–37° (by driver consistency) [TEST VALUE split].
+
+Soaks, 12 karts, on vs off, 0 breaches:
+
+| Seed | Incidents per race, on | Off |
+|---|---|---|
+| 9001 | 0.6 | 1.1 |
+| 9101 | 1.8 | 1.1 |
+| 9201 | 3.3 | 0.5 |
+
+On 9201, 12 karts reached 35° and 2 were saved.
+
+Tested in scratch, not committed:
+- Weaker front tires: no change.
+- Less sliding grip: chaos.
+- AI hand-speed limit: small effect.
+- Locked rears skid along their slip (works, but needs AI braking that doesn't lock).
+- Yaw inertia from the colliders is 52.6 kg·m², high.
+- The AI never lifted: its single pedal braked in 24% of green-flag time.
+
+In progress: separate gas and brake pedals.
