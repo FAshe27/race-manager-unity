@@ -3037,3 +3037,21 @@ Soaks, 12 races, seeds 9001 / 9101:
 One field stop: the old tail-bound kart that won't sort in the caution line.
 
 **Open for Franklin:** the physics recovers from 15–20° slides that he says are gone. This is likely the rear tire's grip past its peak slip (sliding grip stays too close to peak).
+
+## 2026-11-19 morning — caution slinky fixed; gentler slide delay (m2-wip 1e89ba4)
+
+Franklin's Pit Board answers (q31–q34):
+- **q31:** front tires sit 1/8–1/4 in inside the nose. The kart-parts session set them at 3/16 in.
+- **q32:** karts do very rarely get launched over a rail, and he sent photos. This was not the sim's first: rail launches on 11-15 (fixed) and a rail-end roll on 11-18. Watch the count; don't chase it unless it repeats.
+- **q33:** Atoka runs 7–12 karts now (it used to be double). 3–4 spins/stops in a 20-kart feature sounds right; 1–2 is common, and all-green races happen.
+- **q34:** a 15–20° slide is gone because dirt grip is scarce and the rear's momentum beats the front tires' grip.
+
+Committed:
+- **Caution slinky:** each driver also follows the kart ahead slowing, not only the gap (followLeadSec 1.0 s [TEST VALUE]). Late hard caution contacts went from 16–26 to 0–3 per 12 races.
+- **Slide reaction delay:** now 0.04–0.10 s (was 0.06–0.15). Franklin okayed it.
+
+Confirmation soaks, 0 breaches:
+- 12 karts, seed 9001: 0.3 cautions, 1.1 incidents, 1 field stop, laps 10.99 s.
+- 20-kart staging, seed 9003: 0.4 cautions, 1.1 incidents, 0 field stops.
+
+**Next:** test why the physics saves 15–20° slides: yaw inertia, front vs rear grip, and rear grip while sliding.
