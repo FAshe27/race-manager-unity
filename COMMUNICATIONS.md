@@ -3085,3 +3085,31 @@ Tested in scratch, not committed:
 - The AI never lifted: its single pedal braked in 24% of green-flag time.
 
 In progress: separate gas and brake pedals.
+
+## 2026-11-19 evening — gas and brake are two pedals (m2-wip b0bd5d0)
+
+Per Franklin, gas and brake are now separate, and both can be on at once.
+
+In green-flag racing the AI:
+- uses the gas for speed;
+- lifts for slowing gentler than 0.3 g into a corner;
+- holds the gas and drags the brake when behind a kart or steering off the wall (stays in the powerband);
+- brakes with the gas off for harder check-ups;
+- locks the brakes when spinning past the point of no return.
+
+LiftG and DragG are both 0.3 g [TEST VALUE]. Staging, cautions and tests keep the one-pedal command.
+
+Share of green-flag time: lift 23%, gas plus brake drag 9%, brake 3% (was 24% braking).
+
+Soaks, 12 races, 0 breaches, laps 10.85–10.91 s:
+
+| | Incidents per race, two pedals | One pedal |
+|---|---|---|
+| Seed 9001 | 0.6 | 0.6 |
+| Seed 9101 | 0.3 | 1.8 |
+| Seed 9201 | 1.0 | 3.3 |
+| 20 karts, staged start | 2.3 | 3.9 |
+
+**Open:**
+- Lift time is about 2.6 s a lap, against Franklin's 10–15 ft. Being checked: mid-corner hovering versus real lifts.
+- Self-flips are about 1 in 8 races since the point of no return went on (target 1 in 40–50). Being checked against karts past the point of no return.
