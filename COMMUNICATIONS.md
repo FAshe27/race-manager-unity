@@ -3006,3 +3006,17 @@ Noise: old code on seeds 9101 vs 9001 gave incidents 2.8 vs 1.5/race.
 20-kart staging: 0.2 incidents/race, 0 field stops.
 
 **Open for Franklin:** cautions are now 0.1–0.3/race against the 1–2 target.
+
+### 2026-11-18 night CT — Claude Code — [M2] REPORT: two-wide start restored, apex at the bottom, tighter side-by-side, gate open (m2-wip, see git log)
+
+From Franklin's evening playtest:
+- **Double-file fan-out returned** because the afternoon ease slowed the start window. Now applied at once off a green, and the floors ride the groove.
+- **Apex:** groove centre 2.3 ft off the inside edge (was 3.7), so left sides run at the bottom.
+- **Side-by-side spacing:** 42 → 38 in, so karts rub. Median gap 60 → 55 in.
+- **Red swing gate:** now drawn open. Staging karts had driven through it while it was drawn closed.
+
+Soaks: 0.5–0.6 incidents/race, laps 10.93–10.97 s, cautions 0.3/race.
+
+**Next, held for Franklin's go:**
+- reaction delay on slide saves;
+- the 15–20° point of no return (his 11-18 ruling, aimed at the 1–2 cautions/race target).
