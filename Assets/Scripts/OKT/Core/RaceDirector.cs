@@ -717,6 +717,10 @@ namespace OKT
                 }
                 ai.paceMode = e.finished;
                 ai.looseAwareness = Mathf.Lerp(0.6f, 0.95f, Mathf.InverseLerp(35f, 95f, e.driver.consistency));
+                // catching a slide: the best drivers feel it ~0.06 s late, green ones ~0.15 s (Franklin: slight) [TEST VALUE]
+                ai.reactSec = Mathf.Lerp(0.15f, 0.06f, Mathf.InverseLerp(35f, 95f, e.driver.consistency));
+                // ...and how far round it can come before it's gone: 15 deg for green drivers, 20 for the best [TEST VALUE]
+                ai.noReturnDeg = Mathf.Lerp(15f, 20f, Mathf.InverseLerp(35f, 95f, e.driver.consistency));
                 long pt0 = Perf.T(); Traffic(e, dt, kartLen, room, green && e.preLine, launch); Perf.Add(13, ref pt0);
             }
         }

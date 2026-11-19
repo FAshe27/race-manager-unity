@@ -138,6 +138,26 @@ namespace OKT
         [System.NonSerialized] public float stageGateArc;                  // the gate's distance round the lap (m)
         [System.NonSerialized] public int stageIdx;
         [System.NonSerialized] public bool limitsRideGroove;
+        // Catching a slide (Franklin 11-18: "Them saving the kart in a slide is instantaneous and there's a human delay
+        // in real life. While the better drivers detect it quicker, some drivers don't" -- "super slight, I just want it
+        // to not be superhuman drivers"). The driver feels the kart rotate under him this long late; where he's going
+        // (his line, the karts around him) he still sees at once. Set by the director from consistency.
+        [System.NonSerialized] public float reactSec = 0.1f;
+        // Point of no return (Franklin 11-18: "when a kart starts to spin and they spin about 15-20 degrees to the left in
+        // a corner, there's no saving that without getting lucky by another kart hitting your nose"): rotated this far
+        // to the inside of the corner, it's gone. He still cranks the wheel right and the throttle comes off as the slide grows
+        // (Franklin: "crank the wheel to the right and modulate through gas and brake to hopefully save the slide") --
+        // whatever saves it now is the physics and luck, not him; once it's really spinning he locks the brakes ("If they
+        // spin, they'll usually lock the brakes down"). Director sets it.
+        [System.NonSerialized] public float noReturnDeg = 18f;
+        public static bool SlideReact = true, NoReturn = false;  // soak knobs
+        public const float NoReturnCornerMin = 0.3f;   // "in a corner": the corner profile past this [TEST VALUE]
+        public const float SpinLockDeg = 60f;          // rotated this far it's a spin: brakes locked [TEST VALUE]
+        public const float NoReturnLuckDeg = 8f;       // knocked back under this (another kart's nose): he has it again [TEST VALUE]
+        const int SlideHistN = 64;
+        readonly float[] betaHist = new float[SlideHistN], yawHist = new float[SlideHistN]; int slideHead, slideCount;
+        [System.NonSerialized] public bool gone; // past the point of no return
+        public static long DbgGone, DbgLucky;
         public static float WallLookSec = 0.4f;   // sliding past my aim into the wall within this long: drag the brake [TEST VALUE]
         public static float WallDragFrac = 0.05f; // ...at most this much under my speed (about 1/8 g at 30 mph) [TEST VALUE]
         [System.NonSerialized] public float latHardMin = float.NegativeInfinity, latHardMax = float.PositiveInfinity, planPush;
@@ -290,13 +310,36 @@ namespace OKT
             var toT = new Vector3(target.x - rear.x, 0f, target.y - rear.z);
             var local = tr.InverseTransformDirection(toT);
             float alpha = Mathf.Atan2(local.x, local.z);
+            // --- the slide as the driver feels it: body slip (nose vs. where the kart is travelling, + = nose right)
+            float yawRate = Vector3.Dot(kart.Body.angularVelocity, tr.up);
+            float slipB = 0f;
+            {
+                var vb = kart.Body.linearVelocity; vb.y = 0f; var fb = tr.forward; fb.y = 0f;
+                if (vb.magnitude > 3f) slipB = Vector3.SignedAngle(vb, fb, Vector3.up) * Mathf.Deg2Rad;
+            }
+            slideHead = (slideHead + 1) % SlideHistN; betaHist[slideHead] = slipB; yawHist[slideHead] = yawRate;
+            if (slideCount < SlideHistN) slideCount++;
+            bool racing = !formation && !paceMode && !recovering;
+            if (SlideReact && racing && dt > 0f)
+            {
+                // he still thinks the nose is where it was reactSec ago: a kart stepping out is caught that much late
+                int k = Mathf.Min(Mathf.RoundToInt(reactSec / dt), slideCount - 1, SlideHistN - 1);
+                int j = (slideHead - k + SlideHistN) % SlideHistN;
+                alpha += slipB - betaHist[j];
+                yawRate = yawHist[j];
+            }
             float dist = Mathf.Max(0.5f, new Vector2(local.x, local.z).magnitude);
             float kappa = 2f * Mathf.Sin(alpha) / dist;               // pure-pursuit path curvature
             float steerRad = Mathf.Atan(kart.setup.wheelbase * kappa);
             // Yaw-rate damping: steer against yaw rate the pursuit arc doesn't ask for.
-            float yawRate = Vector3.Dot(kart.Body.angularVelocity, tr.up);
             steerRad += cfg.yawDamping * (v * kappa - yawRate);
             kart.steerDeg = Mathf.Clamp(steerRad * Mathf.Rad2Deg, -kart.setup.maxSteerDeg, kart.setup.maxSteerDeg);
+            // past the point of no return: nose 15-20 deg to the inside (left) in a corner -- no saving it
+            float insideDeg = -slipB * Mathf.Rad2Deg;
+            if (!NoReturn || !racing || v < 3f * U.Mph) gone = false;
+            else if (!gone && insideDeg > noReturnDeg && fr.corner > NoReturnCornerMin) { gone = true; DbgGone++; }
+            else if (gone && Mathf.Abs(insideDeg) < NoReturnLuckDeg) { gone = false; DbgLucky++; } // knocked straight again: lucky
+            if (gone) kart.steerDeg = kart.setup.maxSteerDeg; // cranked full right
             if (steerOverride) kart.steerDeg = steerOverrideDeg; // debug/test only: a driver error
 
             Perf.Add(4, ref pt);
@@ -373,6 +416,7 @@ namespace OKT
                         kart.accelCmd *= Mathf.Clamp01(1f - (beta - cfg.featherStartDeg) / cfg.featherRangeDeg);
                 }
             }
+            if (gone && Mathf.Abs(slipB) * Mathf.Rad2Deg > SpinLockDeg) kart.accelCmd = -100f; // spinning: brakes locked (capped at what they hold)
             Perf.Add(8, ref pt);
         }
 
