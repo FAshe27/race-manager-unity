@@ -2983,3 +2983,26 @@ Open:
 - **Off-track fences/gates have no colliders.**
 
 Noise: old code on seeds 9101 vs 9001 gave incidents 2.8 vs 1.5/race.
+
+### 2026-11-18 evening CT — Claude Code — [M2] REPORT: start toggle; side-by-side awareness, 9 ft groove, wall drag (m2-wip 423db1f, f120b0b)
+
+**423db1f — start toggle**
+- HUD Start: Double file | Single file (applies on Reset); `RaceConfig.singleFileStart`; `-okt-singlefile 1`.
+- Single-file soaks: 12-kart 0.8 incidents/race, pole 25%; 20-kart staging 5.8/race.
+
+**f120b0b — Franklin's afternoon rulings**
+- A kart alongside with its nose at your helmet is known. Before this, karts were blind beside them until contact, then yanked away. That was the cause of both "swerving into karts" and "yank to the right".
+- The occupancy push on the aim eases in and out (plan, not wheel), with a hard rub floor.
+- Groove is 9 ft; above it, −10% grip per 4 ft.
+- Light brake drag when sliding past the aim into the wall.
+
+| Soaks, 12 races, seeds 9001 / 9101 | Before | After |
+|---|---|---|
+| Wall contacts | 38 / 39 | 4 / 2 |
+| Incidents/race | 1.8 / 1.7 | 0.3 / 0.5 |
+| Passes/race | 70 / 55 | 96 / 97 |
+| Lap | 10.96 s | 11.00 s |
+
+20-kart staging: 0.2 incidents/race, 0 field stops.
+
+**Open for Franklin:** cautions are now 0.1–0.3/race against the 1–2 target.
