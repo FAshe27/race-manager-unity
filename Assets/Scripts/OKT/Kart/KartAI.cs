@@ -151,6 +151,9 @@ namespace OKT
         // whatever saves it now is the physics and luck, not him; once it's really spinning he locks the brakes ("If they
         // spin, they'll usually lock the brakes down"). Director sets it.
         [System.NonSerialized] public float noReturnDeg = 35f;
+        public static bool TwoPedals = true;               // soak knob
+        public static float LiftG = 0.3f, DragG = 0.3f;    // [TEST VALUE] slowing gentler than this: lift (corner) / gas + brake drag (traffic, wall)
+        public static long DbgPedalSteps, DbgLiftSteps, DbgDragSteps, DbgBrakeSteps;
         public static bool SlideReact = true, NoReturn = true;  // soak knobs
         public const float NoReturnCornerMin = 0.3f;   // "in a corner": the corner profile past this [TEST VALUE]
         public const float SpinLockDeg = 60f;          // rotated this far it's a spin: brakes locked [TEST VALUE]
@@ -194,6 +197,7 @@ namespace OKT
         public void Step(float dt, float simTime)
         {
             var tr = transform; long pt = Perf.T();
+            kart.throttleCmd = -1f; // one pedal unless the racing driver below works the two
             var p2 = new Vector2(tr.position.x, tr.position.z);
 
             // --- progress, laps, band
@@ -389,6 +393,7 @@ namespace OKT
             targetSpeed = Mathf.Min(targetSpeed, speedCap);
             // Pushing wide toward the wall (an exit, a slide): drag the brake a bit to tighten up rather than bounce off
             // it (Franklin 11-18: "much more often drag the brake a bit to avoid hitting the wall ... That breaks stuff").
+            bool wallDrag = false;
             if (!paceMode && !recovering && !formation)
             {
                 var fw = track.Frame(s); var vw = kart.Body.linearVelocity;
@@ -399,7 +404,7 @@ namespace OKT
                 if (vOut > 0.3f && over > 0f && dPred > lastAimD + 0.3f)
                 {
                     float urg = Mathf.Clamp01(over / (vOut * WallLookSec));
-                    targetSpeed = Mathf.Min(targetSpeed, kart.ForwardSpeed * (1f - WallDragFrac * urg));
+                    targetSpeed = Mathf.Min(targetSpeed, kart.ForwardSpeed * (1f - WallDragFrac * urg)); wallDrag = true;
                 }
             }
             kart.accelCmd = (targetSpeed - kart.ForwardSpeed) * cfg.speedGain;
@@ -417,7 +422,22 @@ namespace OKT
                         kart.accelCmd *= Mathf.Clamp01(1f - (beta - cfg.featherStartDeg) / cfg.featherRangeDeg);
                 }
             }
-            if (gone && Mathf.Abs(slipB) * Mathf.Rad2Deg > SpinLockDeg) kart.accelCmd = -100f; // spinning: brakes locked (capped at what they hold)
+            bool locking = gone && Mathf.Abs(slipB) * Mathf.Rad2Deg > SpinLockDeg;
+            if (locking) kart.accelCmd = -100f; // spinning: brakes locked (capped at what they hold)
+            if (TwoPedals && !paceMode && !recovering && !formation)
+            {
+                // Two pedals (Franklin 11-19). Gas for speed; into a corner just lift; a touch of slowing behind a kart
+                // or off the wall: keep the throttle full and drag the brake (stays in the powerband); a real check-up:
+                // off the gas and on the brake. [TEST VALUEs: LiftG, DragG]
+                float a = kart.accelCmd, eng = kart.setup.EngineForceAt(kart.ForwardSpeed) / kart.setup.massKg, cap = kart.setup.brakeCap;
+                bool capped = speedCap < freeSpeed - 0.1f && targetSpeed >= speedCap - 0.01f;
+                float thr, brk;
+                if (a >= 0f) { thr = eng > 0.01f ? Mathf.Clamp01(a / eng) : 1f; brk = 0f; }
+                else if (!locking && (wallDrag || capped) && a > -DragG * 9.81f) { thr = 1f; brk = Mathf.Clamp01((eng - a) / cap); DbgDragSteps++; }
+                else if (!locking && a > -LiftG * 9.81f) { thr = 0f; brk = 0f; DbgLiftSteps++; }
+                else { thr = 0f; brk = Mathf.Clamp01(-a / cap); DbgBrakeSteps++; }
+                kart.throttleCmd = thr; kart.brakeCmd = brk; DbgPedalSteps++;
+            }
             Perf.Add(8, ref pt);
         }
 

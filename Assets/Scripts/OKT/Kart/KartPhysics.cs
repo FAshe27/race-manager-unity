@@ -15,7 +15,11 @@ namespace OKT
 
         // Inputs (from the AI), set before each Step.
         [HideInInspector] public float steerDeg;
-        [HideInInspector] public float accelCmd; // m/s², + drive / - brake
+        [HideInInspector] public float accelCmd; // m/s², + drive / - brake (one-pedal command: staging, cautions, tests)
+        // Two pedals, 0..1 each, used instead of accelCmd when throttleCmd >= 0 (the driver sets them every step):
+        // the gas pulls with what the engine makes at this speed, the brake holds the rear axle back, and both can be on
+        // at once (Franklin 11-19: throttle full and the brake dragged, to slow a touch and stay in the powerband).
+        [System.NonSerialized] public float throttleCmd = -1f, brakeCmd;
 
         // Telemetry (read-only)
         public readonly bool[] grounded = new bool[4];
@@ -34,6 +38,7 @@ namespace OKT
         public float ForwardSpeed { get; private set; }
         public float EngineRpm { get; private set; }
         public float Throttle { get; private set; }
+        public float Brake { get; private set; }
         public int GroundedCount { get; private set; }
 
         public Rigidbody Body { get; private set; }
@@ -145,10 +150,20 @@ namespace OKT
             // with speed, so momentum matters. Brakes: rear axle only.
             float engineForce = s.EngineForceAt(ForwardSpeed);
             EngineRpm = s.EngineRpmAt(ForwardSpeed);
-            float driveTotal = accelCmd >= 0f
-                ? Mathf.Min(s.massKg * accelCmd, engineForce)
-                : -s.massKg * Mathf.Min(-accelCmd, s.brakeCap);
-            Throttle = accelCmd >= 0f && engineForce > 1f ? Mathf.Clamp01(driveTotal / engineForce) : 0f;
+            float driveTotal;
+            if (throttleCmd >= 0f)
+            {
+                Throttle = Mathf.Clamp01(throttleCmd); Brake = Mathf.Clamp01(brakeCmd);
+                driveTotal = Throttle * engineForce - Brake * s.massKg * s.brakeCap;
+            }
+            else
+            {
+                driveTotal = accelCmd >= 0f
+                    ? Mathf.Min(s.massKg * accelCmd, engineForce)
+                    : -s.massKg * Mathf.Min(-accelCmd, s.brakeCap);
+                Throttle = accelCmd >= 0f && engineForce > 1f ? Mathf.Clamp01(driveTotal / engineForce) : 0f;
+                Brake = accelCmd < 0f ? Mathf.Clamp01(-accelCmd / s.brakeCap) : 0f;
+            }
 
             // Resistances at the centre of mass: rolling (when on the ground) and air drag (always).
             var v = rb.linearVelocity; float speed = v.magnitude;
