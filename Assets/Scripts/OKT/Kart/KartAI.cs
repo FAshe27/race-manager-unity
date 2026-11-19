@@ -144,13 +144,14 @@ namespace OKT
         // (his line, the karts around him) he still sees at once. Set by the director from consistency.
         [System.NonSerialized] public float reactSec = 0.1f;
         // Point of no return (Franklin 11-18: "when a kart starts to spin and they spin about 15-20 degrees to the left in
-        // a corner, there's no saving that without getting lucky by another kart hitting your nose"): rotated this far
+        // a corner, there's no saving that without getting lucky by another kart hitting your nose"; 11-19, after seeing the
+        // angles drawn: "passing roughly 35 degrees is the point of no return"): rotated this far
         // to the inside of the corner, it's gone. He still cranks the wheel right and the throttle comes off as the slide grows
         // (Franklin: "crank the wheel to the right and modulate through gas and brake to hopefully save the slide") --
         // whatever saves it now is the physics and luck, not him; once it's really spinning he locks the brakes ("If they
         // spin, they'll usually lock the brakes down"). Director sets it.
-        [System.NonSerialized] public float noReturnDeg = 18f;
-        public static bool SlideReact = true, NoReturn = false;  // soak knobs
+        [System.NonSerialized] public float noReturnDeg = 35f;
+        public static bool SlideReact = true, NoReturn = true;  // soak knobs
         public const float NoReturnCornerMin = 0.3f;   // "in a corner": the corner profile past this [TEST VALUE]
         public const float SpinLockDeg = 60f;          // rotated this far it's a spin: brakes locked [TEST VALUE]
         public const float NoReturnLuckDeg = 8f;       // knocked back under this (another kart's nose): he has it again [TEST VALUE]
@@ -334,7 +335,7 @@ namespace OKT
             // Yaw-rate damping: steer against yaw rate the pursuit arc doesn't ask for.
             steerRad += cfg.yawDamping * (v * kappa - yawRate);
             kart.steerDeg = Mathf.Clamp(steerRad * Mathf.Rad2Deg, -kart.setup.maxSteerDeg, kart.setup.maxSteerDeg);
-            // past the point of no return: nose 15-20 deg to the inside (left) in a corner -- no saving it
+            // past the point of no return: nose ~35 deg to the inside (left) in a corner -- no saving it
             float insideDeg = -slipB * Mathf.Rad2Deg;
             if (!NoReturn || !racing || v < 3f * U.Mph) gone = false;
             else if (!gone && insideDeg > noReturnDeg && fr.corner > NoReturnCornerMin) { gone = true; DbgGone++; }
