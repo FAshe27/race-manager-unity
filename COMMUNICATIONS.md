@@ -3129,3 +3129,44 @@ Soaks, 12 races, 0 breaches:
 - 20-kart staging: 3.9 / 4.6 (seeds 9003 / 9004). Was 2.3 on 9003; caution check-ups can no longer brake past the tire.
 
 **Not committed:** holding a little gas mid-corner, instead of lifting, only cut lift time from 23% to 19% of the lap. The AI's corner speed plan is the cause. Pit Board q38 asks Franklin for straightaway and mid-corner speeds.
+
+## 2026-11-20 overnight — karts wear the Blender model; hitbox = model; driver from photos (m2-wip 9549841, 09e2b65)
+
+**Look (9549841).** Kart Parts/exports/OKT_Kart.fbx is now the karts' skin (KartModel.cs):
+- body painted per kart;
+- the model's wheels hang on the physics wheels, so they steer, spin and follow the tire rays;
+- `KartModel.Show = false` brings back the collider view.
+
+**Hitbox (09e2b65).** Franklin: "make the hitbox of the kart the same as the actual kart… I wouldn't want cars able to glitch into each other." Accuracy is everything.
+- The nose, side panels, seat and engine collide with the model's own shapes, as convex hulls cut into ~6 in chunks. HitboxCheck: every piece is within 0.05 in of its drawn extent.
+- The nose's rolled-under bottom edge is filled square, so it can't ride over a rival's bumper.
+- The frame block shrinks to the rails, and the rear bumper sits at the frame's bumper.
+- The AI footprint comes from the same shapes.
+- Rotational inertia is pinned to the old value, so handling is unchanged.
+- The parts session's rebuild fixed the body width to 42.05 in (Franklin's 42) and added a seat and a Clone engine, sized by estimate from the shop overhead photo.
+
+**Driver.** Rebuilt from Franklin's photos of a 6 ft 1 in driver, all [TEST VALUE]:
+- reclined, helmet top about 33.5 in up (was 40.5), about 14 in ahead of the rear axle;
+- seat 7 in left, with the shoulders leaning 2 in further;
+- shoulders about 21 in across;
+- arms out to the wheel grips;
+- knees about 17 in up, either side of the steering column.
+
+The number is on the nose deck. Renders are in Kart Renders/unity.
+
+**Soaks** (12 races each, 0 breaches, no partial hulls):
+
+| Run | Incidents per race | Self flips |
+|---|---|---|
+| Square nose, 20-kart staging, seed 9003 | 2.7 | 1 |
+| Square nose, 20-kart staging, seed 9004 | 4.2 | 1 |
+| Square nose, 12 karts, seed 9101 | 2.5 | 1 |
+| Round nose, 12 karts, seeds 9001 / 9101 / 9201 | 0.5 / 1.6 / 1.3 | 1 (on 9101) |
+| Round nose, 20-kart staging, seeds 9003 / 9004 | 6.5 / 4.7 | 2 (on 9004) |
+
+The commit message's 12-kart figures for seeds 9001 and 9201 are from the round-nose run.
+
+**Open:**
+- Self flips are about 1 in 12–20 races against Franklin's 1 in 40–50. Most come 2–5 s after a kart past the point of no return locks its brakes, on lap 1 in turn 2. The shorter driver may let a kart on its side roll further.
+- Pit Board q39 (body offset 1.25 in right vs centred tires), q40 (seat and engine sizes), q41 (1.3 g grip vs edge-of-grip lap times).
+- The edge-of-grip test: corner factor 0.20 gives 10.29 s laps; grip 1.1 g at the limit gives 25 incidents a race.
