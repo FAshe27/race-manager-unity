@@ -76,7 +76,7 @@ namespace OKT.EditorTools
             // hands on the wheel, steering right and left (driver's-eye view from behind and above)
             var link = one.GetComponent<SteeringLinkage>();
             Debug.Log("KMT steering linkage " + (link != null));
-            foreach (var st in new[] { 30f, -30f })
+            foreach (var st in new[] { 30f, -30f, -40f })   // -40: the game's full lock, left
             {
                 one.steerDeg = st; one.UpdateVisuals(0f); if (link != null) { link.Pose(st); Debug.Log($"KMT front wheels {st:+0;-0} deg: steering wheel {link.ShaftDeg:+0.0;-0.0} deg"); }
                 // the editor doesn't re-skin outside play mode: draw a baked copy of the posed driver for the shot
@@ -88,10 +88,11 @@ namespace OKT.EditorTools
                     baked.AddComponent<MeshFilter>().sharedMesh = bm; baked.AddComponent<MeshRenderer>().sharedMaterials = smr.sharedMaterials;
                     smr.enabled = false;
                 }
-                Shot(st > 0 ? "9-steer-right-30" : "10-steer-left-30", c0 + new Vector3(0.5f, 1.1f, -1.4f), c0 + new Vector3(0.05f, 0.1f, 0.35f));
-                Shot(st > 0 ? "11-steer-right-30-front" : "12-steer-left-30-front", c0 + new Vector3(-0.4f, 0.9f, 2.0f), c0 + new Vector3(-0.1f, 0.2f, 0.1f));
+                string sfx = st < -35f ? "-full-lock" : "";
+                Shot((st > 0 ? "9-steer-right-30" : "10-steer-left-30") + sfx, c0 + new Vector3(0.5f, 1.1f, -1.4f), c0 + new Vector3(0.05f, 0.1f, 0.35f));
+                Shot((st > 0 ? "11-steer-right-30-front" : "12-steer-left-30-front") + sfx, c0 + new Vector3(-0.4f, 0.9f, 2.0f), c0 + new Vector3(-0.1f, 0.2f, 0.1f));
                 // the front end from above: spindles, tie rods and the pitman tabs turning together
-                Shot(st > 0 ? "13-front-end-right-30" : "14-front-end-left-30", c0 + new Vector3(0.05f, 1.6f, 0.75f), c0 + new Vector3(0.02f, 0.05f, 0.5f));
+                Shot((st > 0 ? "13-front-end-right-30" : "14-front-end-left-30") + sfx, c0 + new Vector3(0.05f, 1.6f, 0.75f), c0 + new Vector3(0.02f, 0.05f, 0.5f));
                 if (baked != null) { Object.DestroyImmediate(baked); smr.enabled = true; }
             }
             one.steerDeg = 0f; one.UpdateVisuals(0f); if (link != null) link.Pose(0f);
