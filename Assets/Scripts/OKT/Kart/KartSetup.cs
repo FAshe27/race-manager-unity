@@ -25,7 +25,11 @@ namespace OKT
         // ---- geometry (spec §6.2; Franklin: "sounds decent enough")
         public float wheelbaseIn = 41.3f;         // 1.05 m
         public float trackFrontIn = 32.0f;        // Franklin's official width (42 in overall): front scaled with the rear (was 39.4) [TEST VALUE split]
-        public float trackRearIn = 34.0f;         // Franklin (11-16, measured with the body on): 42 in overall -> 41.5 in over the rear tires (panels 1/4 in outside) - (6 + 9)/2 in of tire = 34 in centre to centre (was 42 = WKA's 50 in cap)
+        // Franklin (11-16, measured with the body on): 42 in overall -> 41.5 in over the rear tires. Taking the tires as
+        // their nominal 6 and 9 in gave 34 in centre to centre; on his 8.25 and 10 in rims they stretch to ~8.75 and 10.5 in
+        // (the Blender wheels, tireOuterWidthIn), so 41.5 - (8.75 + 10.5)/2 = 31.9 in, the model's rear track. At 34 the
+        // left-rear stuck 1.7 in out past the body (Franklin 11-20, q39: tires tucked 1/8-1/4 in inside the body).
+        public float trackRearIn = 31.9f;
         // ---- chassis shape (Franklin, 2026-11-14, with photos; body not mounted).
         // Collider = frame/cockpit box + ROUND TUBES for the bumpers and nerf bars (a round tube
         // rides up a dirt slope; the old single box's square corner dug into the berm).
@@ -101,7 +105,10 @@ namespace OKT
         // LF 32-1/2" (1-1/2" front stagger, the book's norm). Adopted by Franklin 2026-11-14.
         public string[] tireSize = { "10.5x4.50-6", "12x9.00-6", "11x6.00-6", "12x9.00-6" }; // LF, RF, LR, RR
         public float[] tireCircumferenceIn = { 32.5f, 34f, 32.25f, 34f };
-        public float[] tireWidthIn = { 4.50f, 9.00f, 6.00f, 9.00f };
+        public float[] tireWidthIn = { 4.50f, 9.00f, 6.00f, 9.00f };       // tread (the contact rays)
+        // sidewall to sidewall, stretched on Franklin's rims (LF 6.5, LR 8.25, rights 10 in): the Blender wheels' width.
+        // The tire's collider and the kart's outer edge use this.
+        public float[] tireOuterWidthIn = { 7.0f, 10.5f, 8.75f, 10.5f };
 
         // ---- "suspension" = tire sidewall + chassis flex. Franklin (2026-11-14, after the chassis
         // test): corner squat is "barely at all" — very slight sidewall give; the frame drags only
@@ -165,8 +172,8 @@ namespace OKT
         /// <summary>Outer edge of the tires on one side (m from centre).</summary>
         public float TireOuter(bool right) => frozen ? (right ? fTireOutR : fTireOutL) : TireOuterCalc(right);
         float TireOuterCalc(bool right) => right
-            ? Mathf.Max(Mathf.Abs(WheelMount(Corner.RF).x) + TireWidth(1) * 0.5f, Mathf.Abs(WheelMount(Corner.RR).x) + TireWidth(3) * 0.5f)
-            : Mathf.Max(Mathf.Abs(WheelMount(Corner.LF).x) + TireWidth(0) * 0.5f, Mathf.Abs(WheelMount(Corner.LR).x) + TireWidth(2) * 0.5f);
+            ? Mathf.Max(Mathf.Abs(WheelMount(Corner.RF).x) + TireOuterWidth(1) * 0.5f, Mathf.Abs(WheelMount(Corner.RR).x) + TireOuterWidth(3) * 0.5f)
+            : Mathf.Max(Mathf.Abs(WheelMount(Corner.LF).x) + TireOuterWidth(0) * 0.5f, Mathf.Abs(WheelMount(Corner.LR).x) + TireOuterWidth(2) * 0.5f);
         /// <summary>Nerf bar tube centre x (m, + = right).</summary>
         public float NerfX(bool right) => (TireOuter(right) + nerfOutsideTireIn * U.In - TubeRadius) * (right ? 1f : -1f);
         public float FrontTireLead => wheelbase * 0.5f + Mathf.Max(WheelRadius(0), WheelRadius(1));
@@ -212,6 +219,7 @@ namespace OKT
         public float FootWidth => FootLeft + FootRight;
         public float WheelRadius(int i) => tireCircumferenceIn[i] / (2f * Mathf.PI) * U.In;
         public float TireWidth(int i) => tireWidthIn[i] * U.In;
+        public float TireOuterWidth(int i) => tireOuterWidthIn[i] * U.In;
         public float travel => travelIn * U.In;
         public float staticSag => staticSagIn * U.In;
         public float gripMu => gripG;

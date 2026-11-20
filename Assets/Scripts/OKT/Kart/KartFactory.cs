@@ -104,7 +104,7 @@ namespace OKT
             for (int i = 0; i < 4; i++)
             {
                 var m = setup.WheelMount((Corner)i);
-                float wr = setup.WheelRadius(i), tw = setup.TireWidth(i);
+                float wr = setup.WheelRadius(i), tw = setup.TireOuterWidth(i);
                 float bottom = 1f * U.In, top = 2f * wr;
                 var tb = new GameObject("TireBody_" + (Corner)i);
                 tb.transform.SetParent(tireBodies, false);
@@ -126,22 +126,22 @@ namespace OKT
                 float dx = -setup.driverOffsetLeftIn * U.In, tr = setup.driverTorsoRadiusIn * U.In;
                 var hip = new Vector3(dx, setup.driverHipYIn * U.In, setup.driverHipZIn * U.In);
                 var sh = new Vector3(dx - setup.driverLeanLeftIn * U.In, setup.driverShoulderYIn * U.In, (setup.driverHipZIn - setup.driverLeanBackIn) * U.In);
-                // torso: two capsules side by side -- shoulders as wide as the cockpit, chest only ~10 in deep
+                // torso: one capsule, hips to shoulders (Franklin 11-20: one body, not two side by side); the arms make
+                // up the shoulders' width
                 var suitMat = Materials.Solid(new Color(0.1f, 0.1f, 0.12f), 0.3f);
                 float shw = setup.driverShoulderHalfWidthIn * U.In;
-                foreach (float side in new[] { -1f, 1f })
                 {
-                    var torso = GameObject.CreatePrimitive(PrimitiveType.Capsule); torso.name = side < 0f ? "TorsoL" : "TorsoR";
+                    var torso = GameObject.CreatePrimitive(PrimitiveType.Capsule); torso.name = "Torso";
                     torso.transform.SetParent(drv, false);
-                    // narrow at the hips (in the seat, inside the side panels), wide at the shoulders
-                    var h0 = hip + new Vector3(side * setup.driverHipHalfWidthIn * U.In, 0f, 0f);
-                    var s0 = sh + new Vector3(side * shw, 0f, 0f);
-                    float tlen = (s0 - h0).magnitude + 2f * tr;
-                    torso.transform.localPosition = (h0 + s0) * 0.5f;
-                    torso.transform.localRotation = Quaternion.FromToRotation(Vector3.up, s0 - h0);
+                    float tlen = (sh - hip).magnitude + 2f * tr;
+                    torso.transform.localPosition = (hip + sh) * 0.5f;
+                    torso.transform.localRotation = Quaternion.FromToRotation(Vector3.up, sh - hip);
                     torso.transform.localScale = new Vector3(2f * tr, tlen * 0.5f, 2f * tr); // capsule primitive: 1 wide, 2 tall
                     torso.GetComponent<Collider>().sharedMaterial = bodyMat;
                     torso.GetComponent<MeshRenderer>().sharedMaterial = suitMat;
+                }
+                foreach (float side in new[] { -1f, 1f })
+                {
                     // arm: shoulder -> elbow (out wide and low) -> hand on the wheel grip
                     float ar = setup.driverArmRadiusIn * U.In;
                     var shoulder = sh + new Vector3(side * (shw + tr * 0.6f), 0f, 0f);

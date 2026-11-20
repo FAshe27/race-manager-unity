@@ -93,7 +93,7 @@ namespace OKT.EditorTools
                 float outerH = 0; for (int i = 0; i < t.N; i++) { var f = t.Frame(i); outerH = Mathf.Max(outerH, t.LayerBanking(f, f.halfWidth)); }
                 sb.AppendLine($"Banking {cfg.bankingDeg}°: outside edge up to {U.InS(outerH)} above the inside edge");
                 // Groove vs berm: right-side tire outer face to berm start, minimum around the lap
-                float rrOuter = Mathf.Abs(setup.WheelMount(Corner.RR).x) + setup.TireWidth(3) * 0.5f;
+                float rrOuter = Mathf.Abs(setup.WheelMount(Corner.RR).x) + setup.TireOuterWidth(3) * 0.5f;
                 float minClr = float.MaxValue; float atU = 0;
                 for (int i = 0; i < t.M; i++) { float s = (float)i / t.M * t.N; var f = t.Frame(s); float c = (f.halfWidth - cfg.bermWidth) - (f.LineOffset + rrOuter); if (c < minClr) { minClr = c; atU = s / t.N; } }
                 sb.AppendLine($"Groove: right-side tires to berm, closest {U.InS(minClr, 2)} at u={atU:F3} (rule: right up to it, never on it)");

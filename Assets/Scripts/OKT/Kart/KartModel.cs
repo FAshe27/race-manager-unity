@@ -14,7 +14,9 @@ namespace OKT
         const string ResourcePath = "KartModel/OKT_Kart";
         static readonly string[] WheelNames = { "Wheel_LF", "Wheel_RF", "Wheel_LR", "Wheel_RR" }; // Corner order
         // physics primitives the model replaces (their renderers only; colliders stay)
-        static readonly string[] Covered = { "FrameVisual", "Body", "FrontBumperLow", "FrontBumperTop", "RearBumperLow", "RearBumperTop" };
+        static readonly string[] Covered = { "FrameVisual", "Body", "FrontBumperLow", "FrontBumperTop", "RearBumperLow", "RearBumperTop",
+            // the physics nerf tubes (Franklin 11-20: "black bars jutting out through the side panels"); the model has its own
+            "NerfLLow", "NerfLTop", "NerfRLow", "NerfRTop" };
 
         static GameObject prefab; static bool loaded;
 
@@ -64,6 +66,7 @@ namespace OKT
             }
 
             if (Hitbox) FitHitbox(kart, kp, setup, model.transform);
+            if (ShowDriver) AttachDriver(root, setup, bodyColor);
 
             // the number (its own layer) sat on the old frame block, which the model hides: put it on the nose deck,
             // where real karts carry it and the overhead camera sees it
@@ -227,6 +230,89 @@ namespace OKT
                 if (pts.Count >= 4) { while (pts.Count % 3 != 0) pts.Add(pts[pts.Count - 1]); outList.Add(pts.ToArray()); }
             }
             return outList;
+        }
+
+        // ---- the driver: Franklin's Racer model (Kart Parts/driver.py -> Resources/KartModel/OKT_Driver), posed in the
+        // seat in Blender from his photos. It is only a skin: the driver's collision capsules (KartFactory) are moved onto
+        // the model's own joints (Joint_* markers in the FBX), so what touches a rival or the ground is where he is drawn.
+        public static bool ShowDriver = true;
+        const string DriverPath = "KartModel/OKT_Driver";
+        static GameObject driverPrefab; static bool driverLoaded;
+        // radii of the capsules laid on his joints (inches) [TEST VALUE: fitted to the model]
+        const float TorsoR = 5f, UpperArmR = 2.1f, ForearmR = 1.8f, ThighR = 3f, ShinR = 2.4f, HelmetR = 5.4f;
+
+        static void AttachDriver(Transform root, KartSetup setup, Color bodyColor)
+        {
+            if (!driverLoaded) { driverLoaded = true; driverPrefab = Resources.Load<GameObject>(DriverPath); }
+            var drv = Find(root, "Driver");
+            if (driverPrefab == null || drv == null) return;
+            var m = Object.Instantiate(driverPrefab, root, false);
+            m.name = "DriverModel";
+            m.transform.localPosition = driverPrefab.transform.localPosition + new Vector3(0f, 0f, setup.wheelbase * 0.5f);
+            m.transform.localRotation = driverPrefab.transform.localRotation;
+            foreach (var c in m.GetComponentsInChildren<Collider>(true)) Kill(c);
+            foreach (var t in m.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = 2;
+
+            // suit and helmet: stripes and helmet paint in the kart's colour, suit black (Franklin's photos)
+            foreach (var r in m.GetComponentsInChildren<Renderer>(true))
+            {
+                var mats = r.sharedMaterials;
+                for (int i = 0; i < mats.Length; i++)
+                {
+                    if (mats[i] == null) continue;
+                    string n = mats[i].name;
+                    Color? col = n.StartsWith("helmet_color") || n.StartsWith("leather_color") ? bodyColor
+                        : n.StartsWith("leather") || n.StartsWith("blacklather") ? new Color(0.06f, 0.06f, 0.07f)
+                        : n.StartsWith("helmet") ? new Color(0.85f, 0.85f, 0.87f)
+                        : n.StartsWith("glass") ? new Color(0.05f, 0.05f, 0.06f)
+                        : (Color?)null;
+                    if (col == null) continue;
+                    var mm = new Material(mats[i]) { name = n + " #" + root.name };
+                    if (mm.HasProperty("_BaseColor")) mm.SetColor("_BaseColor", col.Value);
+                    if (mm.HasProperty("_Color")) mm.SetColor("_Color", col.Value);
+                    if (mm.HasProperty("_BaseMap")) mm.SetTexture("_BaseMap", null);
+                    if (mm.HasProperty("_MainTex")) mm.SetTexture("_MainTex", null);
+                    // cloth suit matte, helmet and visor glossy
+                    float gloss = n.StartsWith("leather") || n.StartsWith("blacklather") ? 0.2f : 0.75f;
+                    if (mm.HasProperty("_Smoothness")) mm.SetFloat("_Smoothness", gloss);
+                    if (mm.HasProperty("_Glossiness")) mm.SetFloat("_Glossiness", gloss);
+                    if (mm.HasProperty("_Metallic")) mm.SetFloat("_Metallic", 0f);
+                    mats[i] = mm;
+                }
+                r.sharedMaterials = mats;
+            }
+
+            // capsules onto his joints (kart space -> the Driver object's space)
+            bool ok = true;
+            Vector3 J(string n)
+            {
+                var t = Find(m.transform, "Joint_" + n);
+                if (t == null) { ok = false; return Vector3.zero; }
+                return drv.InverseTransformPoint(t.position);
+            }
+            void Cap(string name, Vector3 a, Vector3 b, float rIn)
+            {
+                var t = Find(drv, name); if (t == null) return;
+                float r = rIn * U.In;
+                t.localPosition = (a + b) * 0.5f;
+                t.localRotation = Quaternion.FromToRotation(Vector3.up, b - a);
+                t.localScale = new Vector3(2f * r, ((b - a).magnitude + 2f * r) * 0.5f, 2f * r);
+            }
+            var pelvis = J("pelvis"); var neck = J("neck"); var head = J("head");
+            if (!ok) { Kill(m); return; }
+            // torso: pelvis to the base of the neck, held in from each end so it doesn't poke out under the seat
+            var up = (neck - pelvis).normalized;
+            Cap("Torso", pelvis + up * (TorsoR * 0.6f * U.In), neck - up * (TorsoR * 0.4f * U.In), TorsoR);
+            foreach (var s in new[] { "L", "R" })
+            {
+                Cap("UpperArm" + s, J("sh" + s), J("el" + s), UpperArmR);
+                Cap("Forearm" + s, J("el" + s), J("wr" + s), ForearmR);
+                Cap("Thigh" + s, J("hip" + s), J("knee" + s), ThighR);
+                Cap("Shin" + s, J("knee" + s), J("ankle" + s), ShinR);
+            }
+            var helm = Find(drv, "Helmet");
+            if (helm != null) { helm.localPosition = head; helm.localScale = Vector3.one * (2f * HelmetR * U.In); }
+            foreach (var r in drv.GetComponentsInChildren<Renderer>(true)) r.enabled = false;
         }
 
         static Transform Find(Transform t, string name)

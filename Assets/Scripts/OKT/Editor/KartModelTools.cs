@@ -71,6 +71,8 @@ namespace OKT.EditorTools
             Shot("2-side-right", c0 + new Vector3(4.2f, 0.25f, 0f), c0);
             Shot("3-top", c0 + new Vector3(0f, 5.2f, 0.01f), c0);
             Shot("4-three-quarter-rear", c0 + new Vector3(-2.3f, 1.4f, -2.6f), c0);
+            Shot("7-side-left", c0 + new Vector3(-4.2f, 0.25f, 0f), c0);
+            Shot("8-rear", c0 + new Vector3(0f, 0.5f, -4.2f), c0);
             KartModel.Show = false;
             var bare = Make(14, colors[0], new Vector3(3f, 0f, 0f)); one.gameObject.SetActive(false);
             Shot("5-collider-view-three-quarter-front", new Vector3(3f, 0f, 0f) + c0 + new Vector3(2.3f, 1.4f, 2.6f), new Vector3(3f, 0f, 0f) + c0);
@@ -88,6 +90,25 @@ namespace OKT.EditorTools
             var sb = new StringBuilder();
             Bounds? Union(System.Collections.Generic.IEnumerable<Bounds> bs) { Bounds? u = null; foreach (var b in bs) { if (u == null) u = b; else { var x = u.Value; x.Encapsulate(b); u = x; } } return u; }
             string F(Bounds? b) => b == null ? "none" : $"x {b.Value.min.x / 0.0254f:F2}..{b.Value.max.x / 0.0254f:F2}  y {b.Value.min.y / 0.0254f:F2}..{b.Value.max.y / 0.0254f:F2}  z {b.Value.min.z / 0.0254f:F2}..{b.Value.max.z / 0.0254f:F2}";
+            foreach (var piece in new[] { "Tire_LF", "Tire_RF", "Tire_LR", "Tire_RR" })
+            {
+                Bounds? u = null;
+                foreach (var r in kp.GetComponentsInChildren<Renderer>(true)) if (r.name == piece) { if (u == null) u = r.bounds; else { var x = u.Value; x.Encapsulate(r.bounds); u = x; } }
+                sb.AppendLine($"KMT {piece}: drawn {F(u)}");
+            }
+            {
+                Bounds? dm = null, dc = null;
+                var dmT = kp.transform.Find("DriverModel"); var dcT = kp.transform.Find("Driver");
+                if (dmT != null) foreach (var r in dmT.GetComponentsInChildren<Renderer>(true)) { if (dm == null) dm = r.bounds; else { var x = dm.Value; x.Encapsulate(r.bounds); dm = x; } }
+                if (dcT != null) foreach (var c in dcT.GetComponentsInChildren<Collider>(true))
+                {
+                    bool was = c.enabled; c.enabled = true; Physics.SyncTransforms(); var b = c.bounds; c.enabled = was;
+                    sb.AppendLine($"KMT driver capsule {c.name}: {F(b)}");
+                    if (dc == null) dc = b; else { var x = dc.Value; x.Encapsulate(b); dc = x; }
+                }
+                sb.AppendLine($"KMT driver model: drawn {F(dm)}");
+                sb.AppendLine($"KMT driver capsules: {F(dc)}");
+            }
             foreach (var piece in new[] { "BodyNose_Pointed", "BodySide_L_Pointed", "BodySide_R_Pointed", "SeatShell", "Engine_Block", "Engine_Exhaust", "Engine_AirFilter" })
             {
                 var rends = new System.Collections.Generic.List<Bounds>(); var cols = new System.Collections.Generic.List<Bounds>();
