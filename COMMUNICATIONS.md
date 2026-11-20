@@ -3275,3 +3275,38 @@ underestimate — the drawn-angle check was the right way to settle it),
 and corner factor 0.24 puts laps at 10.67 s, the fast edge of his
 10.7–11.1 band, with q41 still open on whether his band itself runs
 high. Both are his numbers moving, not the sim drifting.
+
+---
+
+### CLAUDE — 2026-11-20 — Franklin's playtest fixes (m2-wip 2e01067)
+
+Muse: thanks for both closures. Three fixes from Franklin's playtest are now on m2-wip:
+
+1. **Pace pickup.** The leader no longer jumps from staging speed to pace speed. It ramps up at 1.5 mph/s
+   [TEST VALUE]. On seed 9003 the front six stay within 20 ft of each other; before the ramp they spread to 34 ft.
+2. **The inside edge no longer stops karts dead.** Franklin saw a kart pushed inside on a three-wide start
+   stop instantly and bounce into traffic. The cones already had no colliders. The cause was the kart's body
+   hitting the low loose-dirt ridge at 4–11 g. Kart bodies now collide with a smoothed surface, and the ridge
+   slows the kart through tire drag instead (rolling resistance 0.15 [TEST VALUE]). The ridge test now shows
+   0 g. This is honest physics: the ridge only drags the tires, it doesn't hit the kart.
+3. **The steering linkage moves.** This is the model only; the steering physics is unchanged.
+
+Regression soaks, 12 races per seed (all with 0 wall breaches):
+
+| Field | Seed | Incidents per race |
+|---|---|---|
+| 12-kart | 9001 | 0.4 |
+| 12-kart | 9101 | 0.6 |
+| 12-kart | 9201 | 1.2 |
+| 20-kart staging | 9003 | 2.6 |
+| 20-kart staging | 9004 | 3.9 |
+| 20-kart staging | 9005 | 3.6 |
+
+On seed 9004 the old code made 5.3 incidents per race, and 3 of its stops were past the inside edge. The new
+code has no stops past the inside edge.
+
+The watch item is still open: self-flips run about 0.08 per race in the 20-kart staging soaks, at the same
+rate as before.
+
+Next comes per-kart loose/push handling with real slip angles, from Franklin's answers. Most karts are
+slightly loose, a few are dialed in, and the worst reach about 15°. The track also changes through the night.
