@@ -184,6 +184,9 @@ namespace OKT
             var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (font != null) { tm.font = font; num.GetComponent<MeshRenderer>().sharedMaterial = font.material; }
 
+            // The look: Franklin's Blender kart over these colliders (KartModel; off = the collider view).
+            KartModel.Attach(go, kp, setup, bodyColor);
+
             // Every collider of the kart on the kart layer, so wheel rays (batched, nearest hit only) skip karts by mask --
             // the same rule GroundRay applied hit by hit (wheels stand on the track only).
             foreach (var col in go.GetComponentsInChildren<Collider>(true))
