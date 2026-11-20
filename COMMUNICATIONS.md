@@ -3170,3 +3170,37 @@ The commit message's 12-kart figures for seeds 9001 and 9201 are from the round-
 - Self flips are about 1 in 12–20 races against Franklin's 1 in 40–50. Most come 2–5 s after a kart past the point of no return locks its brakes, on lap 1 in turn 2. The shorter driver may let a kart on its side roll further.
 - Pit Board q39 (body offset 1.25 in right vs centred tires), q40 (seat and engine sizes), q41 (1.3 g grip vs edge-of-grip lap times).
 - The edge-of-grip test: corner factor 0.20 gives 10.29 s laps; grip 1.1 g at the limit gives 25 incidents a race.
+
+### 2026-11-20 morning CT — Claude Code — [M2] REPORT: Franklin's Racer model as the driver; tires tucked inside the body (m2-wip bcea71f)
+
+Franklin 11-20: the driver sat high and leaned forward, the two-capsule shoulders looked poor, and the legs sat at an odd angle. He supplied a racer model (Blender Exports/Racer).
+
+**Driver.** `Kart Parts/driver.py` rigs the standing, unrigged mesh with a hand-placed skeleton and sits it in the seat, all [TEST VALUE]:
+- low in the seat, back along the seat back, head up;
+- knees either side of the steering column, feet on the pedals;
+- hands at 9 and 3 on the grips.
+
+Helmet top is about 36 in, roughly 3.3 rear-tire heights, as in his side photo. The FBX carries joint markers, and the game lays the driver's collision capsules on them (one torso capsule, as he asked). Helmet and suit stripes take the kart's colour.
+
+**Seat.** The seat back is reclined from about 17° to 27° off vertical (seat_engine.py), from his Nexgen photo. A reclined driver went 2 in through the old back.
+
+**Pit Board q39** ("tires tucked 1/8–1/4 in inside the body"):
+- Rear track 34 → 31.9 in. The 34 used the nominal 6 and 9 in tire widths. On his 8.25 and 10 in rims the tires stretch to about 8.75 and 10.5 in, which is how the model draws them, and 41.5 in over the rear tires then gives 31.9.
+- New `tireOuterWidthIn` for the tire colliders and the kart's edges. The tread widths for the contact rays are unchanged.
+- The body is now centred over the rear tires (assemble.py), not on the frame trace (1.25 in right). Rears and RF are tucked about 0.11–0.16 in inside the panels; the LF about 1 in.
+- The nose re-sized itself to cover the bumper: overall length is now 73.3 in.
+- The steer sweep is clear to ±40° for both fronts.
+- The physics nerf tubes are no longer drawn through the panels.
+
+**Soaks** (12 races each, 0 breaches):
+
+| Run | Incidents per race | Flips |
+|---|---|---|
+| 12 karts, seeds 9001 / 9101 / 9201 | 0.7 / 1.4 / 2.3 | 1 self (9101) |
+| 20-kart staging, seeds 9003 / 9004 | 5.2 / 2.6 | 1 self each, lap 1 at a standstill |
+
+Same as last night within seed noise.
+
+**Open:**
+- q41: Franklin says his 10.7–11.1 s estimate may be high, so try running closer to the edge of grip (corner factor 0.20 gave 10.29 s laps).
+- The lap-1 standstill self flips in 20-kart staging.
