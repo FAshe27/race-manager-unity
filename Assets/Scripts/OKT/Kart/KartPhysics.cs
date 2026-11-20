@@ -32,6 +32,7 @@ namespace OKT
         public readonly float[] surfaceGripNow = { 1f, 1f, 1f, 1f };
         /// <summary>Berm dust on each tire, 0 = clean .. 1 = fully coated (Franklin: costs bite until it cleans off).</summary>
         public readonly float[] dust = new float[4];
+        readonly float[] rollExtra = new float[4];   // extra rolling resistance from the ground each tire stood on last step (loose ridge)
         /// <summary>What the ground under a wheel is (set by World from the track model).</summary>
         public System.Func<RaycastHit, int, GroundSample> surfaceGrip;
         public SurfaceConfig surface; // dust behaviour
@@ -170,8 +171,8 @@ namespace OKT
             var v = rb.linearVelocity; float speed = v.magnitude;
             if (speed > 0.05f)
             {
-                float totalLoad = 0f; for (int i = 0; i < 4; i++) totalLoad += load[i];
-                float fRoll = s.rollingResistance * totalLoad;
+                float totalLoad = 0f, extra = 0f; for (int i = 0; i < 4; i++) { totalLoad += load[i]; if (grounded[i]) extra += rollExtra[i] * load[i]; }
+                float fRoll = s.rollingResistance * totalLoad + extra;
                 float fAero = 0.5f * 1.2f * s.dragArea * speed * speed;
                 rb.AddForce(-v / speed * (fRoll + fAero));
             }
@@ -243,6 +244,7 @@ namespace OKT
                 // (cornering load), plus a little just rolling.
                 if (surface != null)
                 {
+                    rollExtra[i] = ground.rollExtra;
                     if (ground.loose) dust[i] = Mathf.Min(1f, dust[i] + dt / Mathf.Max(1e-3f, surface.dustPickupTime));
                     else
                     {

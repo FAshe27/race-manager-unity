@@ -1,8 +1,8 @@
 // The driver's hands stay on the steering wheel (Franklin 11-20: "Do the hands and arms animate and turn with the
-// steering wheel?"). The model's steering column (SteeringShaft, turning about the line to its ColumnTop marker) turns
-// with the front wheels -- Franklin's steering is direct, 1:1 (Kart Parts/steering.py STEER_RATIO) -- and each arm
-// reaches for its grip with a two-bone solve: shoulder fixed, hand carried round with the wheel, elbow bending the
-// way it bends at rest. Visual only: no colliders, no say in the physics (the driver's capsules stay where they are).
+// steering wheel?"). SteeringLinkage turns the model's steering column (SteeringShaft, about the line to its ColumnTop
+// marker) to whatever angle the linkage needs for the front wheels, and hands that angle here; each arm reaches for
+// its grip with a two-bone solve: shoulder fixed, hand carried round with the wheel, elbow bending the way it bends
+// at rest. Visual only: no colliders, no say in the physics (the driver's capsules stay where they are).
 using UnityEngine;
 
 namespace OKT
@@ -55,20 +55,15 @@ namespace OKT
         Vector3 L(Vector3 world) => kart.InverseTransformPoint(world);
         Quaternion LR(Quaternion world) => Quaternion.Inverse(kart.rotation) * world;
 
-        void LateUpdate()
+        /// <summary>Hands on a steering wheel turned this far (degrees about the column, + = right; SteeringLinkage.ShaftDeg).
+        /// The column itself is turned by SteeringLinkage.</summary>
+        public void Pose(float wheelDeg)
         {
-            if (kp != null) Pose(kp.steerDeg);
-        }
-
-        /// <summary>Steering wheel at this angle (degrees, + = right, same as KartPhysics.steerDeg; 1:1 with the front wheels).</summary>
-        public void Pose(float steerDeg)
-        {
-            if (kart == null || steerDeg == shown) return;
-            shown = steerDeg;
+            if (kart == null || wheelDeg == shown) return;
+            shown = wheelDeg;
             // Unity turns clockwise about an axis seen from its tip: the driver sits at the column's top end,
             // so + (right) is the wheel turning clockwise in his hands.
-            var q = Quaternion.AngleAxis(steerDeg, axis);
-            shaft.rotation = kart.rotation * q * shaftR;
+            var q = Quaternion.AngleAxis(wheelDeg, axis);
             var piv = L(shaft.position);
             foreach (var a in arms)
             {

@@ -65,6 +65,7 @@ namespace OKT
                 w.localPosition = Vector3.zero; w.localRotation = rel;
             }
 
+            SteeringLinkage.Attach(root, kp);    // spindles, tie rods and the steering column follow the front wheels
             if (Hitbox) FitHitbox(kart, kp, setup, model.transform);
             if (ShowDriver) AttachDriver(root, setup, bodyColor);
 

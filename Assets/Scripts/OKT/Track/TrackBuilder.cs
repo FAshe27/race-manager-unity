@@ -108,8 +108,38 @@ namespace OKT
             mc.convex = false;
             mc.sharedMesh = mesh;
             mc.sharedMaterial = DirtMaterial();
+
+            // The inside ridge is LOOSE dirt (Franklin 11-20 playtest: a kart pushed onto it on a three-wide start
+            // stopped dead and bounced up into traffic -- M2RidgeTest: 4-11 g, the body shell's 1 in clearance catching
+            // the 3 in ridge's face). Tires climb it (this mesh, on the loose-dirt layer, is what the wheel rays and the
+            // grip map read); the kart's body and frame plow through it and ride on the solid ground under it: the same
+            // surface with the ridge flattened to the graded level, on Ignore Raycast so the wheel rays never see it.
+            go.layer = LooseDirtLayer;
+            Physics.IgnoreLayerCollision(KartPhysics.KartLayer, LooseDirtLayer, true);
+            var solidVerts = (Vector3[])verts.Clone();
+            for (int r = 0; r < rows; r++)
+            {
+                var a = verts[r * cols + 1]; var e = verts[r * cols + 7];   // band meets grass .. inside edge
+                for (int j = 2; j <= 6; j++)
+                {
+                    var v = verts[r * cols + j];
+                    float k = Mathf.Clamp01(Vector2.Distance(new Vector2(v.x, v.z), new Vector2(a.x, a.z)) /
+                                            Mathf.Max(1e-4f, Vector2.Distance(new Vector2(e.x, e.z), new Vector2(a.x, a.z))));
+                    solidVerts[r * cols + j] = new Vector3(v.x, Mathf.Lerp(a.y, e.y, k), v.z);
+                }
+            }
+            var solid = new Mesh { name = "TrackSurfaceSolid", indexFormat = IndexFormat.UInt32 };
+            solid.vertices = solidVerts; solid.triangles = mesh.triangles; solid.RecalculateBounds();
+            var sg = new GameObject("SurfaceSolid");
+            sg.transform.SetParent(go.transform, false);
+            sg.layer = 2;
+            var smc = sg.AddComponent<MeshCollider>();
+            smc.convex = false; smc.sharedMesh = solid; smc.sharedMaterial = DirtMaterial();
             return go;
         }
+
+        /// <summary>Layer of the loose-dirt surface: wheel rays stand on it, kart bodies pass through it.</summary>
+        public const int LooseDirtLayer = 10;
 
         public static int ColumnCount(SurfaceConfig cfg) => 7 + cfg.surfaceCols + cfg.bermCols + 1 + 4; // + 7 inside columns (grass, band, ridge)
 

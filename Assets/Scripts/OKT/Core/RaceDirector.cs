@@ -143,6 +143,9 @@ namespace OKT
         // Tire-warming weave (Franklin 11-17): some drivers, now and then, under caution and pacing; corners too, as
         // long as it doesn't open a gap. Never once the push-up starts. [TEST VALUEs]
         public float weaverShare = 0.33f, weaveAmpFt = 1f, weavePeriodSec = 1.6f, weaveOnSec = 4f, weaveOffMinSec = 8f, weaveOffMaxSec = 20f;
+        // Franklin 11-20: out of the staging grid the field lined up, then the leader "guns it" to pace speed and the line
+        // spread out. He builds up to pace at this rate instead, so the line picks up speed together. [TEST VALUE]
+        public float paceRampMphPerSec = 1.5f;
         public float paceCatchUpMph = 5f;           // pace lap: a kart that's dropped back may run up to pace + this to close up (as under caution) [TEST VALUE]
         public float peekLeadSec = 0.8f;            // an inside peek starts only this close (in time) to corner entry, not down the straight (Franklin's playtest) [TEST VALUE]
         public float frustrationMemorySec = 20f;    // failed peeks at the same kart within this long add up [TEST VALUE]
@@ -586,9 +589,11 @@ namespace OKT
         static float PathLen(List<Vector3> p, int a, int b) { float d = 0f; for (int j = a; j < b; j++) d += Vector3.Distance(p[j], p[j + 1]); return d; }
 
         float startRollMph = 20f;
+        float leaderRamp; // the pole kart's pace-lap speed ceiling, built up at paceRampMphPerSec (m/s)
         public void Start()
         {
             phase = RacePhase.Pace; phaseTime = 0;
+            leaderRamp = 0f;
             startRollMph = cfg.startRollMinMph + (float)rng.NextDouble() * (cfg.startRollMaxMph - cfg.startRollMinMph);
             staged = AnyStaging();
             if (staged) Event($"Field pulls out of the staging grid single file and forms up {(Lanes == 1 ? "single" : "double")} file, then the pace lap. Leader will roll the start at {startRollMph:F0} mph.");
@@ -668,6 +673,12 @@ namespace OKT
                     }
                     if (e.gridPos == 0 && ai.raceDist > GoLine - 0.35f * L)
                     { ai.paceStraight = Mathf.Min(paceS, startRollMph * U.Mph); ai.paceCorner = Mathf.Min(paceC, startRollMph * U.Mph); }
+                    if (e.gridPos == 0)
+                    {
+                        // slows at once when the staging line needs it, but speeds up only gradually (Franklin 11-20)
+                        leaderRamp = Mathf.Min(ai.paceStraight, Mathf.Max(leaderRamp, e.kart.ForwardSpeed - 0.5f) + cfg.paceRampMphPerSec * U.Mph * dt);
+                        ai.paceStraight = Mathf.Min(ai.paceStraight, leaderRamp); ai.paceCorner = Mathf.Min(ai.paceCorner, leaderRamp);
+                    }
                     if (ahead != null)
                     {
                         ai.speedCap = Mathf.Max(0f, ahead.kart.ForwardSpeed + 1.0f * (gap - cfg.rowGapFt * U.Ft));

@@ -97,6 +97,9 @@ namespace OKT
         // ("hitting that just causes the kart to push up slightly"), then a flat band of graded dirt, then grass.
         // No sharp crease: the bank reaches ground level at the inside edge and the band is level with it.
         public float insideRidgeHeightIn = 3f;   // [TEST VALUE]
+        // A tire plowing through the ridge's loose dirt drags (Franklin 11-20: "Running up on that berm and it slowing
+        // the inside kart down is enough of an effect"); hard dirt rolls at ~0.03 of the load, loose sand ~0.15-0.3. [TEST VALUE]
+        public float ridgeRollingResistance = 0.15f;
         public float insideRidgeWidthIn = 18f;   // [TEST VALUE]
         public float insideBandFt = 8f;          // flat graded dirt before the grass [TEST VALUE]
         public float insideRidgeHeight => insideRidgeHeightIn * U.In;
@@ -131,7 +134,7 @@ namespace OKT
     public enum BarrierType { None = 0, Guardrail = 1, Fence = 2 }
 
     /// <summary>Ground under a tire: grip multiplier of the surface itself, and whether it's loose (dusts the tire).</summary>
-    public struct GroundSample { public float grip; public bool loose; }
+    public struct GroundSample { public float grip; public bool loose; public float rollExtra; }   // rollExtra: added rolling resistance (fraction of the tire's load)
 
     public struct TrackFrame
     {
@@ -545,7 +548,7 @@ namespace OKT
             if (d < -f.halfWidth)
             {
                 float x = -f.halfWidth - d;
-                if (x < cfg.insideRidgeWidth) return new GroundSample { grip = 1f, loose = true };   // loose ridge: dusts the tire
+                if (x < cfg.insideRidgeWidth) return new GroundSample { grip = 1f, loose = true, rollExtra = cfg.ridgeRollingResistance }; // loose ridge: dusts the tire, plows
                 if (x < cfg.insideRidgeWidth + cfg.insideBand) return new GroundSample { grip = 1f, loose = false }; // graded dirt
                 return new GroundSample { grip = cfg.gripGrass, loose = false };
             }
