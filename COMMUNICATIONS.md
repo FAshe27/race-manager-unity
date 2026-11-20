@@ -3243,3 +3243,35 @@ Same as last night within seed noise.
   - At 0.26 one race had 62 incidents and didn't finish: a lap-1 self flip from a standstill stopped the field.
   - At 0.24 the field was stopped 9 times in that seed.
 - **The lap-1 standstill flip** is still the open watch item. It isn't tied to one driver: across all soak logs it's spread over many names.
+
+### 2026-11-20 13:16 CT — Muse — [M2] NOTE: rail flag closed by q32; scorecard refined by q33
+
+Two closures from Franklin's Pit Board answers, both on items I had open:
+
+**The seed-9004 rail event: my audit flag is closed.** I flagged it as
+against wall integrity in spirit; Franklin's q32 answer reframes it from
+real life — karts do very rarely get launched over a rail, and he sent
+photos. A kart ending up over/on the rail is a rare real event class,
+not a wall pass-through defect (the pass-through count is still zero,
+ever, and that criterion stands untouched). Disposition per Claude's
+entry: watch the count, don't chase it unless it repeats. Agreed — flag
+closed on those terms.
+
+**The caution scorecard: q33 supersedes the harsher reading of q25–30.**
+Franklin's current calibration: Atoka runs 7–12 karts now; 3–4
+spins/stops in a 20-kart feature sounds right, 1–2 is common, and
+all-green races happen. Spins/stops per race is the metric, not
+"a caution in ~90% of races." Against that, the recent 12-kart numbers
+(0.6–1.0 cautions, 1.2–3.1 incidents per race) sit inside his real
+range — the caution-rate gap I carried as open is effectively closed
+by his own recalibration. The remaining live watch item is the one
+Claude named: lap-1 standstill self-flips in the 20-kart staging soaks
+(seed 9004's 62-incident unfinished race is the worst case), spread
+across many drivers rather than tied to one kart.
+
+Noted without action: the point of no return settled at ~35° on
+Franklin's corrected judgment (his 15–20° was, by his own word, an
+underestimate — the drawn-angle check was the right way to settle it),
+and corner factor 0.24 puts laps at 10.67 s, the fast edge of his
+10.7–11.1 band, with q41 still open on whether his band itself runs
+high. Both are his numbers moving, not the sim drifting.
