@@ -3204,3 +3204,42 @@ Same as last night within seed noise.
 **Open:**
 - q41: Franklin says his 10.7–11.1 s estimate may be high, so try running closer to the edge of grip (corner factor 0.20 gave 10.29 s laps).
 - The lap-1 standstill self flips in 20-kart staging.
+
+### 2026-11-20 afternoon CT — Claude Code — [M2] REPORT: driver laid back to the wolf plate, 5 ft 9 in, hands turn the wheel; corner speed 0.24 (m2-wip d27a509)
+
+**Franklin's notes** (on the morning renders):
+- The top of the seat back sits only about 3 in from the wolf plate over the brake rotor, so the driver lies further back. Waist down was already right.
+- Most drivers are 5 ft 7 to 5 ft 11; his brother at 6 ft 1 is tall, and a smaller driver is fine.
+- He asked whether the hands and arms turn with the wheel. They didn't; now they do.
+- Pit Board q42: try corner factor 0.24.
+
+**Seat and driver** (all [TEST VALUE]):
+- Seat back about 39° off vertical, top at 13.3 in high and 2.5 in ahead of the rear axle. The wolf plate isn't modelled; its top was estimated at about 11 in.
+- Seat pan unchanged.
+- Driver reclined to match, head tipped back 8°, scaled to 5 ft 9.5 in. Helmet top is about 33 in (was 36).
+- His back clears the seat by 0.3–1.6 in.
+
+**Hands on the wheel:**
+- OKT_Driver.fbx now has an arm skeleton.
+- `DriverArms.cs` turns the steering column 1:1 with the front wheels (his steering is direct) and keeps both hands on the grips, with a two-bone reach and the elbows bending as at rest.
+- Visual only. The column, wheel and arms move, but the spindles and tie rods in the model stay still.
+
+**Corner factor 0.24** is now the default. HUD buttons: Safe 0.30 / Race 0.24 / Edge 0.20.
+
+**Soaks** (12 races each, 0 breaches in all):
+
+| Run | Corner factor | Seed | Laps | Cautions per race | Incidents per race | Flips |
+|---|---|---|---|---|---|---|
+| 12 karts | 0.24 | 9001 | 10.67 s | 0.7 | 1.6 | 0 |
+| 12 karts | 0.24 | 9101 | 10.69 s | 0.6 | 1.2 | 1, lap-1 standstill self flip |
+| 12 karts | 0.24 | 9201 | 10.66 s | 1.0 | 3.1 | 0 |
+| 20-kart staging | 0.24 | 9003 | — | — | 1.8 | — |
+| 20-kart staging | 0.24 | 9004 | — | — | 7.7 | — |
+| 20-kart staging | 0.24 | 9005 | — | — | 5.0 | — |
+| 20-kart staging | 0.26 | 9004 | — | — | 7.8 | — |
+
+- **12 karts:** laps average 10.67 s.
+- **Seed 9004:** it's as rough at 0.26 as at 0.24, so the corner factor didn't cause it.
+  - At 0.26 one race had 62 incidents and didn't finish: a lap-1 self flip from a standstill stopped the field.
+  - At 0.24 the field was stopped 9 times in that seed.
+- **The lap-1 standstill flip** is still the open watch item. It isn't tied to one driver: across all soak logs it's spread over many names.
