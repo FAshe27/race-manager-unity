@@ -73,6 +73,26 @@ namespace OKT.EditorTools
             Shot("4-three-quarter-rear", c0 + new Vector3(-2.3f, 1.4f, -2.6f), c0);
             Shot("7-side-left", c0 + new Vector3(-4.2f, 0.25f, 0f), c0);
             Shot("8-rear", c0 + new Vector3(0f, 0.5f, -4.2f), c0);
+            // hands on the wheel, steering right and left (driver's-eye view from behind and above)
+            var arms = one.GetComponentInChildren<DriverArms>();
+            Debug.Log("KMT driver arms " + (arms != null));
+            foreach (var st in new[] { 30f, -30f })
+            {
+                one.steerDeg = st; one.UpdateVisuals(0f); if (arms != null) arms.Pose(st);
+                // the editor doesn't re-skin outside play mode: draw a baked copy of the posed driver for the shot
+                var smr = one.GetComponentInChildren<SkinnedMeshRenderer>(); GameObject baked = null;
+                if (smr != null)
+                {
+                    var bm = new Mesh(); smr.BakeMesh(bm, true);
+                    baked = new GameObject("BakedDriver"); baked.transform.SetPositionAndRotation(smr.transform.position, smr.transform.rotation);
+                    baked.AddComponent<MeshFilter>().sharedMesh = bm; baked.AddComponent<MeshRenderer>().sharedMaterials = smr.sharedMaterials;
+                    smr.enabled = false;
+                }
+                Shot(st > 0 ? "9-steer-right-30" : "10-steer-left-30", c0 + new Vector3(0.5f, 1.1f, -1.4f), c0 + new Vector3(0.05f, 0.1f, 0.35f));
+                Shot(st > 0 ? "11-steer-right-30-front" : "12-steer-left-30-front", c0 + new Vector3(-0.4f, 0.9f, 2.0f), c0 + new Vector3(-0.1f, 0.2f, 0.1f));
+                if (baked != null) { Object.DestroyImmediate(baked); smr.enabled = true; }
+            }
+            one.steerDeg = 0f; one.UpdateVisuals(0f); if (arms != null) arms.Pose(0f);
             KartModel.Show = false;
             var bare = Make(14, colors[0], new Vector3(3f, 0f, 0f)); one.gameObject.SetActive(false);
             Shot("5-collider-view-three-quarter-front", new Vector3(3f, 0f, 0f) + c0 + new Vector3(2.3f, 1.4f, 2.6f), new Vector3(3f, 0f, 0f) + c0);

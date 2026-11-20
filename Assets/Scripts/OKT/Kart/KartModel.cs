@@ -313,6 +313,8 @@ namespace OKT
             var helm = Find(drv, "Helmet");
             if (helm != null) { helm.localPosition = head; helm.localScale = Vector3.one * (2f * HelmetR * U.In); }
             foreach (var r in drv.GetComponentsInChildren<Renderer>(true)) r.enabled = false;
+            // hands on the wheel: the column turns with the front wheels and the arms follow it
+            DriverArms.Attach(m, root.GetComponent<KartPhysics>(), Find(root, "SteeringShaft"), Find(root, "ColumnTop"));
         }
 
         static Transform Find(Transform t, string name)
