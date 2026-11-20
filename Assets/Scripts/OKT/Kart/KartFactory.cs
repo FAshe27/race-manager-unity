@@ -125,21 +125,66 @@ namespace OKT
                 var drv = new GameObject("Driver").transform; drv.SetParent(go.transform, false);
                 float dx = -setup.driverOffsetLeftIn * U.In, tr = setup.driverTorsoRadiusIn * U.In;
                 var hip = new Vector3(dx, setup.driverHipYIn * U.In, setup.driverHipZIn * U.In);
-                var sh = new Vector3(dx, setup.driverShoulderYIn * U.In, (setup.driverHipZIn - setup.driverLeanBackIn) * U.In);
-                var torso = GameObject.CreatePrimitive(PrimitiveType.Capsule); torso.name = "Torso";
-                torso.transform.SetParent(drv, false);
-                torso.transform.localPosition = (hip + sh) * 0.5f;
-                torso.transform.localRotation = Quaternion.FromToRotation(Vector3.up, sh - hip);
-                float len = (sh - hip).magnitude + 2f * tr;
-                torso.transform.localScale = new Vector3(2f * tr, len * 0.5f, 2f * tr); // capsule primitive: 1 wide, 2 tall
-                torso.GetComponent<Collider>().sharedMaterial = bodyMat;
-                torso.GetComponent<MeshRenderer>().sharedMaterial = Materials.Solid(new Color(0.1f, 0.1f, 0.12f), 0.3f);
+                var sh = new Vector3(dx - setup.driverLeanLeftIn * U.In, setup.driverShoulderYIn * U.In, (setup.driverHipZIn - setup.driverLeanBackIn) * U.In);
+                // torso: two capsules side by side -- shoulders as wide as the cockpit, chest only ~10 in deep
+                var suitMat = Materials.Solid(new Color(0.1f, 0.1f, 0.12f), 0.3f);
+                float shw = setup.driverShoulderHalfWidthIn * U.In;
+                foreach (float side in new[] { -1f, 1f })
+                {
+                    var torso = GameObject.CreatePrimitive(PrimitiveType.Capsule); torso.name = side < 0f ? "TorsoL" : "TorsoR";
+                    torso.transform.SetParent(drv, false);
+                    // narrow at the hips (in the seat, inside the side panels), wide at the shoulders
+                    var h0 = hip + new Vector3(side * setup.driverHipHalfWidthIn * U.In, 0f, 0f);
+                    var s0 = sh + new Vector3(side * shw, 0f, 0f);
+                    float tlen = (s0 - h0).magnitude + 2f * tr;
+                    torso.transform.localPosition = (h0 + s0) * 0.5f;
+                    torso.transform.localRotation = Quaternion.FromToRotation(Vector3.up, s0 - h0);
+                    torso.transform.localScale = new Vector3(2f * tr, tlen * 0.5f, 2f * tr); // capsule primitive: 1 wide, 2 tall
+                    torso.GetComponent<Collider>().sharedMaterial = bodyMat;
+                    torso.GetComponent<MeshRenderer>().sharedMaterial = suitMat;
+                    // arm: shoulder -> elbow (out wide and low) -> hand on the wheel grip
+                    float ar = setup.driverArmRadiusIn * U.In;
+                    var shoulder = sh + new Vector3(side * (shw + tr * 0.6f), 0f, 0f);
+                    var hand = new Vector3(-setup.driverKneeLineLeftIn * U.In + side * setup.driverHandHalfSpanIn * U.In, setup.driverHandYIn * U.In, setup.driverHandZIn * U.In);
+                    var elbow = new Vector3(shoulder.x + side * setup.driverElbowOutIn * U.In, setup.driverElbowYIn * U.In, (shoulder.z + hand.z) * 0.5f);
+                    foreach (var (a, b, nm) in new[] { (shoulder, elbow, "UpperArm"), (elbow, hand, "Forearm") })
+                    {
+                        var arm = GameObject.CreatePrimitive(PrimitiveType.Capsule); arm.name = nm + (side < 0f ? "L" : "R");
+                        arm.transform.SetParent(drv, false);
+                        arm.transform.localPosition = (a + b) * 0.5f;
+                        arm.transform.localRotation = Quaternion.FromToRotation(Vector3.up, b - a);
+                        arm.transform.localScale = new Vector3(2f * ar, ((b - a).magnitude + 2f * ar) * 0.5f, 2f * ar);
+                        arm.GetComponent<Collider>().sharedMaterial = bodyMat;
+                        arm.GetComponent<MeshRenderer>().sharedMaterial = suitMat;
+                    }
+                }
                 var helm = GameObject.CreatePrimitive(PrimitiveType.Sphere); helm.name = "Helmet";
                 helm.transform.SetParent(drv, false);
-                helm.transform.localPosition = new Vector3(dx, setup.helmetYIn * U.In, sh.z - 1f * U.In);
+                helm.transform.localPosition = new Vector3(sh.x, setup.helmetYIn * U.In, sh.z + setup.helmetAheadIn * U.In);
                 helm.transform.localScale = Vector3.one * (2f * setup.helmetRadiusIn * U.In);
                 helm.GetComponent<Collider>().sharedMaterial = bodyMat;
                 helm.GetComponent<MeshRenderer>().sharedMaterial = Materials.Solid(bodyColor, 0.6f);
+                // legs: thigh up to the knee (above the body top), shin down to the pedals
+                var legMat = Materials.Solid(new Color(0.16f, 0.2f, 0.3f), 0.2f);
+                float lr = setup.driverLegRadiusIn * U.In;
+                foreach (float side in new[] { -1f, 1f })
+                {
+                    float lx = dx + side * setup.driverLegSpreadIn * U.In;                                   // at the seat
+                    float kx = -setup.driverKneeLineLeftIn * U.In + side * setup.driverLegSpreadIn * U.In;    // either side of the column
+                    var hipL = new Vector3(lx, setup.driverHipYIn * U.In, setup.driverHipZIn * U.In + tr * 0.5f);
+                    var knee = new Vector3(kx, setup.driverKneeYIn * U.In, setup.driverKneeZIn * U.In);
+                    var foot = new Vector3(kx, setup.driverFootYIn * U.In, setup.driverFootZIn * U.In);
+                    foreach (var (a, b, nm) in new[] { (hipL, knee, "Thigh"), (knee, foot, "Shin") })
+                    {
+                        var leg = GameObject.CreatePrimitive(PrimitiveType.Capsule); leg.name = nm + (side < 0f ? "L" : "R");
+                        leg.transform.SetParent(drv, false);
+                        leg.transform.localPosition = (a + b) * 0.5f;
+                        leg.transform.localRotation = Quaternion.FromToRotation(Vector3.up, b - a);
+                        leg.transform.localScale = new Vector3(2f * lr, ((b - a).magnitude + 2f * lr) * 0.5f, 2f * lr);
+                        leg.GetComponent<Collider>().sharedMaterial = bodyMat;
+                        leg.GetComponent<MeshRenderer>().sharedMaterial = legMat;
+                    }
+                }
                 // He's built switched off: KartPhysics turns him on at its first step, once the engine has worked out the
                 // kart's inertia from the kart's own parts, and pins that (see KartPhysics.Step). Reading the inertia here,
                 // as the parts were still being added, got a half-built tensor -- yaw 21 instead of 53 kg m2, axes twisted

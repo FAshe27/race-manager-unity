@@ -79,6 +79,30 @@ namespace OKT.EditorTools
             Shot("6-three-karts", new Vector3(3.2f, 2.0f, 4.5f), new Vector3(0f, 0.2f, 0f));
         }
 
+                /// <summary>Hitbox vs model: per body piece, the model's drawn extent and the colliders' extent (inches, kart axes).</summary>
+        public static void HitboxCheck()
+        {
+            var setup = new KartSetup();
+            var kp = KartFactory.Create("Check", 1, Color.red, setup, null);
+            Physics.SyncTransforms();
+            var sb = new StringBuilder();
+            Bounds? Union(System.Collections.Generic.IEnumerable<Bounds> bs) { Bounds? u = null; foreach (var b in bs) { if (u == null) u = b; else { var x = u.Value; x.Encapsulate(b); u = x; } } return u; }
+            string F(Bounds? b) => b == null ? "none" : $"x {b.Value.min.x / 0.0254f:F2}..{b.Value.max.x / 0.0254f:F2}  y {b.Value.min.y / 0.0254f:F2}..{b.Value.max.y / 0.0254f:F2}  z {b.Value.min.z / 0.0254f:F2}..{b.Value.max.z / 0.0254f:F2}";
+            foreach (var piece in new[] { "BodyNose_Pointed", "BodySide_L_Pointed", "BodySide_R_Pointed", "SeatShell", "Engine_Block", "Engine_Exhaust", "Engine_AirFilter" })
+            {
+                var rends = new System.Collections.Generic.List<Bounds>(); var cols = new System.Collections.Generic.List<Bounds>();
+                foreach (var r in kp.GetComponentsInChildren<Renderer>(true)) if (r.name == piece) rends.Add(r.bounds);
+                foreach (var c in kp.GetComponentsInChildren<Collider>(true)) if (c.name == piece + "_Hitbox") cols.Add(c.bounds);
+                sb.AppendLine($"KMT {piece}: drawn {F(Union(rends))}");
+                sb.AppendLine($"KMT {piece}: hitbox {F(Union(cols))} ({cols.Count} hulls)");
+            }
+            var all = new System.Collections.Generic.List<Bounds>();
+            foreach (var c in kp.GetComponentsInChildren<Collider>(true)) if (c.enabled && !c.transform.IsChildOf(kp.transform.Find("Driver"))) all.Add(c.bounds);
+            sb.AppendLine($"KMT all kart colliders (no driver): {F(Union(all))}");
+            sb.AppendLine($"KMT footprint front {setup.FootFront / 0.0254f:F2} rear {setup.FootRear / 0.0254f:F2} left {setup.FootLeft / 0.0254f:F2} right {setup.FootRight / 0.0254f:F2} in; inertia {kp.Body.inertiaTensor}");
+            Debug.Log(sb.ToString());
+        }
+
         static string Arg(string name, string def)
         {
             var a = System.Environment.GetCommandLineArgs();

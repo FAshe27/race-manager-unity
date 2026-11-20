@@ -43,14 +43,30 @@ namespace OKT
         // the helmet onto its back. Shape only: the weight, balance and handling are the kart's as before. [TEST VALUEs]
         public static bool DefaultDriverBody = true;
         public bool driverBody = DefaultDriverBody;
-        public float driverHipZIn = -6f;               // hips, ahead (+) / behind (-) the kart centre
-        public float driverHipYIn = 8f;
-        public float driverShoulderYIn = 28f;
-        public float driverLeanBackIn = 6f;            // shoulders this far behind the hips (reclined seat)
-        public float driverTorsoRadiusIn = 7f;
+        // Franklin 11-19 (race photos): the driver was "super tall and sitting upright" -- he lies well back: seat low,
+        // shoulders back, knees up by the wheel, feet out at the pedals near the nose. His garage and overhead photos
+        // (11-19): seat well left of centre (engine on the right), helmet ~10-18 in ahead of the rear axle. Sized for the
+        // driver in those photos, 6 ft 1 in: torso ~19 in hip to shoulder, thigh ~18 in, shin ~20 in.
+        public float driverHipZIn = 0f;               // hips, ahead (+) / behind (-) the kart centre (rear axle -20.65)
+        public float driverHipYIn = 7.5f;
+        public float driverShoulderYIn = 21f;           // Franklin 11-19 side photo: helmet top ~34 in, shoulders ~21 in, knees ~17 in
+        public float driverLeanBackIn = 9f;            // shoulders this far behind the hips (~45 deg recline)
+        public float helmetAheadIn = 3f;               // helmet centre this far ahead of the shoulders (head up, looking forward)
+        public float driverTorsoRadiusIn = 5f;           // a 10 in deep torso (13 in looked "very very tall")
         public float helmetRadiusIn = 5.5f;
-        public float helmetYIn = 35f;                  // centre; top of helmet ~40.5 in
-        public float driverOffsetLeftIn = 2f;          // seat a touch left of centre on an offset dirt chassis
+        public float helmetYIn = 28f;                  // centre; top of helmet ~33.5 in (was 40.5)
+        public float driverKneeYIn = 17f, driverKneeZIn = 12f;  // knees up above the 14 in body top, by the wheel
+        public float driverFootYIn = 6f, driverFootZIn = 30f;   // feet on the pedals, ~9 in ahead of the front axle
+        public float driverLegRadiusIn = 2.5f, driverLegSpreadIn = 4f; // each leg this far either side of its line
+        // shoulders and arms (his overhead photo: the driver fills the cockpit, elbows out, hands on the wheel grips)
+        public float driverShoulderHalfWidthIn = 5.5f;  // two 10 in torso halves this far either side -> ~21 in across (+ arms ~23, shop overhead photo)
+        public float driverHipHalfWidthIn = 1.5f;       // ...and only this far apart at the seat (13 in across the hips)
+        public float driverArmRadiusIn = 2f;
+        public float driverHandHalfSpanIn = 6f, driverHandYIn = 20f, driverHandZIn = 3f; // grips: steering wheel ~12 in across, ~3 in ahead of centre
+        public float driverElbowOutIn = 2.5f, driverElbowYIn = 16f;
+        public float driverKneeLineLeftIn = 1.4f;      // knees and feet straddle the steering column (Franklin: the shaft went through a leg)
+        public float driverLeanLeftIn = 2f;            // shoulders and helmet lean this much further left than the seat (helmet ~9 in left, shop overhead photo)
+        public float driverOffsetLeftIn = 7f;          // seat well left of centre on an offset dirt chassis (engine on the right) [TEST VALUE]
         public float frontBumperAheadIn = 10f;         // inside the nose; WKA 401.6 length cap (74 in) forced it in from Franklin's ~14 [TEST VALUE]
         public float frontBumperHalfWidthIn = 13f;     // [TEST VALUE, from photos]
         public float frontBumperTopIn = 7.75f;         // top of the upper hoop: WKA 409.1 minimum 7.75 in
@@ -175,6 +191,17 @@ namespace OKT
         // wheel-mount / tire / nerf / panel maths, asked hundreds of times a step by the drivers and the director
         // (perf pass 2026-11-17: about a third of the driver time at 40 karts).
         [System.NonSerialized] bool frozen; float fRight, fLeft, fFront, fRear, fTireOutR, fTireOutL;
+        /// <summary>The plan-view footprint from the kart's actual colliders (the body from Franklin's model, KartModel).</summary>
+        public void SetFootprint(float front, float rear, float left, float right)
+        {
+            if (!frozen) FreezeFootprint();
+            fFront = front; fRear = rear; fLeft = left; fRight = right;
+        }
+        // Rotational inertia (kg m2, principal axes) pinned when the body hitbox comes from the model: the collider shapes
+        // decide how karts touch, not how they turn. These are what the primitive kart worked out (soak 11-19); known to be
+        // on the high side for a real kart (yaw 52.6 vs ~20-30 estimated). [TEST VALUE]
+        public Vector3 inertiaPin = new Vector3(43.13f, 52.64f, 12.74f);
+        public Vector3 inertiaPinEuler = new Vector3(0.95f, 6.00f, 0.43f);
         public void FreezeFootprint()
         {
             frozen = false;

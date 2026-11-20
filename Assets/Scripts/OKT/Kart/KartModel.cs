@@ -14,7 +14,7 @@ namespace OKT
         const string ResourcePath = "KartModel/OKT_Kart";
         static readonly string[] WheelNames = { "Wheel_LF", "Wheel_RF", "Wheel_LR", "Wheel_RR" }; // Corner order
         // physics primitives the model replaces (their renderers only; colliders stay)
-        static readonly string[] Covered = { "FrameVisual", "Body", "FrontBumperLow", "FrontBumperTop" };
+        static readonly string[] Covered = { "FrameVisual", "Body", "FrontBumperLow", "FrontBumperTop", "RearBumperLow", "RearBumperTop" };
 
         static GameObject prefab; static bool loaded;
 
@@ -63,12 +63,170 @@ namespace OKT
                 w.localPosition = Vector3.zero; w.localRotation = rel;
             }
 
+            if (Hitbox) FitHitbox(kart, kp, setup, model.transform);
+
+            // the number (its own layer) sat on the old frame block, which the model hides: put it on the nose deck,
+            // where real karts carry it and the overhead camera sees it
+            var num = Find(root, "Number"); var noseT = Find(model.transform, "BodyNose_Pointed");
+            var noseR = noseT != null ? noseT.GetComponent<Renderer>() : null;
+            var noseMf = noseT != null ? noseT.GetComponent<MeshFilter>() : null;
+            if (num != null && noseR != null && noseMf != null && noseMf.sharedMesh != null && noseMf.sharedMesh.isReadable)
+            {
+                // on the deck: the highest point of the shell near the kart's centreline, nudged just above it
+                var m = root.worldToLocalMatrix * noseT.localToWorldMatrix;
+                Vector3 best = Vector3.zero; bool found = false;
+                foreach (var p in noseMf.sharedMesh.vertices)
+                {
+                    var q = m.MultiplyPoint3x4(p);
+                    if (Mathf.Abs(q.x) > 3f * U.In) continue;
+                    if (!found || q.y > best.y) { best = q; found = true; }
+                }
+                if (found) num.localPosition = new Vector3(0f, best.y + 0.15f * U.In, best.z);
+            }
+
             // hide the primitives the model covers
             foreach (var name in Covered)
             {
                 var t = Find(root, name); if (t == null || t.IsChildOf(model.transform)) continue;
                 foreach (var r in t.GetComponentsInChildren<Renderer>(true)) r.enabled = false;
             }
+        }
+
+        // Franklin 11-19: "make the hitbox of the kart the same as the actual kart ... I wouldn't want cars able to glitch
+        // into each other". The body's colliders are the model's own shell pieces (each a convex hull: tight at the
+        // edges, the dip in the side panels filled over), the rear bumper sits where the frame's bumper is, and the
+        // footprint the drivers judge gaps by comes from the same shapes.
+        public static bool Hitbox = true;
+        static readonly string[] HullPieces = { "BodyNose_Pointed", "BodySide_L_Pointed", "BodySide_R_Pointed" };
+        // seat and Clone engine (parts session 11-19, from the shop overhead photo; sizes estimated) -- solid like the frame
+        static readonly string[] SolidPieces = { "SeatShell", "Engine_Block", "Engine_MountClutch", "Engine_Starter", "Engine_AirFilter", "Engine_Exhaust" };
+        const float FrameRailTopIn = 1.5f;   // rails 1 in tube, 1/2 in off the ground (Franklin)
+
+        static void FitHitbox(GameObject kart, KartPhysics kp, KartSetup setup, Transform model)
+        {
+            var root = kart.transform;
+            var w2l = root.worldToLocalMatrix;
+            // the shell's physics material, from the primitive panel it replaces
+            PhysicsMaterial panelMat = null;
+            var bodyT = Find(root, "Body");
+            if (bodyT != null)
+            {
+                foreach (var c in bodyT.GetComponentsInChildren<Collider>(true)) { if (panelMat == null) panelMat = c.sharedMaterial; Kill(c); }
+            }
+            foreach (var n in new[] { "FrontBumperLow", "FrontBumperTop" })
+            {
+                var t = Find(root, n); if (t == null) continue;
+                foreach (var c in t.GetComponents<Collider>()) Kill(c);
+            }
+            float front = float.NegativeInfinity, left = float.NegativeInfinity, right = float.NegativeInfinity;
+            var hulls = new GameObject("BodyHitbox").transform; hulls.SetParent(root, false);
+            // the frame block shrinks to the rails (it still drags on the dirt); the seat and engine get their own shapes
+            var box = kart.GetComponent<BoxCollider>();
+            PhysicsMaterial solidMat = box != null ? box.sharedMaterial : null;
+            bool haveSolids = false;
+            foreach (var n in SolidPieces) if (Find(model, n) != null) { haveSolids = true; break; }
+            if (box != null && haveSolids)
+            {
+                float y0 = setup.frameClearance, y1 = FrameRailTopIn * U.In;
+                var c = box.center; var sz = box.size;
+                box.size = new Vector3(sz.x, y1 - y0, sz.z); box.center = new Vector3(c.x, (y0 + y1) * 0.5f, c.z);
+            }
+            var pieces = new System.Collections.Generic.List<string>(HullPieces);
+            if (haveSolids) pieces.AddRange(SolidPieces);
+            foreach (var name in pieces)
+            {
+                bool solid = System.Array.IndexOf(SolidPieces, name) >= 0;
+                var t = Find(model, name); var mf = t != null ? t.GetComponent<MeshFilter>() : null;
+                if (mf == null || mf.sharedMesh == null || !mf.sharedMesh.isReadable) { Debug.LogWarning("KartModel: no readable " + name); continue; }
+                var m = w2l * t.localToWorldMatrix;
+                var src = mf.sharedMesh.vertices; var v = new Vector3[src.Length];
+                for (int i = 0; i < src.Length; i++)
+                {
+                    v[i] = m.MultiplyPoint3x4(src[i]);
+                    if (solid) continue; // the plan outline is the body's
+                    if (v[i].z > front) front = v[i].z;
+                    if (v[i].x > right) right = v[i].x;
+                    if (-v[i].x > left) left = -v[i].x;
+                }
+                // one shell is too curved for one convex hull (PhysX caps a hull at 255 faces, then uses a partial one):
+                // cut it into ~6 in chunks along its long side, each chunk its own hull -- tighter to the curves too
+                if (SquareNoseBottom && name.StartsWith("BodyNose")) v = SquareBottom(v);
+                foreach (var chunk in Chunks(v, ChunkIn * U.In))
+                {
+                    var mesh = new Mesh { name = name + "_Hull" };
+                    var tri = new int[(chunk.Length / 3) * 3]; for (int i = 0; i < tri.Length; i++) tri[i] = i;
+                    mesh.vertices = chunk; mesh.triangles = tri;
+                    var go = new GameObject(name + "_Hitbox"); go.transform.SetParent(hulls, false);
+                    var mc = go.AddComponent<MeshCollider>(); mc.sharedMesh = mesh; mc.convex = true; mc.sharedMaterial = solid ? solidMat : panelMat;
+                }
+            }
+            // rear bumper tubes back to the frame's rear bumper
+            float rear = setup.FootRear;
+            var frame = Find(model, "Frame");
+            if (frame != null)
+            {
+                float minZ = float.PositiveInfinity;
+                foreach (var mf in frame.GetComponentsInChildren<MeshFilter>(true))
+                {
+                    if (mf.sharedMesh == null || !mf.sharedMesh.isReadable) continue;
+                    var m = w2l * mf.transform.localToWorldMatrix;
+                    foreach (var p in mf.sharedMesh.vertices) { float z = m.MultiplyPoint3x4(p).z; if (z < minZ) minZ = z; }
+                }
+                if (!float.IsInfinity(minZ))
+                {
+                    float r = setup.TubeRadius;
+                    foreach (var n in new[] { "RearBumperLow", "RearBumperTop" })
+                    {
+                        var t = Find(root, n); if (t == null) continue;
+                        var lp = t.localPosition; lp.z = minZ + r; t.localPosition = lp;
+                    }
+                    rear = Mathf.Max(rear, -minZ);
+                }
+            }
+            if (!float.IsNegativeInfinity(front))
+                setup.SetFootprint(front, rear, Mathf.Max(left, setup.FootLeft), Mathf.Max(right, setup.FootRight));
+            // the shapes decide contact, not turning: keep the rotational inertia the kart had
+            var rb = kp.Body;
+            rb.inertiaTensor = setup.inertiaPin; rb.inertiaTensorRotation = Quaternion.Euler(setup.inertiaPinEuler);
+        }
+
+        const float ChunkIn = 6f, GridIn = 0.5f;
+        // The real nose rolls under at its bottom front edge. A rolled lower edge is a ramp: it climbed the berm and rides
+        // up over a rival's bumper (M1 berm ride 11-16, where the old nose went square). Fill the undercut: every point
+        // of the nose also stands straight down to the nose's lowest level. [TEST KNOB]
+        public static bool SquareNoseBottom = true;
+        static Vector3[] SquareBottom(Vector3[] v)
+        {
+            float ymin = float.PositiveInfinity; foreach (var p in v) ymin = Mathf.Min(ymin, p.y);
+            var o = new Vector3[v.Length * 2];
+            for (int i = 0; i < v.Length; i++) { o[2 * i] = v[i]; o[2 * i + 1] = new Vector3(v[i].x, ymin, v[i].z); }
+            return o;
+        }
+
+        /// <summary>Points cut into slabs along the longer horizontal axis (x or z), each thinned to a 1/2 in grid,
+        /// neighbouring slabs overlapping by one grid step so the hulls meet without gaps.</summary>
+        static System.Collections.Generic.List<Vector3[]> Chunks(Vector3[] v, float size)
+        {
+            Vector3 mn = v[0], mx = v[0];
+            foreach (var p in v) { mn = Vector3.Min(mn, p); mx = Vector3.Max(mx, p); }
+            bool alongZ = (mx.z - mn.z) >= (mx.x - mn.x);
+            float lo = alongZ ? mn.z : mn.x, hi = alongZ ? mx.z : mx.x, g = GridIn * U.In;
+            int n = Mathf.Max(1, Mathf.CeilToInt((hi - lo) / size));
+            float step = (hi - lo) / n;
+            var outList = new System.Collections.Generic.List<Vector3[]>();
+            for (int k = 0; k < n; k++)
+            {
+                float a = lo + k * step - g, b = lo + (k + 1) * step + g;
+                var seen = new System.Collections.Generic.HashSet<Vector3Int>(); var pts = new System.Collections.Generic.List<Vector3>();
+                foreach (var p in v)
+                {
+                    float c = alongZ ? p.z : p.x; if (c < a || c > b) continue;
+                    var key = new Vector3Int(Mathf.RoundToInt(p.x / g), Mathf.RoundToInt(p.y / g), Mathf.RoundToInt(p.z / g));
+                    if (seen.Add(key)) pts.Add(p);
+                }
+                if (pts.Count >= 4) { while (pts.Count % 3 != 0) pts.Add(pts[pts.Count - 1]); outList.Add(pts.ToArray()); }
+            }
+            return outList;
         }
 
         static Transform Find(Transform t, string name)
