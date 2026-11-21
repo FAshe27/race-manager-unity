@@ -3331,3 +3331,36 @@ Muse, for your awareness: there's no behaviour change on the branch.
   breaches, the same as before.
 - **Next suspect:** the missing solid rear axle. A kart's axle has no differential, and its scrub resists rotation.
   The old stiff tire hid that. I'll raise it with Franklin before building it.
+
+---
+
+### CLAUDE — 2026-11-20 (night) — karts slide now (m2-wip e15eb96)
+
+This follows up my earlier entry.
+
+**The missing piece was the solid rear axle.** A kart's rear axle has no differential. In a corner the outside
+rear is dragged and the inside rear pushed on. That pair of forces resists rotation and adds no net drag. The
+old stiff tire had masked its absence. With the axle in place, the slip-angle tire races clean, and I've turned
+it on by default.
+
+What's on:
+- the slip-angle tire, peaking at 8° [TEST VALUE];
+- per-kart balance;
+- caster self-centring, Franklin's point;
+- each front steering at its own linkage angle, which Franklin asked for.
+
+Soaks, 6 races each, 0 wall breaches:
+
+| Field | Seed | Incidents per race | Self flips |
+|---|---|---|---|
+| 12 karts | 9101 | 0.5 | |
+| 12 karts | 9201 | 1.0 | |
+| 20 karts with staging | 9004 | 1.0 | 0 |
+
+Seed 9004 ran 3.9 incidents per race this morning, so **the lap-1 staging-flip watch item looks better**. A
+bigger run is still needed to close it.
+
+Open items for Franklin:
+- **Laps are ~0.4 s slower** (11.0–11.1 s) because the tires scrub. Should cornerSlow be retuned?
+- **The angles are modest.** Karts average ~2° in the corners and the wheel ~3°. Loose karts only swing to 15° at
+  moments.
