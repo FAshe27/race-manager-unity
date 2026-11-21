@@ -12,6 +12,13 @@ namespace OKT
     {
         public int races, finished, cautions, breaches, incidents, dnfs, fieldStops;
         public readonly List<(float bal, float mean, float max)> slipRows = new List<(float bal, float mean, float max)>();
+        public readonly List<(float max, float over, float fall)> rpmRows = new List<(float max, float over, float fall)>();
+        public string RpmLine()
+        {
+            if (rpmRows.Count == 0) return "RPM: none";
+            float mx = 0, o = 0, f = 0, worstF = 0; foreach (var r in rpmRows) { mx = Mathf.Max(mx, r.max); o += r.over; f += r.fall; worstF = Mathf.Max(worstF, r.fall); }
+            return $"RPM: top {mx:F0}, racing time past 6900 {100f * o / rpmRows.Count:F0}% (mean), past 7400 {100f * f / rpmRows.Count:F1}% mean / {100f * worstF:F1}% worst kart";
+        }
         public string SlipLine()
         {
             string G(string name, System.Func<float, bool> f)
@@ -136,6 +143,16 @@ namespace OKT
                 }
                 sb.AppendLine();
             }
+            {   // engine: top rpm and share of racing time past the 6,900 target / deep in the fall-off (gear bound)
+                sb.Append("  rpm (max / % past 6900 / % past 7400):");
+                foreach (var e in d.field)
+                {
+                    var a = e.ai; if (a.rpmN == 0) continue;
+                    sb.Append($" #{e.driver.number}({e.driver.axleTeeth}T {a.rpmMax:F0}/{100f * a.rpmOverTarget / a.rpmN:F0}/{100f * a.rpmOverFall / a.rpmN:F1})");
+                    st.rpmRows.Add((a.rpmMax, (float)a.rpmOverTarget / a.rpmN, (float)a.rpmOverFall / a.rpmN));
+                }
+                sb.AppendLine();
+            }
             sb.Append("  clean-air best laps: ");
             foreach (var e in d.field)
             {
@@ -161,7 +178,7 @@ namespace OKT
                           $"cautions/race {st.cautions / R:F1} [1-2, up to 5], pole wins {100f * st.poleWins / Mathf.Max(1, st.poleRaces):F0}% [~20%], " +
                           $"pole top 3 {100f * st.poleTop3 / Mathf.Max(1, st.poleRaces):F0}% [usually], lead changes/race {st.leadChanges / R:F1}, karts spun/race {st.spunKarts / R:F1} [1-2 per spin], " +
                           $"contacts/race {st.contacts / R:F0} [everyone touches someone].\n";
-            card += st.SlipLine() + "\n";
+            card += st.SlipLine() + "\n" + st.RpmLine() + "\n";
             return card + $"SOAK SUMMARY: {st.races} races, {st.finished} completed. Cautions {st.cautions} total ({(st.races > 0 ? (float)st.cautions / st.races : 0):F1}/race), field stops {st.fieldStops}. " +
                    $"Wall breaches {st.breaches}. Incidents {st.incidents} ({(st.races > 0 ? (float)st.incidents / st.races : 0):F1}/race). DNFs {st.dnfs}. " +
                    $"Clean-air best laps: {st.cleanBest.Count} karts, mean {mean:F2} s, range {(st.cleanBest.Count > 0 ? st.minClean : 0):F2}–{st.maxClean:F2} s (Clone band 10.5–11.5). " +

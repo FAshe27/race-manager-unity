@@ -157,6 +157,7 @@ namespace OKT
         public static long DbgPedalSteps, DbgLiftSteps, DbgDragSteps, DbgBrakeSteps;
         public static bool SlideReact = true, NoReturn = true;  // soak knobs
         public static bool SlipFeedForward = true, VelocityPursuit = false, ExpectedSlipAim = true, SteerByGrip = true;
+        public static float ExitSlowFrac = 0.8f;   // [TEST VALUE] share of the corner slowing kept on the exit
         public static float CatchGain = 0f;                     // [TEST VALUE] extra countersteer per rad of body angle past normal              // soak knob: steer for the front tires' slip angle
         public const float NoReturnCornerMin = 0.3f;   // "in a corner": the corner profile past this [TEST VALUE]
         public const float SpinLockDeg = 60f;          // rotated this far it's a spin: brakes locked [TEST VALUE]
@@ -167,6 +168,7 @@ namespace OKT
         [System.NonSerialized] public float kartFeel = 1f; // how truly he knows his kart's angle (1 = exactly; director, from consistency)
         [System.NonSerialized] public float normalSlipDeg; // the body angle this kart normally runs at, right here (slip-angle tire)
         // corner slip telemetry (racing, corner > 0.5, over 15 mph): body angle nose-in, tire slip angles
+        [System.NonSerialized] public int rpmN, rpmOverTarget, rpmOverFall; [System.NonSerialized] public float rpmMax;
         [System.NonSerialized] public int slipN; [System.NonSerialized] public float slipBodySum, slipBodyMax, slipFrontSum, slipRearSum, slipDevSum, slipSpeedSum, slipSteerSum, slipSteerAbsDev, prevSteerTel;
         public const int SlipBins = 8; public readonly int[] slipBodyHist = new int[SlipBins];   // 2.5 deg bins
         /// <summary>Body angle (deg, nose in) the kart spends `frac` of its corner time under.</summary>
@@ -398,6 +400,13 @@ namespace OKT
             kart.steerDeg = Mathf.Clamp(steerRad * Mathf.Rad2Deg, -kart.setup.maxSteerDeg, kart.setup.maxSteerDeg);
             // past the point of no return: nose ~35 deg to the inside (left) in a corner -- no saving it
             float insideDeg = -slipB * Mathf.Rad2Deg;
+            // telemetry: engine rpm while racing (gear bound = running out of rpm at the end of the straight)
+            if (racing && v > 10f * U.Mph)
+            {
+                float rpm = kart.EngineRpm; rpmN++; rpmMax = Mathf.Max(rpmMax, rpm);
+                if (rpm > kart.setup.targetRpm) rpmOverTarget++;
+                if (rpm > 7400f) rpmOverFall++;
+            }
             // telemetry: how the kart sits in the corners (Franklin's slip angles)
             if (racing && fr.corner > 0.5f && v > 15f * U.Mph)
             {
@@ -422,7 +431,12 @@ namespace OKT
 
             Perf.Add(5, ref pt);
             // --- speed: corner profile read at the lookahead point
-            freeSpeed = cfg.vMax * cfg.pace * (1f - Mathf.Max(0f, cfg.cornerSlow - attackBoost) * tf.corner);
+            // Past the apex (the corner easing ahead of me) he's back to full throttle sooner: the exit profile asks for less
+            // slowing (Franklin 11-20: win back the slip-angle tires' scrub "faster off the corners and down the
+            // straights"). The tires and the feathering decide what the rear can take. [TEST VALUE ExitSlowFrac]
+            float slowNow = Mathf.Max(0f, cfg.cornerSlow - attackBoost);
+            if (KartSetup.SlipCurve && tf.corner < fr.corner - 0.02f) slowNow *= ExitSlowFrac;
+            freeSpeed = cfg.vMax * cfg.pace * (1f - slowNow * tf.corner);
             if (cfg.balanceGrip < 1f) freeSpeed *= Mathf.Lerp(1f, Mathf.Sqrt(cfg.balanceGrip), tf.corner);
             // Off-line corner speed: the profile is tuned for Franklin's groove. A tighter line (an inside dive,
             // a kart pushed low) can't carry groove speed — scale by sqrt(path radius / groove radius), the grip
