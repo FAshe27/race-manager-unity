@@ -15,6 +15,11 @@ namespace OKT
 
         // Inputs (from the AI), set before each Step.
         [HideInInspector] public float steerDeg;
+        /// <summary>Where the front wheels actually point (deg, + = right): the driver's steer plus the caster's pull
+        /// toward where the fronts are travelling (Franklin 11-20: "the fronts always want to point forwards -- the slide
+        /// can sometimes catch itself as the kart rotates under the driver"). Instant: no reaction time in it.</summary>
+        public float SteerApplied { get => stepped ? steerApplied : steerDeg; private set => steerApplied = value; }
+        float steerApplied; bool stepped;
         [HideInInspector] public float accelCmd; // m/s², + drive / - brake (one-pedal command: staging, cautions, tests)
         // Two pedals, 0..1 each, used instead of accelCmd when throttleCmd >= 0 (the driver sets them every step):
         // the gas pulls with what the engine makes at this speed, the brake holds the rear axle back, and both can be on
@@ -30,6 +35,13 @@ namespace OKT
         public float maxAirTime;
         public float maxCompression;
         public readonly float[] surfaceGripNow = { 1f, 1f, 1f, 1f };
+        /// <summary>Each tire's slip angle (deg, unsigned): the angle between where it points and where it's rolling.</summary>
+        public readonly float[] slipDeg = new float[4];
+        /// <summary>Signed slip angle (rad) of each axle's tires, averaged: + = the tire is sliding to its right.</summary>
+        public float FrontSlipRad { get; private set; }
+        public float RearSlipRad { get; private set; }
+        readonly float[] slipSigned = new float[4];
+        readonly float[] fLatPrev = new float[4];   // each tire's side force last step (N, signed)
         /// <summary>Berm dust on each tire, 0 = clean .. 1 = fully coated (Franklin: costs bite until it cleans off).</summary>
         public readonly float[] dust = new float[4];
         readonly float[] rollExtra = new float[4];   // extra rolling resistance from the ground each tire stood on last step (loose ridge)
@@ -111,6 +123,11 @@ namespace OKT
             float g = -Physics.gravity.y;
             ForwardSpeed = Vector3.Dot(rb.linearVelocity, transform.forward);
 
+            // caster self-centring: the fronts pull toward their own direction of travel against the driver's hands, a
+            // share of last step's front slip (+ slip = sliding right -> the wheels swing right). [TEST VALUE gain]
+            SteerApplied = steerDeg; stepped = true;
+            if (KartSetup.SlipCurve && s.selfAlignGain > 0f)
+                SteerApplied = Mathf.Clamp(steerDeg + s.selfAlignGain * FrontSlipRad * Mathf.Rad2Deg, -s.maxSteerDeg, s.maxSteerDeg);
             float rearLoad = 0f; long pt = Perf.T();
             int n = 0;
             for (int i = 0; i < 4; i++)
@@ -139,7 +156,7 @@ namespace OKT
                 }
                 else
                 {
-                    grounded[i] = false; compression[i] = 0f; load[i] = 0f; prevX[i] = 0f;
+                    grounded[i] = false; compression[i] = 0f; load[i] = 0f; prevX[i] = 0f; fLatPrev[i] = 0f;
                 }
             }
             Perf.Add(9, ref pt);
@@ -183,7 +200,7 @@ namespace OKT
                 if (!grounded[i]) continue;
                 var hn = hits[i].normal;
                 bool front = i < 2;
-                var fwd = front ? Quaternion.AngleAxis(steerDeg, up) * transform.forward : transform.forward;
+                var fwd = front ? Quaternion.AngleAxis(SteerApplied, up) * transform.forward : transform.forward;
                 fwd = Vector3.ProjectOnPlane(fwd, hn).normalized;
                 var side = Vector3.Cross(hn, fwd);
                 // Slip is relative to whatever the tire stands on (another kart moves; the dirt doesn't).
@@ -196,24 +213,58 @@ namespace OKT
                 var ground = surfaceGrip != null ? surfaceGrip(hits[i], i) : new GroundSample { grip = 1f };
                 float dustedGrip = surface != null ? surface.gripDusted : 1f;
                 surfaceGripNow[i] = ground.grip * Mathf.Lerp(1f, dustedGrip, dust[i]);
-                float cap = s.gripMu * surfaceGripNow[i] * N;
+                float cap = s.gripMu * surfaceGripNow[i] * N * (front ? s.frontGripScale : s.rearGripScale);
+                float aDeg = Mathf.Atan2(Mathf.Abs(vLat), Mathf.Max(1.5f, Mathf.Abs(vLong))) * Mathf.Rad2Deg;
+                slipDeg[i] = aDeg; slipSigned[i] = Mathf.Atan2(vLat, Mathf.Max(1.5f, Mathf.Abs(vLong)));
                 // a tire sliding at a big angle has less bite than at its peak (real tires; what makes a big rotation unsavable)
                 if (s.slideGripRatio < 1f)
                 {
-                    float slipDeg = Mathf.Atan2(Mathf.Abs(vLat), Mathf.Max(0.5f, Mathf.Abs(vLong))) * Mathf.Rad2Deg;
-                    float fade = Mathf.Clamp01((slipDeg - s.slideFadeStartDeg) / (s.slideFadeEndDeg - s.slideFadeStartDeg));
+                    float sd = Mathf.Atan2(Mathf.Abs(vLat), Mathf.Max(0.5f, Mathf.Abs(vLong))) * Mathf.Rad2Deg;
+                    // with a slip-angle tire the fade starts past twice the peak: a loose kart hangs its rear out there
+                    float f0 = (KartSetup.SlipCurve || KartSetup.SlipHeld) ? Mathf.Max(s.slideFadeStartDeg, 2f * s.slipPeakDeg) : s.slideFadeStartDeg;
+                    float f1 = f0 + (s.slideFadeEndDeg - s.slideFadeStartDeg);
+                    float fade = Mathf.Clamp01((sd - f0) / (f1 - f0));
                     cap *= Mathf.Lerp(1f, s.slideGripRatio, fade * fade * (3f - 2f * fade));
                 }
 
                 // Lateral: cancel a fraction of the slip of this wheel's share of mass.
                 float share = N / g;
                 float fLat = -vLat * share * s.lateralCancelGain / dt;
+                bool pastPeak = false;
+                if (KartSetup.SlipHeld && !KartSetup.SlipCurve && cap > 1e-3f)
+                {
+                    // A tire carrying side load runs at the slip angle that load needs (rising to slipPeakDeg at full grip).
+                    // The stiff grip holds the tire AT that angle rather than at zero, so a kart in a corner sits angled to
+                    // where it's going -- more at the end with less grip (loose: the rear) -- and keeps the stiff tire's
+                    // stability (an explicit slip-angle tire was soft and spun karts in traffic, soak 11-20).
+                    float need = Mathf.Clamp01(Mathf.Abs(fLatPrev[i]) / cap);
+                    float aT = s.slipPeakDeg * Mathf.Deg2Rad * (2f / Mathf.PI) * Mathf.Asin(need);
+                    float vLatT = -Mathf.Sign(fLatPrev[i]) * Mathf.Abs(vLong) * Mathf.Tan(aT);
+                    fLat = -(vLat - vLatT) * share * s.lateralCancelGain / dt;
+                }
+                if (KartSetup.SlipCurve)
+                {
+                    // the tire's side force from its slip angle: rising to the peak, then holding (a slow fade past it).
+                    // Never more than the old cancel force -- that would push the slip through zero inside one step.
+                    float x = aDeg / Mathf.Max(0.5f, s.slipPeakDeg);
+                    float shape = x < 1f ? Mathf.Sin(x * Mathf.PI * 0.5f) : Mathf.Max(0.9f, 1f - s.slipPastPeakDrop * (x - 1f));
+                    float fc = cap * shape;
+                    if (Mathf.Abs(fLat) > fc) fLat = -Mathf.Sign(vLat) * fc;
+                    pastPeak = x > 1f;
+                }
 
                 float fLong = 0f; bool locked = false;
                 if (!front && rearLoad > 1e-3f)
                 {
                     fLong = driveTotal * (N / rearLoad);
-                    if (fLong < 0f && !lockBrakes) fLong = Mathf.Max(fLong, -cap * 0.95f);   // eases off as the rear goes
+                    if (fLong < 0f && !lockBrakes)
+                    {
+                        // eases off as the rear goes: brakes only as hard as the rear can take on top of holding the kart
+                        // sideways (with the slip-angle tire the side force is a share of grip, so braking past what's left
+                        // took the rear's side grip and spun karts checking up in traffic -- soak 11-20)
+                        float room = KartSetup.SlipCurve && KartSetup.BrakeLeavesSide ? Mathf.Sqrt(Mathf.Max(0f, cap * cap - fLat * fLat)) : cap;
+                        fLong = Mathf.Max(fLong, -room * 0.95f);
+                    }
                     locked = lockBrakes && fLong < 0f && -fLong >= cap * 0.95f;
                     if (fLong < 0f) // braking never pushes the kart backwards
                     {
@@ -229,6 +280,7 @@ namespace OKT
                     float sc = cap / mag; fLat *= sc; fLong *= sc;
                     sliding[i] = true;
                 }
+                if (pastPeak) sliding[i] = true;
                 // A locked tire just skids: all its grip opposes the way it is sliding, none left to hold it sideways
                 // (Franklin 11-18: locking the brakes on dirt slides and probably spins the kart). Drivers only lock
                 // them on purpose (lockBrakes: spinning past the point of no return); otherwise they ease off at the limit.
@@ -237,6 +289,7 @@ namespace OKT
                     float vs = Mathf.Sqrt(vLat * vLat + vLong * vLong);
                     if (vs > 0.3f) { fLat = -vLat / vs * cap; fLong = -vLong / vs * cap; sliding[i] = true; DbgLocked++; }
                 }
+                fLatPrev[i] = fLat;
                 rb.AddForceAtPosition(side * fLat + fwd * fLong, hits[i].point);
                 if (hits[i].rigidbody != null && hits[i].rigidbody != rb) hits[i].rigidbody.AddForceAtPosition(-(side * fLat + fwd * fLong), hits[i].point);
 
@@ -253,6 +306,11 @@ namespace OKT
                     }
                 }
             }
+            {
+                float fs = 0f, rs = 0f; int fn = 0, rn = 0;
+                for (int i = 0; i < 4; i++) if (grounded[i]) { if (i < 2) { fs += slipSigned[i]; fn++; } else { rs += slipSigned[i]; rn++; } }
+                FrontSlipRad = fn > 0 ? fs / fn : 0f; RearSlipRad = rn > 0 ? rs / rn : 0f;
+            }
             Perf.Add(10, ref pt);
         }
 
@@ -267,7 +325,7 @@ namespace OKT
                 springLen = Mathf.Max(springLen, 0f);
                 w.localPosition = new Vector3(m.x, m.y - springLen, m.z);
                 spinAngle[i] = (spinAngle[i] + ForwardSpeed * dt / setup.WheelRadius(i) * Mathf.Rad2Deg) % 360f;
-                float steer = i < 2 ? steerDeg : 0f;
+                float steer = i < 2 ? SteerApplied : 0f;
                 w.localRotation = Quaternion.Euler(0f, steer, 0f);
                 if (w.childCount > 0) w.GetChild(0).localRotation = Quaternion.Euler(spinAngle[i], 0f, 0f);
             }

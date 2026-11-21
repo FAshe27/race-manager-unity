@@ -11,6 +11,16 @@ namespace OKT
     public class SoakStats
     {
         public int races, finished, cautions, breaches, incidents, dnfs, fieldStops;
+        public readonly List<(float bal, float mean, float max)> slipRows = new List<(float bal, float mean, float max)>();
+        public string SlipLine()
+        {
+            string G(string name, System.Func<float, bool> f)
+            {
+                float m = 0, mx = 0; int n = 0; foreach (var r in slipRows) if (f(r.bal)) { m += r.mean; mx = Mathf.Max(mx, r.max); n++; }
+                return n == 0 ? $"{name} none" : $"{name} ({n}) mean {m / n:F1} deg, worst {mx:F0}";
+            }
+            return "SLIP (body angle nose-in, corners): " + G("dialed", b => Mathf.Abs(b) < 0.025f) + "; " + G("loose", b => b >= 0.025f) + "; " + G("push", b => b <= -0.025f);
+        }
         // real-race scorecard (Franklin, Pit Board q25-q28)
         public int racesWithCaution, poleWins, poleTop3, leadChanges, spunKarts, poleRaces;
         public readonly List<float> cleanBest = new List<float>();
@@ -116,6 +126,16 @@ namespace OKT
                 foreach (var e in d.field) if (e.ai.offTrackSteps > 0) off.Append($" #{e.driver.number} {e.ai.offTrackSteps * World.FixedDt:F1}s");
                 if (off.Length > 0) sb.AppendLine("  off-track time:" + off);
             }
+            {   // how the karts sit in the corners: balance, mean body angle (nose in) / 90th pct / max, front / rear tire slip
+                sb.Append("  corner slip (bal: body mean/p90/max, tires F/R deg):");
+                foreach (var e in d.field)
+                {
+                    var a = e.ai; if (a.slipN == 0) continue;
+                    sb.Append($" #{e.driver.number}({e.driver.balance:+0.00;-0.00}: {a.slipBodySum / a.slipN:F1}/{a.SlipBodyPct(0.9f):F0}/{a.slipBodyMax:F0}, {a.slipFrontSum / a.slipN:F1}/{a.slipRearSum / a.slipN:F1}, wide {a.slipDevSum / a.slipN / U.Ft:F1} ft, wheel {a.slipSteerSum / a.slipN:F1} deg (saw {a.slipSteerAbsDev / a.slipN:F2}/step), {a.slipSpeedSum / a.slipN / U.Mph:F1} mph)");
+                    st.slipRows.Add((e.driver.balance, a.slipBodySum / a.slipN, a.slipBodyMax));
+                }
+                sb.AppendLine();
+            }
             sb.Append("  clean-air best laps: ");
             foreach (var e in d.field)
             {
@@ -141,6 +161,7 @@ namespace OKT
                           $"cautions/race {st.cautions / R:F1} [1-2, up to 5], pole wins {100f * st.poleWins / Mathf.Max(1, st.poleRaces):F0}% [~20%], " +
                           $"pole top 3 {100f * st.poleTop3 / Mathf.Max(1, st.poleRaces):F0}% [usually], lead changes/race {st.leadChanges / R:F1}, karts spun/race {st.spunKarts / R:F1} [1-2 per spin], " +
                           $"contacts/race {st.contacts / R:F0} [everyone touches someone].\n";
+            card += st.SlipLine() + "\n";
             return card + $"SOAK SUMMARY: {st.races} races, {st.finished} completed. Cautions {st.cautions} total ({(st.races > 0 ? (float)st.cautions / st.races : 0):F1}/race), field stops {st.fieldStops}. " +
                    $"Wall breaches {st.breaches}. Incidents {st.incidents} ({(st.races > 0 ? (float)st.incidents / st.races : 0):F1}/race). DNFs {st.dnfs}. " +
                    $"Clean-air best laps: {st.cleanBest.Count} karts, mean {mean:F2} s, range {(st.cleanBest.Count > 0 ? st.minClean : 0):F2}–{st.maxClean:F2} s (Clone band 10.5–11.5). " +

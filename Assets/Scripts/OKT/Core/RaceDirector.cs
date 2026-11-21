@@ -30,6 +30,10 @@ namespace OKT
         public bool cautionsOn = true;             // off: no yellow ever; spun karts sort themselves out under green
         public float powerMult = 1f;               // engine power x this (hp). Top speed is still set by the gearing: the
                                                    // engine stops pulling past ~7,600 rpm, so more power mostly means harder pull
+        // The track's balance tonight, added to every kart's own (+ = looser). Franklin 11-20: "you end up chasing the
+        // track" -- in the afternoon the track takes rubber and gets grippy (karts push); after sundown moisture can leave
+        // them loose; dust or loose dirt on top makes them loose too (the tires can't bite through it). [TEST VALUE]
+        public float trackBalance = 0f;
         public float gripMult = 1f;                // tire grip (and brakes, which are tire-limited) x this; drivers corner
                                                    // faster with it (corner speed goes with the square root of grip)
         public int paceLaps = 1;                   // Franklin (M2): one pace lap from the grid
@@ -238,6 +242,11 @@ namespace OKT
         // Tires after a caution (Franklin: "cautions will cause the tire to cool, and they may not fire off properly
         // again"). [TEST VALUE] all four.
         public static float QualiFeatureSpreadSec = 0.12f;
+        // Kart balance draws (Franklin 11-20) [TEST VALUE]: share dialed in, share loose (the rest push), and the worst of each.
+        public static float DialedInShare = 0.2f, LooseShare = 0.55f, LooseMax = 0.14f, PushMax = 0.10f;
+        // How much of his kart's balance a driver drives around in the corners (corner speed ~ sqrt of the grip he
+        // allows for). Loose is "easier to be fast in" -- he carries more and lets it hang out; a push has to be slowed for.
+        public static float LooseFeel = 0.5f, PushFeel = 1.0f;
         public static float LightPrepChance = 0.25f, LightPrepFalloffMin = 0.03f, LightPrepFalloffMax = 0.05f; // tires that go off [TEST VALUE] // qualifying pace = feature pace +- this (was 0.04) [TEST VALUE]
         public const float TireCautionCool = 0.6f;     // share of the green-flag cold penalty a restart brings back
         public float tireNoRefireChance = 0.3f;
@@ -259,6 +268,8 @@ namespace OKT
         // Gearing: shorter (more axle teeth) drives off the corner harder but goes gear bound and floats the valves at
         // the end of the straight; taller is the reverse. Falls out of the engine model (power curve, KartSetup).
         public int axleTeeth = 63;
+        // Balance (Franklin 11-20): grip given up at one end -- + loose (rear), - tight/push (front); 0 = dialed in.
+        public float balance;
         // Tires (Franklin, Pit Board 2026-11-15), as LAP-TIME fractions over the kart's peak lap (so they carry over
         // when the sim's laps come down to his 10.6s): "two or three laps for tires to come in" -- lap 2 ~11.0, lap 3
         // ~10.8, then 10.6-10.7 for the next 5-10 laps depending on prep. Properly prepped tires can last the whole
@@ -346,6 +357,17 @@ namespace OKT
                     d.tireLockFrac = K(0.005f, 0.015f); d.tireNote = "over-prepped";
                 }
                 // else: properly prepped, lasts the whole race
+            }
+            // Balance, its own stream again (Franklin 11-20: "only a few close to dialed-in ... more often loose than
+            // tight"; the worst loose ones run ~15 deg). [TEST VALUE odds and sizes]
+            var br = new System.Random(seed * 53 + 7);
+            float B(float lo, float hi) => lo + (float)br.NextDouble() * (hi - lo);
+            foreach (var d in list)
+            {
+                double r = br.NextDouble();
+                d.balance = r < RaceConfig.DialedInShare ? B(-0.02f, 0.02f)
+                          : r < RaceConfig.DialedInShare + RaceConfig.LooseShare ? B(0.03f, RaceConfig.LooseMax)
+                          : -B(0.03f, RaceConfig.PushMax);
             }
             list.Sort((a, b) => a.qualiOffsetSec.CompareTo(b.qualiOffsetSec)); // grid = qualifying order, no invert
             return list;
@@ -457,14 +479,20 @@ namespace OKT
             float h1 = Hash01(d.number * 7919 + 11), h2 = Hash01(d.number * 104729 + 3), h3 = Hash01(d.number * 1299709 + 5);
             field.Add(new Entry
             {
-                ai = ai, kart = kart, driver = d, gridPos = gridPos, baseGripG = ScaleKart(kart), idx = field.Count, kc = kart.GetComponent<KartContact>(),
+                ai = ai, kart = kart, driver = d, gridPos = gridPos, baseGripG = ScaleKart(kart, d), idx = field.Count, kc = kart.GetComponent<KartContact>(),
                 paceGapFt = Mathf.Lerp(cfg.cautionGapMinFt, cfg.cautionGapMaxFt, h1),
                 weaver = h2 < cfg.weaverShare, weaveClock = Mathf.Lerp(cfg.weaveOffMinSec, cfg.weaveOffMaxSec, h3),
             });
         }
         /// <summary>Apply the power / grip multipliers to a new kart's setup once; returns its base grip.</summary>
-        float ScaleKart(KartPhysics kart)
+        float ScaleKart(KartPhysics kart, DriverProfile d)
         {
+            // the kart's balance plus the track's: loose takes grip from the rear, tight from the front
+            float b = KartSetup.BalanceOn ? Mathf.Clamp(d.balance + cfg.trackBalance, -0.4f, 0.4f) : 0f;
+            kart.setup.rearGripScale = 1f - Mathf.Max(0f, b);
+            kart.setup.frontGripScale = 1f - Mathf.Max(0f, -b);
+            var ai = kart.GetComponent<KartAI>();
+            if (ai != null) ai.cfg.balanceGrip = 1f - (b > 0f ? b * RaceConfig.LooseFeel : -b * RaceConfig.PushFeel);
             kart.setup.crankHp *= cfg.powerMult;
             kart.setup.gripG *= cfg.gripMult;
             kart.setup.brakeCapG *= cfg.gripMult;
@@ -735,6 +763,13 @@ namespace OKT
                 ai.looseAwareness = Mathf.Lerp(0.6f, 0.95f, Mathf.InverseLerp(35f, 95f, e.driver.consistency));
                 // catching a slide: the best drivers feel it ~0.04 s late, green ones ~0.10 s (Franklin: slight; 0.06-0.15 piled up 20-kart fields, he okayed 0.04-0.10 11-19) [TEST VALUE]
                 ai.reactSec = Mathf.Lerp(0.10f, 0.04f, Mathf.InverseLerp(35f, 95f, e.driver.consistency));
+                // how well he knows the angle his kart runs at tonight (Franklin 11-20: a driver learns his kart quickly in a
+                // session and drives to its limits -- that's how a good driver makes up ground on a loose kart; newer
+                // drivers struggle, it feels unpredictable because it isn't perfect). Grows a little through the race. [TEST VALUE]
+                {
+                    float feel0 = Mathf.Lerp(0.6f, 0.95f, Mathf.InverseLerp(35f, 95f, e.driver.consistency));
+                    ai.kartFeel = feel0 + (1f - feel0) * 0.3f * Mathf.Clamp01(e.lapsDone / 8f);
+                }
                 // ...and how far round it can come before it's gone: Franklin ~35 deg; 33 for green drivers, 37 for the best [TEST VALUE split]
                 ai.noReturnDeg = Mathf.Lerp(33f, 37f, Mathf.InverseLerp(35f, 95f, e.driver.consistency));
                 long pt0 = Perf.T(); Traffic(e, dt, kartLen, room, green && e.preLine, launch); Perf.Add(13, ref pt0);

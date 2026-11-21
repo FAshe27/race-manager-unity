@@ -32,6 +32,7 @@ namespace OKT
         public float featherStartDeg = DefaultFeatherStartDeg;     // body slip angle where the driver starts easing the throttle [TEST VALUE]
         public float featherRangeDeg = DefaultFeatherRangeDeg;    // ...and is fully off by start + this [TEST VALUE]
         public float lateralOffsetFt = 0f;     // personal offset from the groove (spec §7), + = toward the outside
+        public float balanceGrip = 1f;         // the grip he allows for in the corners from his kart's balance (director)
 
         public float vMax => vMaxMph * U.Mph;
         public float minLookahead => minLookaheadFt * U.Ft;
@@ -155,12 +156,26 @@ namespace OKT
         public static float LiftG = 0.3f, DragG = 0.3f;    // [TEST VALUE] slowing gentler than this: lift (corner) / gas + brake drag (traffic, wall)
         public static long DbgPedalSteps, DbgLiftSteps, DbgDragSteps, DbgBrakeSteps;
         public static bool SlideReact = true, NoReturn = true;  // soak knobs
+        public static bool SlipFeedForward = true, VelocityPursuit = false, ExpectedSlipAim = true, SteerByGrip = true;
+        public static float CatchGain = 0f;                     // [TEST VALUE] extra countersteer per rad of body angle past normal              // soak knob: steer for the front tires' slip angle
         public const float NoReturnCornerMin = 0.3f;   // "in a corner": the corner profile past this [TEST VALUE]
         public const float SpinLockDeg = 60f;          // rotated this far it's a spin: brakes locked [TEST VALUE]
         public const float NoReturnLuckDeg = 8f;       // knocked back under this (another kart's nose): he has it again [TEST VALUE]
         const int SlideHistN = 64;
         readonly float[] betaHist = new float[SlideHistN], yawHist = new float[SlideHistN]; int slideHead, slideCount;
         [System.NonSerialized] public bool gone; // past the point of no return
+        [System.NonSerialized] public float kartFeel = 1f; // how truly he knows his kart's angle (1 = exactly; director, from consistency)
+        [System.NonSerialized] public float normalSlipDeg; // the body angle this kart normally runs at, right here (slip-angle tire)
+        // corner slip telemetry (racing, corner > 0.5, over 15 mph): body angle nose-in, tire slip angles
+        [System.NonSerialized] public int slipN; [System.NonSerialized] public float slipBodySum, slipBodyMax, slipFrontSum, slipRearSum, slipDevSum, slipSpeedSum, slipSteerSum, slipSteerAbsDev, prevSteerTel;
+        public const int SlipBins = 8; public readonly int[] slipBodyHist = new int[SlipBins];   // 2.5 deg bins
+        /// <summary>Body angle (deg, nose in) the kart spends `frac` of its corner time under.</summary>
+        public float SlipBodyPct(float frac)
+        {
+            int tot = 0; foreach (var c in slipBodyHist) tot += c; if (tot == 0) return 0f;
+            int acc = 0; for (int i = 0; i < SlipBins; i++) { acc += slipBodyHist[i]; if (acc >= frac * tot) return (i + 1) * 2.5f; }
+            return SlipBins * 2.5f;
+        }
         public static long DbgGone, DbgLucky;
         public static float WallLookSec = 0.4f;   // sliding past my aim into the wall within this long: drag the brake [TEST VALUE]
         public static float WallDragFrac = 0.05f; // ...at most this much under my speed (about 1/8 g at 30 mph) [TEST VALUE]
@@ -325,22 +340,71 @@ namespace OKT
             slideHead = (slideHead + 1) % SlideHistN; betaHist[slideHead] = slipB; yawHist[slideHead] = yawRate;
             if (slideCount < SlideHistN) slideCount++;
             bool racing = !formation && !paceMode && !recovering;
+            float slipFelt = slipB;   // the body angle as he feels it
             if (SlideReact && racing && dt > 0f)
             {
                 // he still thinks the nose is where it was reactSec ago: a kart stepping out is caught that much late
                 int k = Mathf.Min(Mathf.RoundToInt(reactSec / dt), slideCount - 1, SlideHistN - 1);
                 int j = (slideHead - k + SlideHistN) % SlideHistN;
-                alpha += slipB - betaHist[j];
+                slipFelt = betaHist[j];
                 yawRate = yawHist[j];
             }
+            bool slipTire = KartSetup.SlipCurve || KartSetup.SlipHeld;
+            bool byTravel = VelocityPursuit && slipTire;
+            // Aiming from the nose is right for the old stiff tire (the body hardly ever slips). On slip-angle tires the kart
+            // runs angled to where it's going, and aimed from the nose it ran 1-2 ft wide of the groove -- into the kart
+            // outside it (soak 11-20: contacts nearly doubled, spins with them). byTravel aims from the measured travel
+            // direction (tracks the line, but the late-felt body angle overshot and spun karts); the default aims from where
+            // he EXPECTS the kart to be travelling: his kart's normal angle for this corner, which he knows.
+            alpha += byTravel ? slipB : slipB - slipFelt;
             float dist = Mathf.Max(0.5f, new Vector2(local.x, local.z).magnitude);
             float kappa = 2f * Mathf.Sin(alpha) / dist;               // pure-pursuit path curvature
+            // the slip each end of his kart needs for the corner he's turning (from what the corner asks, not what he
+            // measures -- steering on the measured slip chased itself)
+            normalSlipDeg = 0f; float needF = 0f, needR = 0f, bExp = 0f;
+            if (slipTire && v > 3f)
+            {
+                var ks = kart.setup; float ay = v * v * Mathf.Abs(kappa), gmu = 9.81f * ks.gripMu;
+                float Need(float scale) => ks.slipPeakDeg * Mathf.Deg2Rad * (2f / Mathf.PI) * Mathf.Asin(Mathf.Clamp01(ay / Mathf.Max(0.1f, gmu * scale)));
+                needF = Need(ks.frontGripScale) * kartFeel; needR = Need(ks.rearGripScale) * kartFeel;   // as he judges it
+                normalSlipDeg = needR * Mathf.Rad2Deg;   // the angle his kart normally sits at here
+                if (ExpectedSlipAim && !byTravel)
+                {
+                    bExp = Mathf.Sign(kappa) * needR;     // nose this far inside of where it's going (signed like slipB)
+                    alpha += bExp; kappa = 2f * Mathf.Sin(alpha) / dist;
+                }
+            }
             float steerRad = Mathf.Atan(kart.setup.wheelbase * kappa);
+            if (byTravel) steerRad -= slipFelt; else steerRad -= bExp;
+            // catching it: rotated past the angle he expects his kart to run, he steers into the slide (as he feels it,
+            // reactSec late). On top of what aiming from the nose already gives (about half). Racing only.
+            if (!byTravel && slipTire && racing && v > 5f) steerRad -= CatchGain * (slipFelt - bExp);
             // Yaw-rate damping: steer against yaw rate the pursuit arc doesn't ask for.
             steerRad += cfg.yawDamping * (v * kappa - yawRate);
+            // ...and the front tires need their own slip angle to turn the kart: that much more wheel (a push: more yet)
+            if (SlipFeedForward && slipTire && v > 3f)
+                steerRad += Mathf.Sign(kappa) * (byTravel || bExp != 0f ? needF : needF - needR);
+            // On slip-angle tires, wheel past what the fronts can use only scrubs them: a driver doesn't crank it there.
+            // He turns as far as the tightest arc the grip allows at this speed plus the fronts' slip, and countersteers
+            // as far as the kart has rotated. (Sawing lock to lock at 35 mph spun karts in traffic -- soak 11-20.)
+            if (slipTire && SteerByGrip && v > 5f)
+            {
+                var ks = kart.setup;
+                float lim = Mathf.Atan(ks.wheelbase * 9.81f * ks.gripMu / (v * v)) + ks.slipPeakDeg * Mathf.Deg2Rad;
+                // only the countersteer side opens up as the kart rotates (nose left -> more right wheel allowed)
+                float loLim = -lim - Mathf.Max(0f, slipB), hiLim = lim + Mathf.Max(0f, -slipB);
+                steerRad = Mathf.Clamp(steerRad, loLim, hiLim);
+            }
             kart.steerDeg = Mathf.Clamp(steerRad * Mathf.Rad2Deg, -kart.setup.maxSteerDeg, kart.setup.maxSteerDeg);
             // past the point of no return: nose ~35 deg to the inside (left) in a corner -- no saving it
             float insideDeg = -slipB * Mathf.Rad2Deg;
+            // telemetry: how the kart sits in the corners (Franklin's slip angles)
+            if (racing && fr.corner > 0.5f && v > 15f * U.Mph)
+            {
+                slipN++; slipBodySum += insideDeg; slipBodyMax = Mathf.Max(slipBodyMax, insideDeg);
+                slipDevSum += d - fr.LineOffset; slipSpeedSum += v; slipSteerSum += -kart.steerDeg; slipSteerAbsDev += Mathf.Abs(kart.steerDeg - prevSteerTel); prevSteerTel = kart.steerDeg; slipFrontSum += 0.5f * (kart.slipDeg[0] + kart.slipDeg[1]); slipRearSum += 0.5f * (kart.slipDeg[2] + kart.slipDeg[3]);
+                if (insideDeg > 0f) slipBodyHist[Mathf.Min(SlipBins - 1, (int)(insideDeg / 2.5f))]++;
+            }
             if (!NoReturn || !racing || v < 3f * U.Mph) gone = false;
             else if (!gone && insideDeg > noReturnDeg && fr.corner > NoReturnCornerMin) { gone = true; DbgGone++; }
             else if (gone && Mathf.Abs(insideDeg) < NoReturnLuckDeg) { gone = false; DbgLucky++; } // knocked straight again: lucky
@@ -359,6 +423,7 @@ namespace OKT
             Perf.Add(5, ref pt);
             // --- speed: corner profile read at the lookahead point
             freeSpeed = cfg.vMax * cfg.pace * (1f - Mathf.Max(0f, cfg.cornerSlow - attackBoost) * tf.corner);
+            if (cfg.balanceGrip < 1f) freeSpeed *= Mathf.Lerp(1f, Mathf.Sqrt(cfg.balanceGrip), tf.corner);
             // Off-line corner speed: the profile is tuned for Franklin's groove. A tighter line (an inside dive,
             // a kart pushed low) can't carry groove speed — scale by sqrt(path radius / groove radius), the grip
             // limit. Wider lines keep groove speed (the outside costs distance, not grip, here).
@@ -418,8 +483,10 @@ namespace OKT
                 {
                     var fwd = tr.forward; fwd.y = 0f;
                     float beta = Vector3.Angle(fwd, vel);
-                    if (beta > cfg.featherStartDeg)
-                        kart.accelCmd *= Mathf.Clamp01(1f - (beta - cfg.featherStartDeg) / cfg.featherRangeDeg);
+                    // past the angle his kart normally runs at here (a kart on slip-angle tires always sits a little angled)
+                    float fs = cfg.featherStartDeg + normalSlipDeg;
+                    if (beta > fs)
+                        kart.accelCmd *= Mathf.Clamp01(1f - (beta - fs) / cfg.featherRangeDeg);
                 }
             }
             bool locking = gone && Mathf.Abs(slipB) * Mathf.Rad2Deg > SpinLockDeg;

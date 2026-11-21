@@ -128,6 +128,21 @@ namespace OKT
         public float slideGripRatio = DefaultSlideGripRatio;
         public static float DefaultSlideFadeStartDeg = 12f, DefaultSlideFadeEndDeg = 30f; // past normal exit slides (soak 11-17: 8 deg spun karts on exit)
         public float slideFadeStartDeg = DefaultSlideFadeStartDeg, slideFadeEndDeg = DefaultSlideFadeEndDeg;
+        // Slip angle (Franklin 11-20: "we don't have any karts sliding at all"). A real tire only pushes sideways while it
+        // runs at an angle to where it's rolling: the side force builds with the slip angle up to a peak, then holds
+        // (and past slideFadeStartDeg fades, above). So a kart at the limit runs with its tires slipping, the body angled
+        // to where it's going: a little for a dialed kart, ~10-15 deg for a loose one. Off = the old stiff tire, which
+        // held any side load up to its cap with no slip at all. [soak knob]
+        public static bool SlipCurve = false;   // OFF until it races cleanly in traffic (soak 11-20: 6-18 incidents/race vs ~1)
+        public static bool SlipHeld = false;   // the stiff tire held at the slip angle its load needs (soak knob)
+        public static float DefaultSlipPeakDeg = 6f;
+        public float slipPeakDeg = DefaultSlipPeakDeg;   // tire slip angle at peak side grip, dirt [TEST VALUE]
+        public float slipPastPeakDrop = 0.04f;           // side grip lost per peak-width of slip past the peak (to 10% at most) [TEST VALUE]
+        // The kart's balance (Franklin 11-20: few karts are dialed in; more are loose than tight). Each axle's grip x this:
+        // a loose kart has less at the rear, a tight one (push) less at the front. Set per kart by the director.
+        public float frontGripScale = 1f, rearGripScale = 1f;
+        public float selfAlignGain = 0.4f;   // caster: share of the fronts' slip angle the wheels swing back by against his hands [TEST VALUE]
+        public static bool BalanceOn = false, BrakeLeavesSide = true;   // soak knob: off = every kart neutral
 
         // ---- engine & drive. Replaces spec §6.2's flat 4.5 m/s² cap so acceleration fades with
         // speed (momentum matters). Karts brake on the rear axle only.

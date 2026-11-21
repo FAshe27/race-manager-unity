@@ -121,7 +121,7 @@ namespace OKT
 
         void LateUpdate()
         {
-            if (kp != null) Pose(kp.steerDeg);
+            if (kp != null) Pose(kp.SteerApplied);
         }
 
         /// <summary>Front wheels at this angle (degrees, + = right, as KartPhysics.steerDeg).</summary>
