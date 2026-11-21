@@ -1,4 +1,5 @@
-// Menu OKT > Field Roster: selects the hand-set field asset (makes it, off, if it isn't there yet).
+// Finds the hand-set field asset, making it (off, with a made-up 12-kart field) if it isn't there yet.
+// The menu item OKT > Field Roster lives on FieldRosterWindow (FieldRosterTable.cs).
 using UnityEditor;
 using UnityEngine;
 
@@ -6,8 +7,7 @@ namespace OKT.EditorTools
 {
     public static class FieldRosterMenu
     {
-        [MenuItem("OKT/Field Roster")]
-        public static void Select()
+        public static FieldRoster LoadOrMake()
         {
             var r = AssetDatabase.LoadAssetAtPath<FieldRoster>(FieldRoster.AssetPath);
             if (r == null)
@@ -17,7 +17,7 @@ namespace OKT.EditorTools
                     r.drivers.Add(new RosterEntry { name = d.name, number = d.number, color = d.color });
                 AssetDatabase.CreateAsset(r, FieldRoster.AssetPath); AssetDatabase.SaveAssets();
             }
-            Selection.activeObject = r; EditorGUIUtility.PingObject(r);
+            return r;
         }
     }
 }

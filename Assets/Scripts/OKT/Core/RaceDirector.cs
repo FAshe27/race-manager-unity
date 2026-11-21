@@ -380,19 +380,12 @@ namespace OKT
             return list;
         }
 
-        /// <summary>Hand-set grid: the list's order if asked, then anyone with a start position is put there and the
-        /// rest fill the open spots in order.</summary>
+        /// <summary>Hand-set grid: the table's row order is the grid (Franklin 11-21: "starting position is filled by the
+        /// actual row's location in the table"), unless the roster asks for the qualifying order.</summary>
         static List<DriverProfile> ApplyRosterGrid(List<DriverProfile> list, FieldRoster roster)
         {
             if (roster.gridOrder == OKT.RosterGrid.AsListed) list.Sort((a, b) => a.rosterIndex.CompareTo(b.rosterIndex));
-            int n = list.Count; var slots = new DriverProfile[n]; var rest = new List<DriverProfile>();
-            foreach (var d in list)
-            {
-                int want = roster.drivers[d.rosterIndex].startPosition - 1;
-                if (want >= 0 && want < n && slots[want] == null) slots[want] = d; else rest.Add(d);
-            }
-            int k = 0; for (int i = 0; i < n; i++) if (slots[i] == null) slots[i] = rest[k++];
-            return new List<DriverProfile>(slots);
+            return list;
         }
     }
 

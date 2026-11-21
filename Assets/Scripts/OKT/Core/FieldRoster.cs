@@ -19,8 +19,8 @@ namespace OKT
         public Color color = Color.red;
         [Tooltip("Auto = the usual 20/70/10 fast/mid/new split by place in the list")]
         public RosterTier tier = RosterTier.Auto;
-        [Tooltip("Starting spot (1 = pole). 0 = wherever the grid order puts him")]
-        [Range(0, 40)] public int startPosition = 0;
+        // (was a typed start spot; the table's row order is the grid now -- kept only so older assets still load)
+        [HideInInspector] public int startPosition = 0;
     }
 
     [CreateAssetMenu(fileName = "FieldRoster", menuName = "OKT/Field Roster")]
@@ -28,9 +28,9 @@ namespace OKT
     {
         [Tooltip("Off = a made-up field each race, as before")]
         public bool useRoster = false;
-        [Tooltip("Qualifying = fastest qualifier on pole (as before). As Listed = the order of this list. " +
-                 "Either way, anyone with a Start Position is put there first.")]
-        public RosterGrid gridOrder = RosterGrid.Qualifying;
+        [Tooltip("As Listed = the table's row order is the starting grid (drag rows to reorder). " +
+                 "Qualifying = fastest qualifier on pole, as with a made-up field.")]
+        public RosterGrid gridOrder = RosterGrid.AsListed;
         public List<RosterEntry> drivers = new List<RosterEntry>();
 
         public const string AssetPath = "Assets/Data/FieldRoster.asset";

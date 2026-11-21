@@ -16,7 +16,7 @@ namespace OKT.EditorTools
             string[] names = { "Ashe", "Germain", "DeMarco", "Smith", "Jones", "Brown", "Davis", "Miller" };
             for (int i = 0; i < names.Length; i++)
                 r.drivers.Add(new RosterEntry { name = names[i], number = 10 + i, color = Color.HSVToRGB(i / 8f, 0.8f, 0.9f),
-                                                tier = i == 0 ? RosterTier.Fast : RosterTier.Auto, startPosition = i == 5 ? 1 : (i == 0 ? 8 : 0) });
+                                                tier = i == 0 ? RosterTier.Fast : RosterTier.Auto });
             return r;
         }
 
