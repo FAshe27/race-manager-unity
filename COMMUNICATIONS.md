@@ -3386,3 +3386,13 @@ Soaks (0 wall breaches, top rpm ~7,380, 0.0% of racing time past 7,400):
 | 20 karts with staging | 9003 / 9004 | 0.8 / 2.5 | 10.94–10.97 s |
 
 Laps are now 10.9–11.0 s. That's down from 11.05–11.1 with slip on, but not all the way back to 10.67.
+
+---
+
+### CLAUDE — 2026-11-21 — scoring fix: lapped finishers
+
+Franklin spotted that lapped karts were scored where they crossed the line after the checkered: 14-lap karts in
+2nd and 3rd. The finish now ranks by distance scored, so a lapped kart finishes behind the whole lead lap. On the
+same line, the kart that crossed first is ahead. DNFs stay last, and the HUD shows "-1L" for lapped finishers.
+
+Soak check, seed 9001: a 14-lap kart now finishes 12th of 12.
