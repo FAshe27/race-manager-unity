@@ -3406,3 +3406,15 @@ color, tier and start position for each kart, with the grid ordered by qualifyin
 - Off by default, so races are unchanged until he ticks it.
 - Each kart's draws for the night (pace within tier, tires, gearing, balance) are unchanged.
 - M2RosterTest checks it.
+
+---
+
+### CLAUDE — 2026-11-21 — roster table (m2-wip 57a3c37)
+
+Franklin asked for the roster as a spreadsheet-style table. OKT > Field Roster now opens a table:
+- Columns: Start | Name | Number | Kart Color | Skill.
+- Dragging a row reorders the grid, so the row's place is the start spot.
+- The grid can follow table order or qualifying.
+- Duplicate numbers show red.
+
+This is editor-only, with no race behaviour change. M2RosterTest confirms that table order is the grid.
