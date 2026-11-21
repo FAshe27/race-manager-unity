@@ -164,11 +164,12 @@ namespace OKT
                 var e = order[i];
                 string gap = i == 0 ? "—" : e.finished || e.outOfRace ? "" : $"{(lead.ai.raceDist - e.ai.raceDist) / Mathf.Max(5f, e.kart.ForwardSpeed):F2}s";
                 if (e.outOfRace) gap = "<color=#ff6060>OUT " + e.outReason + "</color>";
-                else if (e.finished) gap = "<color=#bbbbbb>fin</color>";
+                else if (e.finished) gap = order[0].finished && e.finishLaps < order[0].finishLaps
+                    ? $"<color=#bbbbbb>-{order[0].finishLaps - e.finishLaps}L</color>" : "<color=#bbbbbb>fin</color>";   // lapped: laps down
                 string last = e.laps.Count > 0 ? e.laps[e.laps.Count - 1].ToString("F2") : "—";
                 float b = d.BestLap(e); string best = float.IsInfinity(b) ? "—" : b.ToString("F2");
                 string tier = e.driver.tier == "fast" ? "★" : e.driver.tier == "new" ? "·" : " ";
-                sb.AppendLine($"{i + 1,2}.  #{e.driver.number,-3}{tier} {e.driver.name,-10} {e.lapsDone,3}   {gap,-7} {last,6} {best,6}");
+                sb.AppendLine($"{i + 1,2}.  #{e.driver.number,-3}{tier} {e.driver.name,-10} {(e.finished ? e.finishLaps : e.lapsDone),3}   {gap,-7} {last,6} {best,6}");
             }
             sb.AppendLine($"on-track passes {d.passes}   incidents {d.Incidents} (cautions judged per Franklin's rules)");
             return sb.ToString();

@@ -408,7 +408,7 @@ namespace OKT
             public bool weaving;
             public bool mad;                            // sent to the tail and mad about it: races angrier the rest of the night
             public int greenStartLap; public bool restarted; public float refireMiss; // tires: laps since the last green; cooled by a caution
-            public bool finished; public int finishPos; public float finishTime;
+            public bool finished; public int finishPos; public float finishTime; public float finishDist; public int finishLaps;
             public bool outOfRace; public string outReason;
             public int lapsDone;                  // green laps completed
             public float lastCross = -1f;         // time of last S/F crossing during green
@@ -535,10 +535,13 @@ namespace OKT
             var o = new List<Entry>(field);
             o.Sort((a, b) =>
             {
-                if (a.finished != b.finished) return a.finished ? -1 : 1;
-                if (a.finished) return a.finishPos.CompareTo(b.finishPos);
-                if (a.outOfRace != b.outOfRace) return a.outOfRace ? 1 : -1;
-                return b.ai.raceDist.CompareTo(a.ai.raceDist);
+                // Scored like a real race (Franklin 11-21: lapped karts were scored where they crossed after the checkered,
+                // 2nd and 3rd with 14 laps): by distance scored -- the line where a kart took the flag, or where a kart still
+                // running is now -- so a lapped kart finishes behind every kart on the lead lap. Same line: who crossed first.
+                if (a.outOfRace != b.outOfRace) return a.outOfRace ? 1 : -1;   // out of the race: behind everyone still in it
+                float da = a.finished ? a.finishDist : a.ai.raceDist, db = b.finished ? b.finishDist : b.ai.raceDist;
+                if (a.finished && b.finished && Mathf.Abs(da - db) < 0.5f * L) return a.finishTime.CompareTo(b.finishTime);
+                return db.CompareTo(da);
             });
             return o;
         }
@@ -2155,6 +2158,7 @@ namespace OKT
         void Finish(Entry e)
         {
             e.finished = true; e.finishPos = nextFinish++; e.finishTime = raceTime;
+            e.finishDist = e.nextLine - L; e.finishLaps = e.lapsDone;   // the line it just took the flag at (nextLine already moved on)
         }
 
         // ---- on-track passes: a running kart moving from behind to ahead of another running kart (green, after the pack)

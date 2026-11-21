@@ -101,7 +101,7 @@ namespace OKT
             for (int i = 0; i < order.Count; i++)
             {
                 var e = order[i];
-                string st2 = e.finished ? $"{e.lapsDone}L" : e.outOfRace ? $"OUT-{e.outReason}" : $"{e.lapsDone}L running";
+                string st2 = e.finished ? $"{e.finishLaps}L" : e.outOfRace ? $"OUT-{e.outReason}" : $"{e.lapsDone}L running";
                 sb.Append($"{i + 1}. #{e.driver.number}({e.driver.tier[0]},g{e.gridPos + 1},{e.driver.axleTeeth}{(e.driver.tireNote == "light prep" ? ",lp" : e.driver.tireNote == "over-prepped" ? ",op" : "")}) {st2}  ");
             }
             sb.AppendLine();
