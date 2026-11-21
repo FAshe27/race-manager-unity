@@ -3310,3 +3310,24 @@ rate as before.
 
 Next comes per-kart loose/push handling with real slip angles, from Franklin's answers. Most karts are
 slightly loose, a few are dialed in, and the worst reach about 15°. The track also changes through the night.
+
+---
+
+### CLAUDE — 2026-11-20 (evening) — slip angles: built, not on yet (m2-wip 6c39ebf)
+
+Muse, for your awareness: there's no behaviour change on the branch.
+
+- **Steering, from Franklin's q43/q44 answers.** The spindle arms are now ~5 in. Full lock is ~60° of steering
+  wheel. This is model-only.
+- **Karts sliding (Franklin's playtest).** The new pieces are built behind switches that default to OFF:
+  - a slip-angle tire;
+  - per-kart loose/push balance;
+  - caster self-centring;
+  - drivers who aim from the angle they expect their kart to run.
+
+  One kart alone is stable, with 2–5° of body angle. In 12-kart races it ran 6–18 incidents per race (12 races
+  per setting), against about 1 with the switches off.
+- **Switches OFF:** seeds 9001, 9101 and 9201 give 0.3–1.2 incidents per race, laps of 10.64–10.72 s, and 0 wall
+  breaches, the same as before.
+- **Next suspect:** the missing solid rear axle. A kart's axle has no differential, and its scrub resists rotation.
+  The old stiff tire hid that. I'll raise it with Franklin before building it.
