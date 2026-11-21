@@ -8,6 +8,8 @@ namespace OKT
     public class RaceBootstrap : MonoBehaviour
     {
         public TextAsset trackJson;
+        [Tooltip("Hand-set field: names, numbers, colors, grid. Off in the asset = a made-up field.")]
+        public FieldRoster roster;
         // NOT serialized: every kart/track value lives in code (KartSetup.cs etc.), never as a stale
         // copy saved in the scene. (Found 2026-11-14: the scene had frozen its creation-time values,
         // so Franklin's playtests ran old springs/settings.) Built fresh each Play.
@@ -36,6 +38,19 @@ namespace OKT
             // Race Cfg shows in the Inspector for live tuning during Play, but every Play starts from the code's values:
             // anything the scene saved is thrown away here (same stale-copy trap as the kart values, 2026-11-14).
             raceCfg = new RaceConfig();
+#if UNITY_EDITOR
+            // the hand-set field (Assets/Data/FieldRoster.asset; made the first time, off, with tonight's made-up drivers)
+            if (roster == null) roster = UnityEditor.AssetDatabase.LoadAssetAtPath<FieldRoster>(FieldRoster.AssetPath);
+            if (roster == null)
+            {
+                roster = ScriptableObject.CreateInstance<FieldRoster>();
+                foreach (var d in FieldGen.Make(raceCfg.fieldSize, 1, 11.03f))
+                    roster.drivers.Add(new RosterEntry { name = d.name, number = d.number, color = d.color });
+                UnityEditor.AssetDatabase.CreateAsset(roster, FieldRoster.AssetPath); UnityEditor.AssetDatabase.SaveAssets();
+                Debug.Log("[OKT] Made " + FieldRoster.AssetPath + " (off): fill in your field and tick Use Roster.");
+            }
+#endif
+            raceCfg.roster = roster;
 #if UNITY_EDITOR
             // Always race the current track file, even if this scene still references an older one.
             if (trackJson == null || trackJson.name != CurrentTrackName)

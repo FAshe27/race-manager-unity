@@ -78,7 +78,7 @@ namespace OKT
             race = race ?? new RaceConfig();
             w.director = new RaceDirector(w, race, seed);
             float baseLap = 11.03f; // clean-air Safe lap at M1 (s)
-            w.drivers12 = FieldGen.Make(race.fieldSize, seed, baseLap);
+            w.drivers12 = FieldGen.Make(race.fieldSize, seed, baseLap, race.roster);
             float L = w.track.centerLength;
             float a0 = race.gridLeaderU * L;
             var lane = race.stagingStart && w.track.Feature("grid lane A") != null ? w.track.Feature("grid lane") : null;

@@ -25,6 +25,7 @@ namespace OKT
     public class RaceConfig
     {
         public int fieldSize = 12;                 // spec §1
+        [System.NonSerialized] public FieldRoster roster;   // hand-set field (names, numbers, colors, grid); null/off = made up
         public int featureLaps = 15;               // spec §8 (Franklin: 15 or 20)
         // Fun / what-if switches (Franklin 2026-11-17). Read when the race is built: hit reset after changing them.
         public bool cautionsOn = true;             // off: no yellow ever; spun karts sort themselves out under green
@@ -255,7 +256,7 @@ namespace OKT
 
     public class DriverProfile
     {
-        public string name; public int number; public string tier;
+        public string name; public int number; public string tier; public int rosterIndex;
         public float paceOffsetSec;   // FEATURE pace: seconds off the base lap (browser sim tiers)
         public float qualiOffsetSec;  // QUALIFYING pace — the grid comes from this (no invert); can differ (setup hit/miss)
         public string qualiNote = ""; // "missed setup in qualifying" / "feature setup off"
@@ -305,8 +306,10 @@ namespace OKT
             new Color(0.60f,0.40f,0.20f), new Color(0.95f,0.35f,0.65f), new Color(0.30f,0.30f,0.30f), new Color(0.55f,0.85f,0.20f) };
 
         /// <summary>12-kart field: 2 fast / 9 mid / 1 new (Franklin 20/70/10). Sorted fastest first = grid order (no invert).</summary>
-        public static List<DriverProfile> Make(int n, int seed, float baseLapSec)
+        public static List<DriverProfile> Make(int n, int seed, float baseLapSec, FieldRoster roster = null)
         {
+            bool ros = roster != null && roster.Active;
+            if (ros) n = roster.drivers.Count;   // a hand-set field: its list is the field
             var rng = new System.Random(seed);
             float R(float lo, float hi) => lo + (float)rng.NextDouble() * (hi - lo);
             int nFast = Mathf.Max(1, Mathf.RoundToInt(n * 0.2f) - (n == 12 ? 1 : 0)); // 12 -> 2
@@ -316,6 +319,8 @@ namespace OKT
             for (int i = 0; i < n; i++)
             {
                 string tier = i < nFast ? "fast" : (i >= n - nNew ? "new" : "mid");
+                var re = ros ? roster.drivers[i] : null;
+                if (re != null && re.tier != RosterTier.Auto) tier = re.tier == RosterTier.Fast ? "fast" : re.tier == RosterTier.New ? "new" : "mid";
                 float off = tier == "fast" ? R(0.00f, 0.09f) : tier == "mid" ? R(0.10f, 0.27f) : R(0.30f, 0.44f);
                 int ni = rng.Next(nums.Count); int num = nums[ni]; nums.RemoveAt(ni);
                 // Qualifying vs feature (Franklin, 00:50): most qualify where their speed belongs; some missed the
@@ -332,8 +337,9 @@ namespace OKT
                     paceOffsetSec = off, paceFactor = baseLapSec / (baseLapSec + off), qualiOffsetSec = q, qualiNote = note,
                     aggression = R(0.15f, 0.95f), lateralOffsetIn = R(-10f, 10f),
                     consistency = tier == "fast" ? R(75f, 95f) : tier == "mid" ? R(55f, 85f) : R(35f, 60f),
-                    color = Colors[i % Colors.Length],
+                    color = Colors[i % Colors.Length], rosterIndex = i,
                 });
+                if (re != null) { var d0 = list[list.Count - 1]; d0.name = string.IsNullOrWhiteSpace(re.name) ? d0.name : re.name.Trim(); d0.number = re.number; d0.color = re.color; }
             }
             // The kart's night: gearing and tires, drawn from their own stream so the driver draws above don't move.
             // [TEST VALUE] spreads, all pending Franklin. Book Ch 24: 12/63 is Franklin's gear, +-1 axle tooth = +-150 rpm.
@@ -370,7 +376,23 @@ namespace OKT
                           : -B(0.03f, RaceConfig.PushMax);
             }
             list.Sort((a, b) => a.qualiOffsetSec.CompareTo(b.qualiOffsetSec)); // grid = qualifying order, no invert
+            if (ros) list = ApplyRosterGrid(list, roster);
             return list;
+        }
+
+        /// <summary>Hand-set grid: the list's order if asked, then anyone with a start position is put there and the
+        /// rest fill the open spots in order.</summary>
+        static List<DriverProfile> ApplyRosterGrid(List<DriverProfile> list, FieldRoster roster)
+        {
+            if (roster.gridOrder == OKT.RosterGrid.AsListed) list.Sort((a, b) => a.rosterIndex.CompareTo(b.rosterIndex));
+            int n = list.Count; var slots = new DriverProfile[n]; var rest = new List<DriverProfile>();
+            foreach (var d in list)
+            {
+                int want = roster.drivers[d.rosterIndex].startPosition - 1;
+                if (want >= 0 && want < n && slots[want] == null) slots[want] = d; else rest.Add(d);
+            }
+            int k = 0; for (int i = 0; i < n; i++) if (slots[i] == null) slots[i] = rest[k++];
+            return new List<DriverProfile>(slots);
         }
     }
 
