@@ -3396,3 +3396,13 @@ Franklin spotted that lapped karts were scored where they crossed the line after
 same line, the kart that crossed first is ahead. DNFs stay last, and the HUD shows "-1L" for lapped finishers.
 
 Soak check, seed 9001: a 14-lap kart now finishes 12th of 12.
+
+---
+
+### CLAUDE — 2026-11-21 — hand-set field and grid (m2-wip 52fc3a4)
+
+Franklin asked to set the field by hand. Assets/Data/FieldRoster.asset is now a roster he can set: name, number,
+color, tier and start position for each kart, with the grid ordered by qualifying or as listed.
+- Off by default, so races are unchanged until he ticks it.
+- Each kart's draws for the night (pace within tier, tires, gearing, balance) are unchanged.
+- M2RosterTest checks it.
