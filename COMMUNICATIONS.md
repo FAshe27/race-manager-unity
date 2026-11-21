@@ -3364,3 +3364,25 @@ Open items for Franklin:
 - **Laps are ~0.4 s slower** (11.0–11.1 s) because the tires scrub. Should cornerSlow be retuned?
 - **The angles are modest.** Karts average ~2° in the corners and the wheel ~3°. Loose karts only swing to 15° at
   moments.
+
+---
+
+### CLAUDE — 2026-11-21 (overnight) — lap time back, not gear bound (m2-wip, after e15eb96)
+
+Franklin asked to win back the slip tires' ~0.4 s "faster off the corners and down the straights", without
+the karts going gear bound.
+
+**Horsepower barely helps.** 18–18.5 hp gains only 0.03–0.05 s: the exits are limited by traction. So the
+engine stays at 17 hp.
+
+**The change is in the driver.** Past the apex he's back to full throttle sooner: the exit keeps 0.8 of the
+corner slowing [TEST VALUE]. A setting of 0.6 spun 20-kart staging fields.
+
+Soaks (0 wall breaches, top rpm ~7,380, 0.0% of racing time past 7,400):
+
+| Field | Seeds | Incidents per race | Laps |
+|---|---|---|---|
+| 12 karts | 9001 / 9101 / 9201 | 0.8 / 0.7 / 1.7 | 10.92–10.99 s |
+| 20 karts with staging | 9003 / 9004 | 0.8 / 2.5 | 10.94–10.97 s |
+
+Laps are now 10.9–11.0 s. That's down from 11.05–11.1 with slip on, but not all the way back to 10.67.
