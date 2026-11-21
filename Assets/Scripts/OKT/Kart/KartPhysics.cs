@@ -41,7 +41,9 @@ namespace OKT
         public float FrontSlipRad { get; private set; }
         public float RearSlipRad { get; private set; }
         readonly float[] slipSigned = new float[4];
-        readonly float[] fLatPrev = new float[4];   // each tire's side force last step (N, signed)
+        readonly float[] axleV = new float[4];
+        /// <summary>Solid-axle scrub force on each rear tire last step (N, + = forward).</summary>
+        public readonly float[] AxleScrub = new float[4];   // each tire's side force last step (N, signed)
         /// <summary>Berm dust on each tire, 0 = clean .. 1 = fully coated (Franklin: costs bite until it cleans off).</summary>
         public readonly float[] dust = new float[4];
         readonly float[] rollExtra = new float[4];   // extra rolling resistance from the ground each tire stood on last step (loose ridge)
@@ -156,7 +158,7 @@ namespace OKT
                 }
                 else
                 {
-                    grounded[i] = false; compression[i] = 0f; load[i] = 0f; prevX[i] = 0f; fLatPrev[i] = 0f;
+                    grounded[i] = false; compression[i] = 0f; load[i] = 0f; prevX[i] = 0f;
                 }
             }
             Perf.Add(9, ref pt);
@@ -194,13 +196,31 @@ namespace OKT
                 rb.AddForce(-v / speed * (fRoll + fAero));
             }
 
+            // Solid rear axle (no differential): both rears turn at the same speed, so in a corner the outside rear (which
+            // has further to go) is dragged back and the inside one pushed on. That pair of forces resists the kart
+            // rotating -- the steadying a real kart has and an open-diff model doesn't (Franklin 11-20, chasing why karts on
+            // slip-angle tires spun in traffic). Each rear's share: scrub stiffness x its load x how much faster or slower its
+            // patch moves than the load-weighted mean, as a slip ratio. The forces cancel: no net drag, only the yaw moment.
+            float axleMean = 0f, axleN = 0f;
+            if (KartSetup.SolidAxle)
+                for (int i = 2; i < 4; i++)
+                {
+                    if (!grounded[i]) continue;
+                    var fw = Vector3.ProjectOnPlane(transform.forward, hits[i].normal).normalized;
+                    var vpi = rb.GetPointVelocity(hits[i].point);
+                    if (hits[i].rigidbody != null && hits[i].rigidbody != rb) vpi -= hits[i].rigidbody.GetPointVelocity(hits[i].point);
+                    axleV[i] = Vector3.Dot(vpi, fw); axleMean += load[i] * axleV[i]; axleN += load[i];
+                }
+            if (axleN > 1e-3f) axleMean /= axleN;
+            float axleRef = Mathf.Max(3f, Mathf.Abs(ForwardSpeed));
+
             for (int i = 0; i < 4; i++)
             {
                 sliding[i] = false;
                 if (!grounded[i]) continue;
                 var hn = hits[i].normal;
                 bool front = i < 2;
-                var fwd = front ? Quaternion.AngleAxis(SteerApplied, up) * transform.forward : transform.forward;
+                var fwd = front ? Quaternion.AngleAxis(KartSetup.WheelSteer(i, SteerApplied), up) * transform.forward : transform.forward;
                 fwd = Vector3.ProjectOnPlane(fwd, hn).normalized;
                 var side = Vector3.Cross(hn, fwd);
                 // Slip is relative to whatever the tire stands on (another kart moves; the dirt doesn't).
@@ -221,7 +241,7 @@ namespace OKT
                 {
                     float sd = Mathf.Atan2(Mathf.Abs(vLat), Mathf.Max(0.5f, Mathf.Abs(vLong))) * Mathf.Rad2Deg;
                     // with a slip-angle tire the fade starts past twice the peak: a loose kart hangs its rear out there
-                    float f0 = (KartSetup.SlipCurve || KartSetup.SlipHeld) ? Mathf.Max(s.slideFadeStartDeg, 2f * s.slipPeakDeg) : s.slideFadeStartDeg;
+                    float f0 = KartSetup.SlipCurve ? Mathf.Max(s.slideFadeStartDeg, 2f * s.slipPeakDeg) : s.slideFadeStartDeg;
                     float f1 = f0 + (s.slideFadeEndDeg - s.slideFadeStartDeg);
                     float fade = Mathf.Clamp01((sd - f0) / (f1 - f0));
                     cap *= Mathf.Lerp(1f, s.slideGripRatio, fade * fade * (3f - 2f * fade));
@@ -231,17 +251,6 @@ namespace OKT
                 float share = N / g;
                 float fLat = -vLat * share * s.lateralCancelGain / dt;
                 bool pastPeak = false;
-                if (KartSetup.SlipHeld && !KartSetup.SlipCurve && cap > 1e-3f)
-                {
-                    // A tire carrying side load runs at the slip angle that load needs (rising to slipPeakDeg at full grip).
-                    // The stiff grip holds the tire AT that angle rather than at zero, so a kart in a corner sits angled to
-                    // where it's going -- more at the end with less grip (loose: the rear) -- and keeps the stiff tire's
-                    // stability (an explicit slip-angle tire was soft and spun karts in traffic, soak 11-20).
-                    float need = Mathf.Clamp01(Mathf.Abs(fLatPrev[i]) / cap);
-                    float aT = s.slipPeakDeg * Mathf.Deg2Rad * (2f / Mathf.PI) * Mathf.Asin(need);
-                    float vLatT = -Mathf.Sign(fLatPrev[i]) * Mathf.Abs(vLong) * Mathf.Tan(aT);
-                    fLat = -(vLat - vLatT) * share * s.lateralCancelGain / dt;
-                }
                 if (KartSetup.SlipCurve)
                 {
                     // the tire's side force from its slip angle: rising to the peak, then holding (a slow fade past it).
@@ -257,6 +266,8 @@ namespace OKT
                 if (!front && rearLoad > 1e-3f)
                 {
                     fLong = driveTotal * (N / rearLoad);
+                    float scrub = 0f;
+                    if (KartSetup.SolidAxle && axleN > 1e-3f) scrub = s.axleScrubStiffness * N * (axleMean - axleV[i]) / axleRef;
                     if (fLong < 0f && !lockBrakes)
                     {
                         // eases off as the rear goes: brakes only as hard as the rear can take on top of holding the kart
@@ -271,6 +282,7 @@ namespace OKT
                         float stop = Mathf.Max(0f, vLong) * share * s.lateralCancelGain / dt;
                         fLong = -Mathf.Min(-fLong, stop);
                     }
+                    fLong += scrub; AxleScrub[i] = scrub;
                 }
 
                 // Friction circle.
@@ -289,7 +301,6 @@ namespace OKT
                     float vs = Mathf.Sqrt(vLat * vLat + vLong * vLong);
                     if (vs > 0.3f) { fLat = -vLat / vs * cap; fLong = -vLong / vs * cap; sliding[i] = true; DbgLocked++; }
                 }
-                fLatPrev[i] = fLat;
                 rb.AddForceAtPosition(side * fLat + fwd * fLong, hits[i].point);
                 if (hits[i].rigidbody != null && hits[i].rigidbody != rb) hits[i].rigidbody.AddForceAtPosition(-(side * fLat + fwd * fLong), hits[i].point);
 
@@ -325,7 +336,7 @@ namespace OKT
                 springLen = Mathf.Max(springLen, 0f);
                 w.localPosition = new Vector3(m.x, m.y - springLen, m.z);
                 spinAngle[i] = (spinAngle[i] + ForwardSpeed * dt / setup.WheelRadius(i) * Mathf.Rad2Deg) % 360f;
-                float steer = i < 2 ? SteerApplied : 0f;
+                float steer = KartSetup.WheelSteer(i, SteerApplied);
                 w.localRotation = Quaternion.Euler(0f, steer, 0f);
                 if (w.childCount > 0) w.GetChild(0).localRotation = Quaternion.Euler(spinAngle[i], 0f, 0f);
             }

@@ -489,7 +489,9 @@ namespace OKT
         {
             // the kart's balance plus the track's: loose takes grip from the rear, tight from the front
             float b = KartSetup.BalanceOn ? Mathf.Clamp(d.balance + cfg.trackBalance, -0.4f, 0.4f) : 0f;
-            kart.setup.rearGripScale = 1f - Mathf.Max(0f, b);
+            // a dialed kart is set up a touch free at the rear: the solid axle pushes, and Franklin's perfect kart at Atoka
+            // needs only a slight turn-in, then the wheel looks almost straight through the corner
+            kart.setup.rearGripScale = (KartSetup.BalanceOn ? KartSetup.DialedRearGrip : 1f) * (1f - Mathf.Max(0f, b));
             kart.setup.frontGripScale = 1f - Mathf.Max(0f, -b);
             var ai = kart.GetComponent<KartAI>();
             if (ai != null) ai.cfg.balanceGrip = 1f - (b > 0f ? b * RaceConfig.LooseFeel : -b * RaceConfig.PushFeel);

@@ -21,7 +21,7 @@ namespace OKT.EditorTools
             {
                 foreach (float peak in new[] { 6f, 10f, 15f })
                 {
-                    KartSetup.SlipCurve = true; KartSetup.SlipHeld = false; KartAI.VelocityPursuit = false; KartAI.SlipFeedForward = true;
+                    KartSetup.SlipCurve = true; KartAI.VelocityPursuit = false; KartAI.SlipFeedForward = true;
                     KartSetup.DefaultSlipPeakDeg = peak;
                     sb.AppendLine($"slip tire, peak {peak:F0} deg (aim from nose + feedforward):");
                     foreach (float bal in new[] { -0.10f, 0f, 0.07f, 0.14f })

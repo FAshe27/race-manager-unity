@@ -349,7 +349,7 @@ namespace OKT
                 slipFelt = betaHist[j];
                 yawRate = yawHist[j];
             }
-            bool slipTire = KartSetup.SlipCurve || KartSetup.SlipHeld;
+            bool slipTire = KartSetup.SlipCurve;
             bool byTravel = VelocityPursuit && slipTire;
             // Aiming from the nose is right for the old stiff tire (the body hardly ever slips). On slip-angle tires the kart
             // runs angled to where it's going, and aimed from the nose it ran 1-2 ft wide of the groove -- into the kart
@@ -402,7 +402,7 @@ namespace OKT
             if (racing && fr.corner > 0.5f && v > 15f * U.Mph)
             {
                 slipN++; slipBodySum += insideDeg; slipBodyMax = Mathf.Max(slipBodyMax, insideDeg);
-                slipDevSum += d - fr.LineOffset; slipSpeedSum += v; slipSteerSum += -kart.steerDeg; slipSteerAbsDev += Mathf.Abs(kart.steerDeg - prevSteerTel); prevSteerTel = kart.steerDeg; slipFrontSum += 0.5f * (kart.slipDeg[0] + kart.slipDeg[1]); slipRearSum += 0.5f * (kart.slipDeg[2] + kart.slipDeg[3]);
+                slipDevSum += d - fr.LineOffset; slipSpeedSum += v; slipSteerSum += -kart.SteerApplied; slipSteerAbsDev += Mathf.Abs(kart.steerDeg - prevSteerTel); prevSteerTel = kart.steerDeg; slipFrontSum += 0.5f * (kart.slipDeg[0] + kart.slipDeg[1]); slipRearSum += 0.5f * (kart.slipDeg[2] + kart.slipDeg[3]);
                 if (insideDeg > 0f) slipBodyHist[Mathf.Min(SlipBins - 1, (int)(insideDeg / 2.5f))]++;
             }
             if (!NoReturn || !racing || v < 3f * U.Mph) gone = false;

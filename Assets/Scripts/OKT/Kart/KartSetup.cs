@@ -133,16 +133,35 @@ namespace OKT
         // (and past slideFadeStartDeg fades, above). So a kart at the limit runs with its tires slipping, the body angled
         // to where it's going: a little for a dialed kart, ~10-15 deg for a loose one. Off = the old stiff tire, which
         // held any side load up to its cap with no slip at all. [soak knob]
-        public static bool SlipCurve = false;   // OFF until it races cleanly in traffic (soak 11-20: 6-18 incidents/race vs ~1)
-        public static bool SlipHeld = false;   // the stiff tire held at the slip angle its load needs (soak knob)
-        public static float DefaultSlipPeakDeg = 6f;
+        public static bool SlipCurve = true;    // with the solid axle it races clean (soak 11-20: 0.2-1.0 incidents/race over 12)
+        public static float DefaultSlipPeakDeg = 8f;
         public float slipPeakDeg = DefaultSlipPeakDeg;   // tire slip angle at peak side grip, dirt [TEST VALUE]
         public float slipPastPeakDrop = 0.04f;           // side grip lost per peak-width of slip past the peak (to 10% at most) [TEST VALUE]
         // The kart's balance (Franklin 11-20: few karts are dialed in; more are loose than tight). Each axle's grip x this:
         // a loose kart has less at the rear, a tight one (push) less at the front. Set per kart by the director.
         public float frontGripScale = 1f, rearGripScale = 1f;
+        public static float DialedRearGrip = 1.0f;   // rear grip of a dialed kart against its front (set up a touch free) [TEST VALUE]
+        // Each front wheel's own angle from the steering linkage (Kart Parts/steering.py front_angles: 3 in pitman tabs,
+        // ~5 in spindle arms, tie rods in the outer hole). The inside wheel turns further, more so near lock (Ackermann).
+        // Mean front angle (deg, + = right) -> LF, RF. Off = both fronts at the mean (parallel steer, the old model).
+        public static bool LinkageSteer = true;
+        static readonly float[] AckMean = { -35.25f, -29.64f, -23.80f, -18.02f, -12.14f, -6.12f, -3.07f, 0f, 3.09f, 6.20f, 12.47f, 18.85f, 25.70f, 31.10f };
+        static readonly float[] AckLF   = { -45.12f, -35.83f, -27.39f, -19.91f, -12.92f, -6.29f, -3.10f, 0f, 3.01f, 5.92f, 11.40f, 16.35f, 20.63f, 22.82f };
+        static readonly float[] AckRF   = { -25.38f, -23.45f, -20.21f, -16.14f, -11.36f, -5.96f, -3.04f, 0f, 3.17f, 6.48f, 13.53f, 21.36f, 30.76f, 39.38f };
+        /// <summary>Front wheel i's steer angle (deg) for a mean front angle; rears 0.</summary>
+        public static float WheelSteer(int i, float mean)
+        {
+            if (i >= 2) return 0f;
+            if (!LinkageSteer) return mean;
+            var t = i == 0 ? AckLF : AckRF; int n = AckMean.Length;
+            int k = 0; while (k < n - 2 && mean > AckMean[k + 1]) k++;
+            float u = (mean - AckMean[k]) / (AckMean[k + 1] - AckMean[k]);   // extrapolates past the ends on the last span
+            return Mathf.LerpUnclamped(t[k], t[k + 1], u);
+        }
+        public static bool SolidAxle = true;    // soak knob: off = drive split by load like an open diff (the old model)
+        public float axleScrubStiffness = 10f;  // rear tire force per unit load per unit slip ratio, dirt [TEST VALUE]
         public float selfAlignGain = 0.4f;   // caster: share of the fronts' slip angle the wheels swing back by against his hands [TEST VALUE]
-        public static bool BalanceOn = false, BrakeLeavesSide = true;   // soak knob: off = every kart neutral
+        public static bool BalanceOn = true, BrakeLeavesSide = true;   // soak knob: off = every kart neutral
 
         // ---- engine & drive. Replaces spec §6.2's flat 4.5 m/s² cap so acceleration fades with
         // speed (momentum matters). Karts brake on the rear axle only.
