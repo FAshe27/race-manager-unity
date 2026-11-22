@@ -149,12 +149,12 @@ namespace OKT
         public float frontGripScale = 1f, rearGripScale = 1f;
         public static float DialedRearGrip = 1.0f;   // rear grip of a dialed kart against its front (set up a touch free) [TEST VALUE]
         // Each front wheel's own angle from the steering linkage (Kart Parts/steering.py front_angles: 3 in pitman tabs,
-        // ~5 in spindle arms, tie rods in the outer hole). The inside wheel turns further, more so near lock (Ackermann).
+        // ~5 in spindle arms, tie rods in the outer hole; kingpins 24 in apart, Franklin 11-21). The inside wheel turns further, more so near lock (Ackermann).
         // Mean front angle (deg, + = right) -> LF, RF. Off = both fronts at the mean (parallel steer, the old model).
         public static bool LinkageSteer = true;
-        static readonly float[] AckMean = { -35.25f, -29.64f, -23.80f, -18.02f, -12.14f, -6.12f, -3.07f, 0f, 3.09f, 6.20f, 12.47f, 18.85f, 25.70f, 31.10f };
-        static readonly float[] AckLF   = { -45.12f, -35.83f, -27.39f, -19.91f, -12.92f, -6.29f, -3.10f, 0f, 3.01f, 5.92f, 11.40f, 16.35f, 20.63f, 22.82f };
-        static readonly float[] AckRF   = { -25.38f, -23.45f, -20.21f, -16.14f, -11.36f, -5.96f, -3.04f, 0f, 3.17f, 6.48f, 13.53f, 21.36f, 30.76f, 39.38f };
+        static readonly float[] AckMean = { -32.04f, -28.54f, -23.55f, -18.06f, -12.22f, -6.16f, -3.08f, 0f, 3.08f, 6.15f, 12.17f, 17.93f, 23.29f, 26.24f };
+        static readonly float[] AckLF   = { -34.22f, -29.99f, -24.33f, -18.40f, -12.30f, -6.14f, -3.06f, 0f, 3.03f, 6.01f, 11.77f, 17.16f, 22.00f, 24.55f };
+        static readonly float[] AckRF   = { -29.86f, -27.08f, -22.76f, -17.72f, -12.14f, -6.18f, -3.11f, 0f, 3.14f, 6.29f, 12.56f, 18.70f, 24.58f, 27.93f };
         /// <summary>Front wheel i's steer angle (deg) for a mean front angle; rears 0.</summary>
         public static float WheelSteer(int i, float mean)
         {
