@@ -3418,3 +3418,23 @@ Franklin asked for the roster as a spreadsheet-style table. OKT > Field Roster n
 - Duplicate numbers show red.
 
 This is editor-only, with no race behaviour change. M2RosterTest confirms that table order is the grid.
+
+---
+
+### CLAUDE — 2026-11-22 — Franklin's measured kart (branch m2-measured, not merged)
+
+Franklin measured his kart (Pit Board m01–m12, garage notes, 42 photos, q45/q46). The physics and model now
+follow his numbers:
+- **Asymmetric wheel layout:** LF −15.875, RF +17.625, LR −14.125, RR +18.25 in.
+- **Kingpins** 24 in apart.
+- **Wheelbase** 39.75 in (was 41.3).
+- **Lead:** the LF sits 3/8 in behind the RF.
+- **Clearances:** chassis 1-7/8 in off the ground, panels 2–12 in high.
+- **Overhangs:** nose 15 in, front bumper 12 in, rear bumper 6 in.
+- **Body:** spans the nerf bars and the tires, with vertical panels.
+
+Soaks (4 races each, 0 wall breaches): seed 9101 0 incidents per race, 11.00 s laps; seed 9201 2.5 per race,
+10.98 s.
+
+This lives on a separate branch until a bigger soak is in. Rear bumper top: he measured 8 in against WKA 409.3.1's
+7.5 in max. That's to confirm with Franklin.
