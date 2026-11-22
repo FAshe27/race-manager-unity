@@ -77,7 +77,7 @@ namespace OKT
         public float driverElbowOutIn = 2.5f, driverElbowYIn = 16f;
         public float driverKneeLineLeftIn = 1.4f;      // knees and feet straddle the steering column (Franklin: the shaft went through a leg)
         public float driverLeanLeftIn = 2f;            // shoulders and helmet lean this much further left than the seat (helmet ~9 in left, shop overhead photo)
-        public float driverOffsetLeftIn = 4f;  // Franklin 11-22: 3 in further right, beside the engine on its rails. was 7:         // seat well left of centre on an offset dirt chassis (engine on the right) [TEST VALUE]
+        public float driverOffsetLeftIn = 1.5f; // Franklin 11-22: 3 in further right, beside the engine on its rails. was 7:         // seat well left of centre on an offset dirt chassis (engine on the right) [TEST VALUE]
         public float frontBumperAheadIn = 12f;  // Franklin 11-21 measured: 12 in ahead of the front tires. was 10:        // inside the nose; WKA 401.6 length cap (74 in) forced it in from Franklin's ~14 [TEST VALUE]
         public float frontBumperHalfWidthIn = 13f;     // [TEST VALUE, from photos]
         public float frontBumperTopIn = 8f;            // Franklin 11-21 measured: top hoop 8 in (WKA 409.1 minimum 7.75 in)
