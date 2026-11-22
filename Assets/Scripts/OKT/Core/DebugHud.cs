@@ -47,6 +47,22 @@ namespace OKT
             if (GUILayout.Button("Caution")) d.ManualCaution();
             GUI.enabled = true;
             GUILayout.EndHorizontal();
+            // debug viewer cameras: the whole-track view is the game's; on-board / chase follow the chosen kart
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Camera (debug):", GUILayout.Width(110));
+            int v = GUILayout.Toolbar((int)WholeTrackCamera.View, new[] { "Whole track", "On-board", "Chase" });
+            WholeTrackCamera.View = (WholeTrackCamera.DebugView)v;
+            var karts = boot.world.karts;
+            if (karts.Count > 0)
+            {
+                int ki = Mathf.Max(0, karts.IndexOf(WholeTrackCamera.ViewKart));
+                if (GUILayout.Button("<", GUILayout.Width(24))) ki = (ki + karts.Count - 1) % karts.Count;
+                var e = d?.field.Find(x => x.kart == karts[ki]);
+                GUILayout.Label(e != null ? $"#{e.driver.number} {e.driver.name}" : karts[ki].name, GUILayout.Width(120));
+                if (GUILayout.Button(">", GUILayout.Width(24))) ki = (ki + 1) % karts.Count;
+                WholeTrackCamera.ViewKart = karts[ki];
+            }
+            GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
             if (GUILayout.Toggle(boot.clock.speed == 0, "Pause", "Button")) boot.clock.speed = 0;

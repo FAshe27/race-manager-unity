@@ -178,9 +178,42 @@ namespace OKT
             return w;
         }
 
+        // ---- DEBUG viewer cameras (Franklin 11-22: "as a debug tool would be really cool - whole-track camera would be
+        // actual player view"). Off by default; the HUD's Camera row switches them. The whole-track view is the game.
+        public enum DebugView { WholeTrack, OnBoard, Chase }
+        public static DebugView View = DebugView.WholeTrack;
+        public static KartPhysics ViewKart;
+        DebugView shown = DebugView.WholeTrack;
+        Vector3 chasePos; bool chaseInit;
+
         void LateUpdate()
         {
-            if (cam != null && Mathf.Abs(cam.aspect - lastAspect) > 1e-3f) Fit();
+            if (cam == null) return;
+            var k = ViewKart;
+            if (View == DebugView.WholeTrack || k == null)
+            {
+                if (shown != DebugView.WholeTrack) { shown = DebugView.WholeTrack; cam.fieldOfView = 40f; cam.nearClipPlane = 0.3f; Fit(); }
+                else if (Mathf.Abs(cam.aspect - lastAspect) > 1e-3f) Fit();
+                return;
+            }
+            var t = k.transform; var s = k.setup;
+            if (View == DebugView.OnBoard)
+            {
+                // the driver's eyes: seat offset left plus his lean, helmet height, looking ahead and a touch down
+                float x = -(s.driverOffsetLeftIn + s.driverLeanLeftIn) * U.In;
+                transform.position = t.TransformPoint(new Vector3(x, (s.helmetYIn + 2f) * U.In, -0.10f));
+                transform.rotation = t.rotation * Quaternion.Euler(12f, 0f, 0f);
+                cam.fieldOfView = 75f; cam.nearClipPlane = 0.05f; chaseInit = false;
+            }
+            else
+            {
+                var want = t.position - Vector3.ProjectOnPlane(t.forward, Vector3.up).normalized * 3.2f + Vector3.up * 1.4f;
+                chasePos = chaseInit ? Vector3.Lerp(chasePos, want, 1f - Mathf.Exp(-6f * Time.deltaTime)) : want; chaseInit = true;
+                transform.position = chasePos;
+                transform.rotation = Quaternion.LookRotation(t.position + t.forward * 2f + Vector3.up * 0.3f - chasePos, Vector3.up);
+                cam.fieldOfView = 60f; cam.nearClipPlane = 0.1f;
+            }
+            shown = View;
         }
 
         public void Fit()

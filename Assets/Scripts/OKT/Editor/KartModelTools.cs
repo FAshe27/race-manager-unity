@@ -96,6 +96,9 @@ namespace OKT.EditorTools
                 if (baked != null) { Object.DestroyImmediate(baked); smr.enabled = true; }
             }
             one.steerDeg = 0f; one.UpdateVisuals(0f); if (link != null) link.Pose(0f);
+            // the driver's view of the wheel (Franklin 11-22): eyes in the helmet, looking down at the wheel; then closer
+            Shot("16-driver-view", new Vector3(-0.03f, 1.02f, -0.42f), new Vector3(-0.08f, 0.36f, 0.12f));
+            Shot("17-wheel-from-driver", new Vector3(-0.08f, 0.80f, -0.16f), new Vector3(-0.08f, 0.36f, 0.06f));
             KartModel.Show = false;
             var bare = Make(14, colors[0], new Vector3(3f, 0f, 0f)); one.gameObject.SetActive(false);
             Shot("5-collider-view-three-quarter-front", new Vector3(3f, 0f, 0f) + c0 + new Vector3(2.3f, 1.4f, 2.6f), new Vector3(3f, 0f, 0f) + c0);
