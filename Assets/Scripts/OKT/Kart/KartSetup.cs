@@ -23,19 +23,26 @@ namespace OKT
         public float comHeightIn = 7.1f;          // spec ≈0.18 m [TEST VALUE] (Franklin: "decent enough")
 
         // ---- geometry (spec §6.2; Franklin: "sounds decent enough")
-        public float wheelbaseIn = 41.3f;         // 1.05 m
-        public float trackFrontIn = 32.0f;        // Franklin's official width (42 in overall): front scaled with the rear (was 39.4) [TEST VALUE split]
+        // Franklin's kart measured 2026-11-21 (Pit Board + garage notes). Wheelbase: front axle centre to rear axle centre.
+        public float wheelbaseIn = 39.75f;        // was 41.3
+        // Each wheel centre from the kart centre (in, + = right). Franklin 11-21: kingpins 24 in apart, each lined up with its
+        // tire's inside sidewall; fronts 42-1/4 in and rears 42 in outside to outside (exact); the chassis is asymmetric --
+        // RR ~1 in right of the RF, LF ~1/2 in left of the LR (his estimates, split to fit the exact widths: 5/8 and 7/8).
+        // Tire widths are the stretched outer widths below (LF 7, RF 10.5, LR 8.75, RR 10.5).
+        public float[] wheelXIn = { -15.875f, 17.625f, -14.125f, 18.25f };   // LF, RF, LR, RR
+        public float frontLeadIn = 0.375f;        // Franklin 11-21: the LF sits 3/8 in behind the RF
+        public float trackFrontIn => wheelXIn[1] - wheelXIn[0];   // centre to centre (33.5 in)
         // Franklin (11-16, measured with the body on): 42 in overall -> 41.5 in over the rear tires. Taking the tires as
         // their nominal 6 and 9 in gave 34 in centre to centre; on his 8.25 and 10 in rims they stretch to ~8.75 and 10.5 in
         // (the Blender wheels, tireOuterWidthIn), so 41.5 - (8.75 + 10.5)/2 = 31.9 in, the model's rear track. At 34 the
         // left-rear stuck 1.7 in out past the body (Franklin 11-20, q39: tires tucked 1/8-1/4 in inside the body).
-        public float trackRearIn = 31.9f;
+        public float trackRearIn => wheelXIn[3] - wheelXIn[2];    // 32.375 in
         // ---- chassis shape (Franklin, 2026-11-14, with photos; body not mounted).
         // Collider = frame/cockpit box + ROUND TUBES for the bumpers and nerf bars (a round tube
         // rides up a dirt slope; the old single box's square corner dug into the berm).
-        public float frameClearanceIn = 0.5f;          // Franklin: frame rails ~1/2 in off the ground
+        public float frameClearanceIn = 1.875f;        // Franklin 11-21 measured: lowest part of the chassis (the seat's underside) 1-7/8 in
         public float tubeDiameterIn = 1.0f;            // bumper / nerf tubing [TEST VALUE]
-        public float tubeBottomIn = 0.5f;              // Franklin: bumpers and nerfs ~1/2 in off the ground
+        public float tubeBottomIn = 2.0f;              // Franklin 11-21 measured: rear bumper's lowest bar 2 in (was 1/2)
         public float cockpitHalfWidthIn = 12f;      // frame rails ~23.5 in apart (road-course frame photo, 11-16); was 15.75, wider than the 34 in rear track allows      // frame rails + seat + engine, between the wheels [TEST VALUE, from photos]
         public float cockpitFrontIn = 23.6f;           // ahead of centre [TEST VALUE]
         public float cockpitRearIn = 23.6f;            // behind centre [TEST VALUE]
@@ -71,23 +78,23 @@ namespace OKT
         public float driverKneeLineLeftIn = 1.4f;      // knees and feet straddle the steering column (Franklin: the shaft went through a leg)
         public float driverLeanLeftIn = 2f;            // shoulders and helmet lean this much further left than the seat (helmet ~9 in left, shop overhead photo)
         public float driverOffsetLeftIn = 7f;          // seat well left of centre on an offset dirt chassis (engine on the right) [TEST VALUE]
-        public float frontBumperAheadIn = 10f;         // inside the nose; WKA 401.6 length cap (74 in) forced it in from Franklin's ~14 [TEST VALUE]
+        public float frontBumperAheadIn = 12f;  // Franklin 11-21 measured: 12 in ahead of the front tires. was 10:        // inside the nose; WKA 401.6 length cap (74 in) forced it in from Franklin's ~14 [TEST VALUE]
         public float frontBumperHalfWidthIn = 13f;     // [TEST VALUE, from photos]
-        public float frontBumperTopIn = 7.75f;         // top of the upper hoop: WKA 409.1 minimum 7.75 in
+        public float frontBumperTopIn = 8f;            // Franklin 11-21 measured: top hoop 8 in (WKA 409.1 minimum 7.75 in)
         public float nerfOutsideTireIn = 0.125f;       // Franklin: 1/8 in outside the tires' outer edge
         public float nerfTopIn = 8f;                   // top tube height [TEST VALUE, from photos]
-        public float rearBumperBehindIn = 4f;          // Franklin's body mockup (11-16): close behind the rear tires (was 8)          // WKA 401.6 length cap (74 in) with the nose: was Franklin's ~12 [TEST VALUE, split of the 74 in]
+        public float rearBumperBehindIn = 6f;  // Franklin 11-21 measured: 6 in behind the rear tires. was 4:         // Franklin's body mockup (11-16): close behind the rear tires (was 8)          // WKA 401.6 length cap (74 in) with the nose: was Franklin's ~12 [TEST VALUE, split of the 74 in]
         public float rearBumperHalfWidthIn = 14.5f;    // Franklin's mockup: ~29 in across, narrower than the tires (was 19.7)    // [TEST VALUE, from photos]
         // ---- body (Franklin, Pit Board 2026-11-16; WKA Dirt rulebook 2025 §404). Fiberglass; "generally they slide
         // pretty freely against each other". In side-by-side contact the panels are what touch.
         public bool bodyOn = true;
-        public float panelOutsideTireIn = 0.25f;     // Franklin: outside edge of the tires tucked in ~1/4 in
-        public float panelBottomIn = 0.5f;           // Franklin: ~1/2 in off the ground
-        public float panelTopIn = 14f;               // WKA 404.7: no higher than 14 in (Franklin guessed 15; measuring) [TEST VALUE]
+        public float panelOutsideTireIn = 0.375f;    // Franklin 11-21: 43 in overall over 42-1/4 in of front tires
+        public float panelBottomIn = 2f;             // Franklin 11-21 measured: 2 in off the ground
+        public float panelTopIn = 12f;  // Franklin 11-21 measured 12 in. was 14:              // WKA 404.7: no higher than 14 in (Franklin guessed 15; measuring) [TEST VALUE]
         public float panelThickIn = 0.75f;           // collider thickness (the shell is thin; thicker keeps the solver honest) [TEST VALUE]
-        public float noseAheadOfTiresIn = 17f;       // Franklin's mockup: tip a bit further out; keeps 73 in overall with the 4 in rear bumper (was 13)       // WKA 401.6: overall length 74 in max -> 73.1 in with the rear bumper 8 in back (Franklin's ~2 ft overshot the cap) [TEST VALUE, split of the 74 in]
+        public float noseAheadOfTiresIn = 15f;  // Franklin 11-21 measured 15 in. was 17:      // Franklin's mockup: tip a bit further out; keeps 73 in overall with the 4 in rear bumper (was 13)       // WKA 401.6: overall length 74 in max -> 73.1 in with the rear bumper 8 in back (Franklin's ~2 ft overshot the cap) [TEST VALUE, split of the 74 in]
         public float noseBottomIn = 2f;              // [TEST VALUE]
-        public float noseTopIn = 10f;                // WKA 404.4: nose 8-17 in tall [TEST VALUE]
+        public float noseTopIn = 15.25f;             // Franklin 11-21 measured: top of the nose at its front edge 15-1/4 in (WKA 404.4: 8-17)
         // Rounded nose (Franklin, 11-16: "the actual exterior contact points are exceptionally important"). From his
         // body photos the nose piece is a wide U in plan: big round front corners blending back into the sides. [TEST VALUEs]
         public float noseCornerRadiusIn = 21f;       // Franklin's body mockup (11-16): one round arch across the whole front ->
@@ -96,7 +103,7 @@ namespace OKT
                                                      // 3 in berm and the kart swung to 88 deg in the M1 berm ride (11-16)
         public float noseTopRoundIn = 3f;            // and the upper front edge
         public float bodyFriction = 0.15f;           // fiberglass on fiberglass, slides freely [TEST VALUE]
-        public float rearBumperTopIn = 7.5f;           // top of the bumper: WKA 409.3.1 max 7.5 in; lowest bar no lower than the bottom of the rear axle (409.3.2)
+        public float rearBumperTopIn = 8f;             // Franklin 11-21 measured 8 in (WKA 409.3.1 says 7.5 max -- asked); lowest bar no lower than the bottom of the rear axle (409.3.2)
         public float rearAxleDiaIn = 1.0f;             // WKA: 1 in min (40 mm max) [TEST VALUE]
 
         // ---- tires. Sizes (Franklin): LF 10.5x4.50-6, LR 11x6.00-6, RF/RR 12x9.00-6 — nominal labels.
@@ -303,11 +310,14 @@ namespace OKT
         /// <summary>Height of the (flat) frame's wheel mounts above ground at static ride, for the mean tire.</summary>
         public float MountHeight => MeanRadius + travel - staticSag;
 
+        /// <summary>Wheel centre fore/aft (m, + = forward): the axles a wheelbase apart, the LF frontLeadIn behind the RF.</summary>
+        public float AxleZ(Corner c) => c == Corner.LF ? (wheelbase - frontLeadIn * U.In) * 0.5f
+                                      : c == Corner.RF ? (wheelbase + frontLeadIn * U.In) * 0.5f : -wheelbase * 0.5f;
+
         public Vector3 WheelMount(Corner c)
         {
             bool front = c == Corner.LF || c == Corner.RF;
             bool left = c == Corner.LF || c == Corner.LR;
-            float halfTrack = (front ? trackFront : trackRear) * 0.5f;
             // Each spindle sits at its own tire's height so all four tires carry load at rest (a real
             // chassis flexes to keep them planted; a rigid flat frame on 10.5/11/12 in tires with stiff
             // sidewalls would sit on three wheels).
@@ -315,15 +325,13 @@ namespace OKT
             // RF/LR mounts drop by the warp offset, LF/RR rise by it.
             float warp = CrossWarpOffset();
             float diag = (c == Corner.RF || c == Corner.LR) ? -warp : warp;
-            return new Vector3(left ? -halfTrack : halfTrack, WheelRadius((int)c) + travel - staticSag + diag, front ? wheelbase * 0.5f : -wheelbase * 0.5f);
+            return new Vector3(wheelXIn[(int)c] * U.In, WheelRadius((int)c) + travel - staticSag + diag, AxleZ(c));
         }
 
         /// <summary>Corner (x, z) positions, LF RF LR RR, for the static load solve.</summary>
         Vector2 CornerXZ(Corner c)
         {
-            bool front = c == Corner.LF || c == Corner.RF, left = c == Corner.LF || c == Corner.LR;
-            float ht = (front ? trackFront : trackRear) * 0.5f;
-            return new Vector2(left ? -ht : ht, front ? wheelbase * 0.5f : -wheelbase * 0.5f);
+            return new Vector2(wheelXIn[(int)c] * U.In, AxleZ(c));
         }
 
         /// <summary>
@@ -373,8 +381,9 @@ namespace OKT
         public Vector3 CenterOfMass()
         {
             float z = -wheelbase * 0.5f + frontWeightFrac * wheelbase;           // along the wheelbase
-            float meanHalf = (trackFront + trackRear) * 0.25f;
-            float x = -(leftWeightFrac - 0.5f) * 2f * meanHalf;                  // left = -x
+            // left weight fraction on scales: the CoM sits that share of the way from the right wheels' line to the left's
+            float xl = (wheelXIn[0] + wheelXIn[2]) * 0.5f * U.In, xr = (wheelXIn[1] + wheelXIn[3]) * 0.5f * U.In;
+            float x = xr + (xl - xr) * leftWeightFrac;
             return new Vector3(x, comHeight, z);
         }
     }
