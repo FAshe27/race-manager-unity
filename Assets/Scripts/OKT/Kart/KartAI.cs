@@ -519,8 +519,10 @@ namespace OKT
                 else { thr = 0f; brk = Mathf.Clamp01(-a / cap); DbgBrakeSteps++; }
                 kart.throttleCmd = thr; kart.brakeCmd = brk; DbgPedalSteps++;
             }
-            // DEBUG test-drive: racing under green, the human's pad/keys replace this driver's inputs (HumanDriver.cs)
-            if (HumanDriver.Driven == this && racing && stagePath == null) HumanDriver.Apply(this, kart, dt);
+            // DEBUG test-drive: under green the human's pad/keys replace this driver's inputs (HumanDriver.cs) -- spun
+            // included: he gets himself turned round (Franklin 11-22: with cautions off the AI was turning his kart round).
+            // Pacing / caution / staging stay the AI's.
+            if (HumanDriver.Driven == this && !formation && !paceMode && stagePath == null) HumanDriver.Apply(this, kart, dt);
             Perf.Add(8, ref pt);
         }
 
