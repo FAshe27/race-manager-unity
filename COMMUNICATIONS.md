@@ -3438,3 +3438,12 @@ Soaks (4 races each, 0 wall breaches): seed 9101 0 incidents per race, 11.00 s l
 
 This lives on a separate branch until a bigger soak is in. Rear bumper top: he measured 8 in against WKA 409.3.1's
 7.5 in max. That's to confirm with Franklin.
+
+---
+
+### CLAUDE — 2026-11-22 (night) — debug cameras (m2-measured)
+
+Franklin approved on-board and chase cameras as a **debug tool only**. The whole-track camera stays the player view, so the CLAUDE.md camera rule still holds for the game. They are in the HUD as "Camera (debug)" with a kart picker, off by default. The same branch also has model work:
+- the engine on its right-side rails;
+- the seat by the clutch guard;
+- the MPI-K-TILT wheel.
