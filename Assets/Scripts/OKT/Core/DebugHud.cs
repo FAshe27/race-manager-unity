@@ -61,8 +61,16 @@ namespace OKT
                 GUILayout.Label(e != null ? $"#{e.driver.number} {e.driver.name}" : karts[ki].name, GUILayout.Width(120));
                 if (GUILayout.Button(">", GUILayout.Width(24))) ki = (ki + 1) % karts.Count;
                 WholeTrackCamera.ViewKart = karts[ki];
+                // DEBUG test-drive the kart the camera is on (pad: LS steer, RT gas, LT brake; keys: arrows / WASD)
+                bool driving = HumanDriver.Driven != null && HumanDriver.Driven.kart == karts[ki];
+                bool want = GUILayout.Toggle(driving, "Drive it (debug)");
+                if (want != driving) HumanDriver.Driven = want ? boot.world.drivers[ki] : null;
+                else if (!want && HumanDriver.Driven != null && HumanDriver.Driven.kart != karts[ki]) HumanDriver.Driven = null;
             }
             GUILayout.EndHorizontal();
+            if (HumanDriver.Driven != null)
+                GUILayout.Label($"Driving #{(d?.field.Find(x => x.ai == HumanDriver.Driven)?.driver.number ?? 0)} with {(HumanDriver.LastDevice == "" ? "pad or keys" : HumanDriver.LastDevice)}: " +
+                                "left stick / arrows steer, right trigger / Up gas, left trigger / Down brake. The AI drives it under yellow, pacing and staging.");
 
             GUILayout.BeginHorizontal();
             if (GUILayout.Toggle(boot.clock.speed == 0, "Pause", "Button")) boot.clock.speed = 0;
