@@ -45,3 +45,4 @@ crashlytics-build.properties
 .DS_Store
 # spike outputs
 soak-results.txt
+test-drive-laps.txt

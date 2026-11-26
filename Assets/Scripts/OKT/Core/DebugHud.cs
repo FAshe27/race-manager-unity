@@ -73,7 +73,8 @@ namespace OKT
             GUILayout.EndHorizontal();
             if (HumanDriver.Driven != null)
                 GUILayout.Label($"Driving #{(d?.field.Find(x => x.ai == HumanDriver.Driven)?.driver.number ?? 0)} with {(HumanDriver.LastDevice == "" ? "pad or keys" : HumanDriver.LastDevice)}: " +
-                                "left stick / arrows steer, right trigger / Up gas, left trigger / Down brake. The AI drives it under yellow, pacing and staging.");
+                                "left stick / arrows steer, right trigger / Up gas, left trigger / Down brake. The AI drives it under yellow, pacing and staging." +
+                                (HumanDriver.LastLap != "" ? $"  Last lap {HumanDriver.LastLap} (logged to test-drive-laps.txt)" : ""));
 
             GUILayout.BeginHorizontal();
             if (GUILayout.Toggle(boot.clock.speed == 0, "Pause", "Button")) boot.clock.speed = 0;
