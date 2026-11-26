@@ -126,7 +126,7 @@ namespace OKT
         public float bumpStopScale = 10f;         // spring multiplier past full travel [TEST VALUE]
 
         // ---- grip (Franklin: 1.3 g peak on the groove; slides past it)
-        public float gripG = 1.3f;
+        public float gripG = 1.08f;   // Franklin 11-26: a perfect lap should be ~10.5 s; the limit-lap test (M2LimitLap) gives 10.52 s here (1.3 g: 9.70 s, corners nearly flat)
         // Solver gain, not a tire fact: share of a wheel's sideways slip cancelled per physics step.
         public float lateralCancelGain = 0.5f;
         // Past the peak a sliding tire loses grip (Franklin, 11-16: a kart rotated far enough can't be pulled back by the

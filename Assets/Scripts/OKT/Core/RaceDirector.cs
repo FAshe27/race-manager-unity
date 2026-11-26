@@ -41,7 +41,7 @@ namespace OKT
         // One steady speed all the way round (Franklin's playtest 11-17: 25 straight / 20 corner made the line spread on
         // the straights and bunch in the corners -- an accordion). Franklin: ~20-25 mph. [TEST VALUE]
         public float paceStraightMph = 22f;
-        public float paceCornerMph = 22f;
+        public float paceCornerMph = 20f;          // 11-26: 22 -> 20 at the 1.08 g grip (outside pace lane slid wide)
         // Staging-grid start (Franklin 2026-11-16: karts line up on the paved grid outside turn 4, pull out through the
         // red gate single file, form up double file over about a lap, then the pace lap). OFF by default for now.
         public static bool DefaultStagingStart = false; // soak knob -okt-staging 1
@@ -162,7 +162,7 @@ namespace OKT
         // slow to a crawl to wait them out (Franklin 11-18: "The kart going to the back should remain high - and sometimes
         // they'll even slow to a crawl"). It used to run low -- right where the line runs on the straights -- and a tail
         // kart that stopped in the groove jammed the whole field behind it.
-        public float dropBackLaneFrac = 0.7f;
+        public float dropBackLaneFrac = 0.7f;   // (11-26: 0.55 tried for karts stuck in the cushion under yellow -- no clear gain)
         public float dropCrawlChance = 0.35f;       // [TEST VALUE]
         public float passDropperLaneFrac = -0.25f;  // the line goes by a dropping kart this low [TEST VALUE]
         // under caution a kart brakes for the kart ahead in time: never faster than what slows to his speed at this
@@ -192,7 +192,7 @@ namespace OKT
         // he drifts up, take the bottom. [TEST VALUEs]
         // A big push (Franklin, 11-16): karts live at the edge of grip, so a hard shove at entry can rotate a kart past what
         // the front tires can pull back. Aggressive, frustrated or late-race drivers sometimes lean much harder. [TEST VALUE]
-        public static float DefaultBigPushChance = 0.7f;   // soak 11-17: 0.35 -> ~0.5 cautions/race; 0.7 (+ slide 0.72) -> ~1.0
+        public static float DefaultBigPushChance = 0.35f;  // 11-26 at 1.08 g grip: 0.35 -> 1.2 cautions/race (0.7 spun ~3x as many). Was 0.7 at 1.3 g (soak 11-17)
         public float bigPushChance = DefaultBigPushChance; // per push, at aggression 1 (x urgency, x2 when frustrated)
         public float bigPushDelta = 2.0f;           // m/s over him (~4.5 mph) instead of pushSpeedDelta
         public float pushSpeedDelta = 0.7f;         // m/s (~1.5 mph) — Franklin: make him enter the corner 1–2 mph faster than he wants
@@ -391,6 +391,7 @@ namespace OKT
 
     public class RaceDirector
     {
+        public static float CatchUpInCorners = 0f;     // [TEST VALUE] share of the caution catch-up speed kept through the corners
         public readonly RaceConfig cfg;
         public RacePhase phase = RacePhase.Grid;
         public float phaseTime, raceTime, greenTime = -1f, firstGreenTime = -1f; // greenTime = latest green (restarts move it)
@@ -1849,7 +1850,7 @@ namespace OKT
                 {
                     float cap = pred.kart.ForwardSpeed + pred.aEst * cfg.followLeadSec + cfg.followGain * (gap - want);
                     float catchUp = Mathf.Clamp(cap - paceS, 0f, cfg.cautionCatchUpMph * U.Mph);
-                    ai.paceStraight = paceS + catchUp; ai.paceCorner = paceC + catchUp;
+                    ai.paceStraight = paceS + catchUp; ai.paceCorner = paceC + catchUp * CatchUpInCorners;   // catch up on the straights (11-26: at 1.08 g, +5 mph round the outside lane slid karts into the wall under yellow)
                     ai.speedCap = Mathf.Max(0f, Mathf.Min(cap, BrakeCap(pred.kart.ForwardSpeed, gap - want)));
                 }
             }
@@ -2124,7 +2125,7 @@ namespace OKT
                 float cap = Mathf.Sqrt(2f * 1.2f * Mathf.Max(0f, rem - 0.3f));
                 if (ahead != null) cap = Mathf.Min(cap, Mathf.Max(0f, ahead.kart.ForwardSpeed + cfg.followGain * (ga - bl - cfg.fieldStopGapFt * U.Ft)));
                 float catchUp = Mathf.Clamp(cap - paceS, 0f, cfg.cautionCatchUpMph * U.Mph);
-                ai.paceStraight = paceS + catchUp; ai.paceCorner = paceC + catchUp;
+                ai.paceStraight = paceS + catchUp; ai.paceCorner = paceC + catchUp * CatchUpInCorners;   // catch up on the straights (11-26: at 1.08 g, +5 mph round the outside lane slid karts into the wall under yellow)
                 ai.speedCap = cap;
                 if (fsStage == 2 || (v < 0.3f && (rem < 1.0f || (ahead != null && ahead.fsHeld && ga < bl + cfg.fieldStopGapFt * U.Ft + 1.5f))))
                 { if (!e.fsHeld) e.fsHeldAt = raceTime; e.fsHeld = true; ai.speedCap = 0f; }
@@ -2163,7 +2164,7 @@ namespace OKT
                 float gap = Gap(pred, e), want = bl + cfg.cautionGapFt * U.Ft;
                 float cap = gap > 0f ? pred.kart.ForwardSpeed + cfg.followGain * (gap - want) : cfg.fieldStopPassMph * U.Mph * 0.5f;
                 float catchUp = Mathf.Clamp(cap - paceS, 0f, cfg.cautionCatchUpMph * U.Mph);
-                ai.paceStraight = paceS + catchUp; ai.paceCorner = paceC + catchUp;
+                ai.paceStraight = paceS + catchUp; ai.paceCorner = paceC + catchUp * CatchUpInCorners;   // catch up on the straights (11-26: at 1.08 g, +5 mph round the outside lane slid karts into the wall under yellow)
                 ai.speedCap = Mathf.Max(0f, cap);
                 if (ahead != null && ahead != pred) ai.speedCap = Mathf.Min(ai.speedCap, Mathf.Max(0f, ahead.kart.ForwardSpeed + cfg.followGain * (ga - want)));
             }

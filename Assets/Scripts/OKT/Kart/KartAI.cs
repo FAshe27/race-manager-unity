@@ -19,7 +19,7 @@ namespace OKT
         // 0.27 -> laps ≈ 10.77 s (Franklin's fast window) but spins on any upset; 0.25 spins on clean laps.
         public float vMaxMph = 52f;            // [TEST VALUE] (spec start: 48.1 mph / 21.5 m/s)
         // Franklin (2026-11-14 playtest): "Safe" 0.30 feels realistic -> default.
-        public static float DefaultCornerSlow = 0.24f;  // Franklin q42 (11-20): 0.24, between 0.26 (laps 10.9 s, 0.8 cautions/race) and 0.22 (10.5 s, 1.1); was 0.30 then 0.26 (headless test may override)
+        public static float DefaultCornerSlow = 0.26f;  // 11-26: 0.26 at the new 1.08 g grip (fast karts ~10.9, perfect lap 10.5). Franklin q42 (11-20): 0.24, between 0.26 (laps 10.9 s, 0.8 cautions/race) and 0.22 (10.5 s, 1.1); was 0.30 then 0.26 (headless test may override)
         public static bool UseTireFeel = false;          // loose-stuff speed also reads the rear tires' current grip (dust) [soak knob]
         public float cornerSlow = DefaultCornerSlow; // [TEST VALUE] (spec start: 0.30)
         public float pace = 1.0f;              // per-kart pace factor (M2 field spread)
@@ -157,6 +157,8 @@ namespace OKT
         public static long DbgPedalSteps, DbgLiftSteps, DbgDragSteps, DbgBrakeSteps;
         public static bool SlideReact = true, NoReturn = true;  // soak knobs
         public static bool SlipFeedForward = true, VelocityPursuit = false, ExpectedSlipAim = true, SteerByGrip = true;
+        public static float PaceAccelG = 0.3f;    // [TEST VALUE] most pull he asks for under yellow / pacing / staging
+        public static float PaceSteerFrac = 0.6f;  // [TEST VALUE] share of the grip steering limit used when not racing
         public static float ExitSlowFrac = 0.8f;   // [TEST VALUE] share of the corner slowing kept on the exit
         public static float CatchGain = 0f;                     // [TEST VALUE] extra countersteer per rad of body angle past normal              // soak knob: steer for the front tires' slip angle
         public const float NoReturnCornerMin = 0.3f;   // "in a corner": the corner profile past this [TEST VALUE]
@@ -393,6 +395,9 @@ namespace OKT
             {
                 var ks = kart.setup;
                 float lim = Mathf.Atan(ks.wheelbase * 9.81f * ks.gripMu / (v * v)) + ks.slipPeakDeg * Mathf.Deg2Rad;
+                // under yellow / pacing / staging nobody yanks the wheel: lining up at 20 mph with 14 deg of steer on the
+                // gas swung the rear round at the 1.08 g grip (soak 11-26, 20-kart staging: 14 incidents/race)
+                if (formation || paceMode) lim *= PaceSteerFrac;
                 // only the countersteer side opens up as the kart rotates (nose left -> more right wheel allowed)
                 float loLim = -lim - Mathf.Max(0f, slipB), hiLim = lim + Mathf.Max(0f, -slipB);
                 steerRad = Mathf.Clamp(steerRad, loLim, hiLim);
@@ -487,6 +492,9 @@ namespace OKT
                 }
             }
             kart.accelCmd = (targetSpeed - kart.ForwardSpeed) * cfg.speedGain;
+            // under yellow / pacing / recovering he squeezes the gas: full drive from a crawl takes most of the rear's grip
+            // (solid axle) and any steering swung it round at the 1.08 g grip (soak 11-26: 24 self spins at 5-8 mph under yellow)
+            if ((formation || paceMode) && !recovering && kart.ForwardSpeed > 3f * U.Mph) kart.accelCmd = Mathf.Min(kart.accelCmd, PaceAccelG * 9.81f);   // (a stopped or spun kart still pulls away)
             // Feather the throttle when the rear steps out: a driver eases off a power slide instead of holding it
             // flat. Held flat, the rear caught grip all at once with the wheel turned against the slide and
             // high-sided the kart (turn-2-exit self spins and a self flip, soak 2026-11-15).
@@ -546,6 +554,7 @@ namespace OKT
             kart.steerDeg = Mathf.Clamp(Mathf.Atan(kart.setup.wheelbase * kappa) * Mathf.Rad2Deg, -kart.setup.maxSteerDeg, kart.setup.maxSteerDeg);
             targetSpeed = speedCap; // the director's staging speed (was also held under 12 mph here, which hid the setting)
             kart.accelCmd = (targetSpeed - kart.ForwardSpeed) * cfg.speedGain;
+            if (kart.ForwardSpeed > 3f * U.Mph) kart.accelCmd = Mathf.Min(kart.accelCmd, PaceAccelG * 9.81f);   // staging: squeeze the gas too
             bool onTrack = Mathf.Abs(d) < fr.halfWidth - kart.setup.FootRight - 0.3f;
             if (stageIdx >= stagePath.Count - 1 && onTrack) { stagePath = null; formD = float.NaN; SnapTrafficOffsetToCurrent(); }
         }

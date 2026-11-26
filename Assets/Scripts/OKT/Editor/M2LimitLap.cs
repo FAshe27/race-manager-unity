@@ -25,25 +25,27 @@ namespace OKT.EditorTools
                 float exit0 = KartAI.ExitSlowFrac;
                 foreach (float g in grips)
                 {
-                    float limit = float.MaxValue; string at = "";
+                    float limit = float.MaxValue; string at = "", atSegs = "", raceSegs = "";
                     var row = new StringBuilder($"grip {g:F2} g:");
                     foreach (float cs in new[] { 0.24f, 0.20f, 0.16f, 0.12f, 0.08f, 0.04f })
                     {
                         KartAI.ExitSlowFrac = 0.5f;
-                        var (best, spins) = Try(g, cs);
+                        var (best, spins, segs) = Try(g, cs);
                         row.Append($"  cs {cs:F2}: {(best < 99f ? best.ToString("F2") : "--")}{(spins > 0 ? $" ({spins} spin)" : "")}");
-                        if (spins == 0 && best < limit) { limit = best; at = $"cs {cs:F2}"; }
+                        if (spins == 0 && best < limit) { limit = best; at = $"cs {cs:F2}"; atSegs = segs; }
+                        if (cs == 0.24f) raceSegs = segs;
                     }
                     KartAI.ExitSlowFrac = exit0;
                     sb.AppendLine(row.ToString());
-                    sb.AppendLine($"  -> LIMIT {g:F2} g: {(limit < 99f ? limit.ToString("F2") : "--")} s ({at})");
+                    sb.AppendLine($"  -> LIMIT {g:F2} g: {(limit < 99f ? limit.ToString("F2") : "--")} s ({at})   speeds (mph) on that lap: {atSegs}");
+                    sb.AppendLine($"     race pace (cs 0.24) speeds (mph): {raceSegs}");
                 }
             }
             catch (System.Exception e) { sb.AppendLine("EXCEPTION " + e); code = 1; }
             File.WriteAllText(outPath, sb.ToString()); Debug.Log(sb.ToString()); EditorApplication.Exit(code);
         }
 
-        static (float best, int spins) Try(float grip, float cornerSlow)
+        static (float best, int spins, string segs) Try(float grip, float cornerSlow)
         {
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var world = World.BuildRace(File.ReadAllText(M1SceneSetup.JsonPath), 9001, new RaceConfig { fieldSize = 2 });
@@ -55,6 +57,8 @@ namespace OKT.EditorTools
             ai.formation = false; ai.paceMode = false; ai.stagePath = null;
             int steps = Mathf.RoundToInt(45f / World.FixedDt), spins = 0; bool spun = false;
             float lastS = ai.s, lapStart = -1f, best = float.MaxValue, t = 0f;
+            var segs = new System.Collections.Generic.List<string>(); string bestSegs = "";
+            bool inCorner = world.track.Frame(ai.s).corner > 0.5f; float segMin = float.MaxValue, segMax = 0f;
             for (int i = 0; i < steps; i++)
             {
                 world.StepOnce(); t += World.FixedDt;
@@ -62,11 +66,18 @@ namespace OKT.EditorTools
                 float ang = vb.magnitude > 3f ? Mathf.Abs(Vector3.SignedAngle(vb, fb, Vector3.up)) : 0f;
                 if (!spun && ang > 60f) { spun = true; spins++; }
                 if (spun && ang < 10f && vb.magnitude > 5f) spun = false;
-                if (ai.s < lastS - world.track.centerLength * 0.5f) { if (lapStart >= 0f && !spun) best = Mathf.Min(best, t - lapStart); lapStart = t; }
+                float vm = k.ForwardSpeed / U.Mph; bool corner = world.track.Frame(ai.s).corner > 0.5f;
+                if (corner != inCorner) { segs.Add(inCorner ? $"corner min {segMin:F1}" : $"straight max {segMax:F1}"); segMin = float.MaxValue; segMax = 0f; inCorner = corner; }
+                segMin = Mathf.Min(segMin, vm); segMax = Mathf.Max(segMax, vm);
+                if (ai.s < lastS - world.track.centerLength * 0.5f)
+                {
+                    if (lapStart >= 0f && !spun && t - lapStart < best) { best = t - lapStart; bestSegs = string.Join(" | ", segs); }
+                    lapStart = t; segs.Clear();
+                }
                 lastS = ai.s;
             }
             world.director = dir; world.Destroy();
-            return (best, spins);
+            return (best, spins, bestSegs);
         }
     }
 }
