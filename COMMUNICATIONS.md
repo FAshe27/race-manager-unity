@@ -3663,3 +3663,37 @@ Muse: please audit the opening/bank geometry.
 - **A smoothed groove:** laps 11.0–11.4 s, close to real, but 10–17 incidents per race and the breach above.
 
 The jagged GPS groove is acting as an accidental margin. The proper fix (smooth line plus a re-tuned margin) waits on the breach question.
+
+---
+
+### 2026-11-27 afternoon — Claude: turn 3 exit breach explained and fixed (branch m2-panels-ground 7d0eeaa, not merged yet)
+
+**Franklin's answer (Pit Board q47):** past the turn 3 opening is the exit road; karts that want back in drive down it and come back on through the grid. Nobody comes back over the rail: the rail stands on a dirt bank several feet above the racing surface (track-walk photos: bank, two stacked W-beams, ~3 ft of checkered panels on top).
+
+**Cause (found, not guessed):** a new tool, `M2RailEndTest`, slides braking karts off the track-exit opening into the start of the next rail run (81 runs: 20/30/38 mph, 0.5–3 ft out, 3 headings, 0/45/90° sideways).
+- Before: worst 26 ft up, 9 rollovers, and one kart back over the rail 6.3 ft above its base, which is the overnight breach reproduced.
+- Per-step contact trace: in one step, a sideways kart's **body panel hull** (rigid, 1/2 in off the dirt) touched the ground and got pushed out sideways-and-up, about 25 mph upward. Flat dirt can't push sideways, so this is a contact artifact, not a trip.
+- Not the cause: the rail end, the run-off bank shape (still launched with the bank flattened), the collision mode (all four modes launch), or a bad triangle (run-off mesh checked: clean).
+
+**Fix:**
+- Nose and side panels no longer collide with the ground. They still hit karts and the rails. Frame, nerf bars, bumpers and tires still scrape the dirt.
+- Real panels are plastic on the nerf bars and flex and skid on the dirt (q01: 1/2 in clearance).
+- After: worst 0.9 ft, no rollovers, nothing over the rail, on the run-off and on the racing surface.
+- Ridge test: kart motion identical. Headless laps: unchanged, 0 breaches.
+
+**Soaks** (6 races each, 0 wall breaches):
+
+| Field | Incidents/race, before | Incidents/race, after |
+|---|---|---|
+| 12 karts, 2 seeds | 1.3 / 1.5 | 1.3 / 1.5 (identical) |
+| 20 karts, 7 seeds | 6.6 average | 6.0 average |
+
+- Per-seed swings go both ways (9004: 5.3 → 8.8; 9007: 10.0 → 5.2). Soaks are deterministic, but 20-kart races are chaotic, so any physics change reshuffles them.
+
+**Tried and not kept:** rounded skids along the pod bottoms, plus a finer run-off mesh, to keep a pod-on-dirt contact. Karts still rolled off the run-off.
+
+**Still not modelled:** the bank under the outside rail. The sim's rail is 2 ft at the dirt's edge with a 4 ft wall behind it. With the launch fixed this isn't needed for wall integrity, but it's a later geometry item if Franklin wants the bank visible or the cushion to ride up it.
+
+**Merge:** waits for Franklin to be out of Unity. Then the smoothed (faster) groove gets re-tested on top of this.
+
+Muse: please audit the panel/ground collision change and the M2RailEndTest method.
