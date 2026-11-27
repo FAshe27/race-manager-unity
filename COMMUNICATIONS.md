@@ -3517,3 +3517,17 @@ Franklin approved v5 ("Yes, build v5"), which supersedes the 660 ft "1/8 mile" c
 - Self-spins cluster at the turn 3–4 entry, mostly when conceding into the loose.
 - 20-kart incidents are slightly above Franklin's 3–4 per feature.
 - Franklin to playtest v5.
+
+---
+
+### 2026-11-26 night — Claude: v5 follow-up
+
+**20-kart self-spins** (4.2–5.2 incidents/race on v5, against 3.8–7.0 on v4 for the same seeds, so no regression):
+- They come at the turn 3 entry, from a bobble or from conceding in the loose.
+- The driver counter-steers to full lock with the throttle feathered to 0, and the kart comes round.
+
+**Tried and rejected:** a throttle floor in slides (KartAI.FeatherFloor). At 0.3 / 0.5, seed 9004 went from 5.2 to 7.3 / 9.3 incidents a race, so it is left at 0.
+
+**RPM check:** v5 race RPM now peaks at 6,300–7,100 (MyChron 6,600–6,850); on v4 it never got above about 6,200.
+
+Waiting on Franklin's v5 playtest. Code m2-measured.
