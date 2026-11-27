@@ -53,7 +53,7 @@ namespace OKT.EditorTools
         static (float best, int spins, string segs) Try(float grip, float cornerSlow)
         {
             bool trace = Mathf.Abs(grip - TraceGrip) < 0.001f && Mathf.Abs(cornerSlow - TraceCs) < 0.001f;
-            var tr = trace ? new StringBuilder("t s/len corner v_mph rpm thr brk accelCmd tgt_mph free_mph latG lonG\n") : null;
+            var tr = trace ? new StringBuilder("t s/len corner v_mph rpm thr brk accelCmd tgt_mph free_mph latG lonG dOff_ft inEdge_ft lineIn_ft\n") : null;
             Vector3 vPrev = Vector3.zero; float trT = 0f;
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var world = World.BuildRace(File.ReadAllText(M1SceneSetup.JsonPath), 9001, new RaceConfig { fieldSize = 2 });
@@ -80,7 +80,8 @@ namespace OKT.EditorTools
                     if (trT >= 0.05f)
                     {
                         trT = 0f; var rt = k.transform.right; rt.y = 0f; rt.Normalize(); var fw = k.transform.forward; fw.y = 0f; fw.Normalize();
-                        tr.AppendLine($"{t:F2} {ai.s / world.track.centerLength:F3} {world.track.Frame(ai.s).corner:F2} {k.ForwardSpeed / U.Mph:F1} {k.setup.EngineRpmAt(k.ForwardSpeed):F0} {k.throttleCmd:F2} {k.brakeCmd:F2} {k.accelCmd:F2} {ai.targetSpeed / U.Mph:F1} {ai.freeSpeed / U.Mph:F1} {Vector3.Dot(acc, rt) / 9.81f:F2} {Vector3.Dot(acc, fw) / 9.81f:F2}");
+                        var trf = world.track.Frame(ai.s);
+                        tr.AppendLine($"{t:F2} {ai.s / world.track.N:F3} {trf.corner:F2} {k.ForwardSpeed / U.Mph:F1} {k.setup.EngineRpmAt(k.ForwardSpeed):F0} {k.throttleCmd:F2} {k.brakeCmd:F2} {k.accelCmd:F2} {ai.targetSpeed / U.Mph:F1} {ai.freeSpeed / U.Mph:F1} {Vector3.Dot(acc, rt) / 9.81f:F2} {Vector3.Dot(acc, fw) / 9.81f:F2} {(ai.d - trf.LineOffset) / U.Ft:F1} {(ai.d + trf.halfWidth) / U.Ft:F1} {(trf.LineOffset + trf.halfWidth) / U.Ft:F1}");
                     }
                 }
                 vPrev = k.Body.linearVelocity;
