@@ -326,6 +326,16 @@ namespace OKT
                 if (surfaceGo != null) Physics.IgnoreCollision(c, surfaceGo.GetComponent<Collider>());
                 foreach (var t in trackCols) Physics.IgnoreCollision(c, t);
             }
+            // Body panels (nose, side pods) never touch the ground either: they're thin plastic hung on the nerf bars about
+            // 1/2 in off the dirt (Franklin q01), so a leaning kart's panel flexes and skids along it. As rigid hulls they
+            // caught the ground sliding sideways and the engine pushed them out sideways-and-up -- a 38 mph slide off the
+            // turn 3 exit threw a kart 26 ft up and back over the rail (M2RailEndTest, 2026-11-27). The frame, nerf bars
+            // and bumpers still scrape the dirt; the panels still hit karts and the rails.
+            foreach (var c in kp.GetComponentsInChildren<Collider>())
+            {
+                if (!c.name.EndsWith("_Hitbox") || c.name.StartsWith("Seat") || c.name.StartsWith("Engine")) continue;
+                foreach (var t in trackCols) if (t.gameObject.layer != KartPhysics.BarrierLayer) Physics.IgnoreCollision(c, t);
+            }
         }
 
         /// <summary>Rebuild the surface mesh/collider from the current SurfaceConfig (e.g. prep toggle).</summary>
