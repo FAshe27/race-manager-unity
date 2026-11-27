@@ -162,6 +162,9 @@ namespace OKT
         // 11-26 EXPERIMENT (MyChron): speed from the radius of the line (grip limit sqrt(a r)) instead of the flat corner
         // table -- the real kart is 40 mph at the tight ends and accelerates to 48 down the sweeping sides (0.5-0.8 g).
         public static bool CurveSpeed = true;
+        // 11-26 v5: feathered all the way off in a slide, the lift took weight off the rear and it came round (20-kart self
+        // spins at the turn 3 entry, full counter-lock, throttle 0); he keeps a little gas in it instead [TEST VALUE]
+        public static float FeatherFloor = 0f;   // tested 0.3 / 0.5 on 20-kart seed 9004: 5.2 -> 7.3 / 9.3 incidents a race (worse) -- left at 0
         public static float CurveLiftG = 0.15f;    // [TEST VALUE] slowing he plans on lifting into a turn (traces: lift -0.10..-0.15 g, drag-brake -0.13..-0.17)
         public static float CurvePreviewM = 40f;   // [TEST VALUE] how far ahead he reads the turn (~130 ft)
         public static float CurveLatScale = 1.21f; // the kart holds ~21% more than (mu + tan b)/(1 - mu tan b) with the lift preview: limit-lap
@@ -533,7 +536,7 @@ namespace OKT
                     // past the angle his kart normally runs at here (a kart on slip-angle tires always sits a little angled)
                     float fs = cfg.featherStartDeg + normalSlipDeg;
                     if (beta > fs)
-                        kart.accelCmd *= Mathf.Clamp01(1f - (beta - fs) / cfg.featherRangeDeg);
+                        kart.accelCmd *= Mathf.Max(FeatherFloor, Mathf.Clamp01(1f - (beta - fs) / cfg.featherRangeDeg));
                 }
             }
             bool locking = gone && Mathf.Abs(slipB) * Mathf.Rad2Deg > SpinLockDeg;
