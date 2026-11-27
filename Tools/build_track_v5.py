@@ -155,6 +155,18 @@ for i in range(N):
     frac[i] = round(new / (2 * hw) + 0.5, 4); clear_in[i] = (new + hw) / FT
 print(f"after the mid-corner drop: groove off the inside edge {min(clear_in):.1f}..{max(clear_in):.1f} ft")
 
+# smooth the groove (11-27): GPS noise + the mid-corner clamp left kinks (line radius 73 -> 129 -> 73 ft through turn 3)
+# that the radius speed plan read as tight spots. 9 samples (~25 ft), two passes, circular moving average of the offset.
+SMOOTH_W = 9
+offs = [(frac[i] - 0.5) * 2 * HW[i] for i in range(N)]
+h = SMOOTH_W // 2
+for _ in range(2):
+    offs = [sum(offs[(i + j) % N] for j in range(-h, h + 1)) / SMOOTH_W for i in range(N)]
+for i in range(N):
+    hw = HW[i]; o = max(offs[i], -hw + LINE_MIN_IN_FT * FT)
+    frac[i] = round(o / (2 * hw) + 0.5, 4); clear_in[i] = (o + hw) / FT
+print(f"after smoothing: groove off the inside edge {min(clear_in):.1f}..{max(clear_in):.1f} ft")
+
 
 # carried from v4 by lap fraction
 barriers = [dict(b, u0=round(map_u(b["u0"]), 4), u1=round(map_u(b["u1"]), 4)) for b in v4["barriers"]]

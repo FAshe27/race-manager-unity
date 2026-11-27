@@ -132,7 +132,11 @@ namespace OKT
         public float lateralCancelGain = 0.5f;
         // Past the peak a sliding tire loses grip (Franklin, 11-16: a kart rotated far enough can't be pulled back by the
         // front tires). Full grip up to slideFadeStartDeg of slip, easing to slideGripRatio by slideFadeEndDeg. [TEST VALUE]
-        public static float DefaultSlideGripRatio = 0.72f;  // soak 11-17: 0.85 changed nothing, 0.75 from 8 deg spun karts on exit
+        // 11-27: 1.0 (no fade). Franklin, from experience: "spins are easier to save than you think, as the slide scrubs speed
+        // fairly quickly allowing a more easily collected kart balance". Faded to 0.72 a sideways kart dragged LESS and its
+        // fronts at opposite lock had less to pull with: slow slides grew 20 -> 45 deg at full lock. 20-kart soaks, smoothed
+        // groove, 7 seeds: 2.9 incidents/race (0.72: ~10). (Earlier: 0.85 changed nothing, 11-17, older tire.)
+        public static float DefaultSlideGripRatio = 1.0f;
         public float slideGripRatio = DefaultSlideGripRatio;
         public static float DefaultSlideFadeStartDeg = 12f, DefaultSlideFadeEndDeg = 30f; // past normal exit slides (soak 11-17: 8 deg spun karts on exit)
         public float slideFadeStartDeg = DefaultSlideFadeStartDeg, slideFadeEndDeg = DefaultSlideFadeEndDeg;
