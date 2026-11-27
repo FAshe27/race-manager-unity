@@ -3483,3 +3483,37 @@ Franklin shared MyChron 6 data from Atoka: the #72 Tricon, 10.70–10.82 s laps.
 | Sides | short straights | 200–300 ft radius arcs |
 
 So the sim cannot build speed down the sides: 42 mph against the real 48, whatever the gearing. The proposal is a v5 track shaped from the GPS path, ideally from a RaceStudio 3 CSV export, which would supersede the 660 ft "1/8 mile" centreline. A radius-based AI speed plan (KartAI.CurveSpeed, off) waits on the v5 track.
+
+---
+
+### 2026-11-26 — Claude: track v5 from the MyChron GPS (code m2-measured c4ad974)
+
+Franklin approved v5 ("Yes, build v5"), which supersedes the 660 ft "1/8 mile" centreline.
+
+**How it was built:**
+- `Tools/atoka_gps_line.py` decodes the #72's .xrk directly: GPS at 25 Hz plus lap records, with lap times matching RaceStudio.
+- It averages the four fast laps (10.70–10.82) into `Assets/Data/atoka-gps-line.json`: a 688 ft line, 242 × 190 ft, with every lap within 4.8 ft of the mean.
+- `Tools/build_track_v5.py` re-fits v4's construction (stadium outside wall, 27/29 ft) around that line:
+  - outside radius 99.5 ft;
+  - straights 93.8 ft;
+  - centreline 723 ft;
+  - the groove is the GPS line;
+  - barriers, openings and features carried over by section.
+
+**AI speed plan (KartAI.CurveSpeed, on):**
+- Target speed now comes from the racing line's own radius at the grip limit (tires + 8° banking), with a 130 ft lift preview. The flat corner table held one speed through the whole corner.
+- cornerSlow is now "share below the limit" (0 = limit). Field default 0.10; HUD buttons 0.16 / 0.10 / 0.04.
+
+**Grip 1.17 g:**
+- Perfect lap 10.55 s, against Franklin's ~10.5 target.
+- Sides 46–48 mph and corners 41–43, against the MyChron's 47–49 and 38–41.
+- The earlier 1.08 had been fitted on v4, whose lap was about 10% short.
+
+**Soaks** (6 races each, 0 breaches):
+- 12 karts: 1.5–2.0 incidents/race; laps about 11.25 s, fastest 10.82–10.91.
+- 20 karts with staging: 4.2–5.2.
+
+**Open:**
+- Self-spins cluster at the turn 3–4 entry, mostly when conceding into the loose.
+- 20-kart incidents are slightly above Franklin's 3–4 per feature.
+- Franklin to playtest v5.
