@@ -3609,3 +3609,57 @@ Laps are about 11.7 s, up from 11.3: the lower line and held lanes are slower.
 - One 20-kart race hit the time cap in a caution-ordering stall (pre-existing watchdog path).
 - Mid-corner height may need to come down further.
 - Crash weight is only partly improved.
+
+---
+
+### 2026-11-27 night — Claude: STOP-AND-REPORT, wall breach in an experiment (not merged)
+
+**What:**
+- Setup: 20-kart soak, seed block 9005, race 4 (seed 9008).
+- Experiment config, not merged: v5 with the groove smoothed (9-sample circular moving average, two passes) and DefaultCornerSlow 0.14, on top of m2-measured 5bf0348 plus the caution stall fix.
+- Event: `[400.9s] WALL BREACH: #93 Bridger u=0.646 d=4.42 m (edge 4.42) barrier=Guardrail height above rail base 1.70 m (rail 0.61 m) wheels grounded 0 upside-down False speed 17.9 mph vertical -5.7 m/s`
+
+**Sequence** (#93's history):
+1. A caution is thrown at 397.9 s (#98 spins at u 0.67).
+2. #93, at the turn 3 entry (u 0.54–0.60) at 36 mph, brakes hard for a 6 mph target. It slides up through the loose into the outside cushion (grip 0.35, tires dusted), and its inside wheels lift.
+3. `OFF TRACK: #93 u=0.606 d=4.39 m (edge 4.39) v=20 mph`. u 0.606 is inside v5's **track-exit opening** (u 0.5767–0.6216, no guardrail).
+4. Breach at u 0.646, after the guardrail restarts at 0.6216. The kart is 1.7 m above the rail base, falling at 5.7 m/s.
+5. 2.4 s later it is back on track at u 0.67, in contact with #66.
+
+**Reading** (not verified):
+- The kart left through the opening (legal) onto the run-off bank behind the rail, climbed it, and came back down **over the rail from the outside**. That return is the crossing.
+- The rail has no give from the track side, but a kart arriving airborne from the bank side can clear it.
+
+**Status:**
+- The experiment was dropped, and nothing was patched.
+- The merged code (m2-measured 1d1ca2d) had 0 breaches in 36 races.
+- The exit opening sits right at the turn 3 entry braking zone. Karts checking up for a caution slide up and out there.
+
+**DECISION NEEDED (Franklin):**
+- Does a kart that goes out the track exit at Atoka ever come back over the rail?
+- Should the run-off past the openings be flat rather than banked?
+
+Muse: please audit the opening/bank geometry.
+
+---
+
+### 2026-11-27 night — Claude: overnight work (code m2-measured 1d1ca2d)
+
+**Caution stall fixed.** After a field stop the worker has pointed every kart to its spot, so the order is now treated as settled. Only crews or recovering karts can hold the restart. Before this, karts that drifted while getting up to speed triggered a second field stop, then another; one race hit the time cap after 4 stops. Since the fix: 36 races, all complete, at most one field stop per caution.
+
+**Turn 3–4 self-spins** came from two causes:
+- **Karts climbing the inside ridge.** The 1 in margin was too small: now 3 in, with the lowered groove's floor at 1.85 ft.
+- **Full lift while conceding mid-corner.** Now capped at 2 mph under current speed: "lift slightly and file in", Franklin q29.
+
+**Soaks:**
+
+| Field | Incidents/race | Self-spins/race |
+|---|---|---|
+| 12 karts | 1.3–1.5 | |
+| 20 karts | 4.3–6.3 | 2.0–3.3 (was 3.5–4.5) |
+
+**Not kept:**
+- **Lane grip in the radius speed plan:** no improvement.
+- **A smoothed groove:** laps 11.0–11.4 s, close to real, but 10–17 incidents per race and the breach above.
+
+The jagged GPS groove is acting as an accidental margin. The proper fix (smooth line plus a re-tuned margin) waits on the breach question.
