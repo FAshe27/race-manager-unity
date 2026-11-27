@@ -18,6 +18,8 @@ namespace OKT.EditorTools
             for (int i = 0; i < a.Length - 1; i++) if (a[i] == "-okt-out") outPath = a[i + 1];
             var grips = new[] { 1.3f, 1.2f, 1.1f, 1.0f };
             for (int i = 0; i < a.Length - 1; i++) if (a[i] == "-okt-grips") grips = System.Array.ConvertAll(a[i + 1].Split(','), float.Parse);
+            if (System.Array.IndexOf(a, "-okt-curve") >= 0) KartAI.CurveSpeed = true;
+            for (int i = 0; i < a.Length - 1; i++) if (a[i] == "-okt-trace") { var tv = a[i + 1].Split(','); TraceGrip = float.Parse(tv[0]); TraceCs = float.Parse(tv[1]); TracePath = outPath + ".trace.txt"; }
             var sb = new StringBuilder("Limit lap: one dialed kart alone, 45 s, best clean lap (no spin) per corner-slowing setting.\n");
             int code = 0;
             try
@@ -45,8 +47,12 @@ namespace OKT.EditorTools
             File.WriteAllText(outPath, sb.ToString()); Debug.Log(sb.ToString()); EditorApplication.Exit(code);
         }
 
+        static float TraceGrip = -1f, TraceCs = -1f; static string TracePath;
         static (float best, int spins, string segs) Try(float grip, float cornerSlow)
         {
+            bool trace = Mathf.Abs(grip - TraceGrip) < 0.001f && Mathf.Abs(cornerSlow - TraceCs) < 0.001f;
+            var tr = trace ? new StringBuilder("t s/len corner v_mph rpm thr brk accelCmd tgt_mph free_mph latG lonG\n") : null;
+            Vector3 vPrev = Vector3.zero; float trT = 0f;
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var world = World.BuildRace(File.ReadAllText(M1SceneSetup.JsonPath), 9001, new RaceConfig { fieldSize = 2 });
             var k = world.karts[0]; var ai = world.drivers[0];
@@ -66,6 +72,16 @@ namespace OKT.EditorTools
                 float ang = vb.magnitude > 3f ? Mathf.Abs(Vector3.SignedAngle(vb, fb, Vector3.up)) : 0f;
                 if (!spun && ang > 60f) { spun = true; spins++; }
                 if (spun && ang < 10f && vb.magnitude > 5f) spun = false;
+                if (trace && t > 30f)
+                {
+                    var vv = k.Body.linearVelocity; var acc = (vv - vPrev) / World.FixedDt; trT += World.FixedDt;
+                    if (trT >= 0.05f)
+                    {
+                        trT = 0f; var rt = k.transform.right; rt.y = 0f; rt.Normalize(); var fw = k.transform.forward; fw.y = 0f; fw.Normalize();
+                        tr.AppendLine($"{t:F2} {ai.s / world.track.centerLength:F3} {world.track.Frame(ai.s).corner:F2} {k.ForwardSpeed / U.Mph:F1} {k.setup.EngineRpmAt(k.ForwardSpeed):F0} {k.throttleCmd:F2} {k.brakeCmd:F2} {k.accelCmd:F2} {ai.targetSpeed / U.Mph:F1} {ai.freeSpeed / U.Mph:F1} {Vector3.Dot(acc, rt) / 9.81f:F2} {Vector3.Dot(acc, fw) / 9.81f:F2}");
+                    }
+                }
+                vPrev = k.Body.linearVelocity;
                 float vm = k.ForwardSpeed / U.Mph; bool corner = world.track.Frame(ai.s).corner > 0.5f;
                 if (corner != inCorner) { segs.Add(inCorner ? $"corner min {segMin:F1}" : $"straight max {segMax:F1}"); segMin = float.MaxValue; segMax = 0f; inCorner = corner; }
                 segMin = Mathf.Min(segMin, vm); segMax = Mathf.Max(segMax, vm);
@@ -77,6 +93,7 @@ namespace OKT.EditorTools
                 lastS = ai.s;
             }
             world.director = dir; world.Destroy();
+            if (trace) File.WriteAllText(TracePath, $"axle {k.setup.axleTeeth} gripG {grip} cs {cornerSlow}\n" + tr);
             return (best, spins, bestSegs);
         }
     }

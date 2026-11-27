@@ -13,8 +13,8 @@ namespace OKT
     {
         // Authored in imperial (Franklin); SI getters below.
         // Speed plan: vTarget = vMax (1 - cornerSlow x corner). The engine model sets top speed
-        // (12/63, 34" rights: 6,900 rpm target ≈ 41.2 mph; the kart runs to ~44.5 mph as the power
-        // falls off past target, "gear bound"), so vMax sits above that and only shapes the corners.
+        // (12/55, 34" rights: 7,075 rpm gear bound ≈ 49.7 mph; was 12/63 ≈ 41.2 mph -- power falls off past
+        // it, "gear bound"), so vMax sits above that and only shapes the corners.
         // Default 52 mph / 0.30 -> 36.4 mph target at full corner, laps ≈ 11.03 s (Safe).
         // 0.27 -> laps ≈ 10.77 s (Franklin's fast window) but spins on any upset; 0.25 spins on clean laps.
         public float vMaxMph = 52f;            // [TEST VALUE] (spec start: 48.1 mph / 21.5 m/s)
@@ -159,6 +159,10 @@ namespace OKT
         public static bool SlipFeedForward = true, VelocityPursuit = false, ExpectedSlipAim = true, SteerByGrip = true;
         public static float PaceAccelG = 0.3f;    // [TEST VALUE] most pull he asks for under yellow / pacing / staging
         public static float PaceSteerFrac = 0.6f;  // [TEST VALUE] share of the grip steering limit used when not racing
+        // 11-26 EXPERIMENT (MyChron): speed from the radius of the line (grip limit sqrt(a r)) instead of the flat corner
+        // table -- the real kart is 40 mph at the tight ends and accelerates to 48 down the sweeping sides (0.5-0.8 g).
+        public static bool CurveSpeed = false;
+        public static float CurveLatG = 1.44f;     // [TEST VALUE] tire grip 1.08 g on 8 deg banking ~ 1.44 g; x (1 - cornerSlow)
         public static float ExitSlowFrac = 0.8f;   // [TEST VALUE] share of the corner slowing kept on the exit
         public static float CatchGain = 0f;                     // [TEST VALUE] extra countersteer per rad of body angle past normal              // soak knob: steer for the front tires' slip angle
         public const float NoReturnCornerMin = 0.3f;   // "in a corner": the corner profile past this [TEST VALUE]
@@ -442,6 +446,19 @@ namespace OKT
             float slowNow = Mathf.Max(0f, cfg.cornerSlow - attackBoost);
             if (KartSetup.SlipCurve && tf.corner < fr.corner - 0.02f) slowNow *= ExitSlowFrac;
             freeSpeed = cfg.vMax * cfg.pace * (1f - slowNow * tf.corner);
+            if (CurveSpeed && !formation)
+            {
+                // the tighter of here and the speed lookahead, on the line's own radius
+                float rMin = float.MaxValue;
+                foreach (float sq in new[] { s, track.LineS(si0) })
+                {
+                    float kq = track.CurvatureAt(sq);
+                    if (kq > 1e-4f) rMin = Mathf.Min(rMin, 1f / kq + track.Frame(sq).LineOffset);
+                }
+                float aLat = CurveLatG * 9.81f * (1f - Mathf.Max(0f, cfg.cornerSlow - attackBoost));
+                freeSpeed = cfg.vMax * cfg.pace;
+                if (rMin < 1e4f) freeSpeed = Mathf.Min(freeSpeed, Mathf.Sqrt(aLat * Mathf.Max(1f, rMin)) * cfg.pace);
+            }
             if (cfg.balanceGrip < 1f) freeSpeed *= Mathf.Lerp(1f, Mathf.Sqrt(cfg.balanceGrip), tf.corner);
             // Off-line corner speed: the profile is tuned for Franklin's groove. A tighter line (an inside dive,
             // a kart pushed low) can't carry groove speed — scale by sqrt(path radius / groove radius), the grip

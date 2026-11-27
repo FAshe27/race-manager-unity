@@ -10,7 +10,7 @@ namespace OKT
 {
     public class SoakStats
     {
-        public int races, finished, cautions, breaches, incidents, dnfs, fieldStops;
+        public int races, finished, cautions, breaches, incidents, pivots, dnfs, fieldStops;
         public readonly List<(float bal, float mean, float max)> slipRows = new List<(float bal, float mean, float max)>();
         public readonly List<(float max, float over, float fall)> rpmRows = new List<(float max, float over, float fall)>();
         public string RpmLine()
@@ -62,7 +62,7 @@ namespace OKT
             st.races++;
             bool done = d.phase == RacePhase.Done;
             if (done) st.finished++;
-            st.cautions += d.cautions; st.breaches += d.WallBreaches; st.incidents += d.Incidents; st.dnfs += d.Dnfs;
+            st.cautions += d.cautions; st.breaches += d.WallBreaches; st.incidents += d.Incidents; st.pivots += d.Pivots; st.dnfs += d.Dnfs;
             foreach (var e in d.field) st.offTrackSteps += e.ai.offTrackSteps;
             var order = d.RunningOrder();
             var win = order.Count > 0 ? order[0] : null;
@@ -180,7 +180,7 @@ namespace OKT
                           $"contacts/race {st.contacts / R:F0} [everyone touches someone].\n";
             card += st.SlipLine() + "\n" + st.RpmLine() + "\n";
             return card + $"SOAK SUMMARY: {st.races} races, {st.finished} completed. Cautions {st.cautions} total ({(st.races > 0 ? (float)st.cautions / st.races : 0):F1}/race), field stops {st.fieldStops}. " +
-                   $"Wall breaches {st.breaches}. Incidents {st.incidents} ({(st.races > 0 ? (float)st.incidents / st.races : 0):F1}/race). DNFs {st.dnfs}. " +
+                   $"Wall breaches {st.breaches}. Incidents {st.incidents} ({(st.races > 0 ? (float)st.incidents / st.races : 0):F1}/race), uncounted yellow pivots {st.pivots}. DNFs {st.dnfs}. " +
                    $"Clean-air best laps: {st.cleanBest.Count} karts, mean {mean:F2} s, range {(st.cleanBest.Count > 0 ? st.minClean : 0):F2}–{st.maxClean:F2} s (Clone band 10.5–11.5). " +
                    $"Mean winner race time {win:F1} s. Off-track steps {st.offTrackSteps}. " +
                    $"On-track passes {(st.races > 0 ? (float)st.passes / st.races : 0):F1}/race; mean positions moved vs grid {(st.races > 0 ? st.moved / st.races : 0):F1}. " +

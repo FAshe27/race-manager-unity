@@ -268,7 +268,7 @@ namespace OKT
         // ---- the kart's night (Franklin, 2026-11-15: where a faster kart gains is "both, and neither").
         // Gearing: shorter (more axle teeth) drives off the corner harder but goes gear bound and floats the valves at
         // the end of the straight; taller is the reverse. Falls out of the engine model (power curve, KartSetup).
-        public int axleTeeth = 63;
+        public int axleTeeth = 55;
         // Balance (Franklin 11-20): grip given up at one end -- + loose (rear), - tight/push (front); 0 = dialed in.
         public float balance;
         // Tires (Franklin, Pit Board 2026-11-15), as LAP-TIME fractions over the kart's peak lap (so they carry over
@@ -342,13 +342,13 @@ namespace OKT
                 if (re != null) { var d0 = list[list.Count - 1]; d0.name = string.IsNullOrWhiteSpace(re.name) ? d0.name : re.name.Trim(); d0.number = re.number; d0.color = re.color; }
             }
             // The kart's night: gearing and tires, drawn from their own stream so the driver draws above don't move.
-            // [TEST VALUE] spreads, all pending Franklin. Book Ch 24: 12/63 is Franklin's gear, +-1 axle tooth = +-150 rpm.
+            // [TEST VALUE] spreads, all pending Franklin. 12/55 is the #72's gear (MyChron 11-26; was 12/63), +-1 axle tooth = +-150 rpm.
             var kr = new System.Random(seed * 31 + 5);
             float K(float lo, float hi) => lo + (float)kr.NextDouble() * (hi - lo);
             foreach (var d in list)
             {
                 double g = kr.NextDouble();
-                d.axleTeeth = g < 0.10 ? 61 : g < 0.30 ? 62 : g < 0.70 ? 63 : g < 0.90 ? 64 : 65;
+                d.axleTeeth = g < 0.10 ? 53 : g < 0.30 ? 54 : g < 0.70 ? 55 : g < 0.90 ? 56 : 57;
                 // Tires (Franklin's lap times, see DriverProfile). Mix of prep outcomes [TEST VALUE odds].
                 d.tireColdFrac = K(0.040f, 0.050f);                       // green lap 1: ~0.45-0.55 s off peak
                 d.tireWarmLaps = kr.NextDouble() < 0.5 ? 2 : 3;
@@ -391,6 +391,8 @@ namespace OKT
 
     public class RaceDirector
     {
+        public static float YellowPivotMph = 5f;        // Franklin 11-26: under yellow, a turn-round slower than this isn't a spin
+        public static float YellowPivotDecayMph = 3f;   // [TEST VALUE] how fast the remembered peak speed fades, mph per second
         public static float CatchUpInCorners = 0f;     // [TEST VALUE] share of the caution catch-up speed kept through the corners
         public readonly RaceConfig cfg;
         public RacePhase phase = RacePhase.Grid;
@@ -439,7 +441,8 @@ namespace OKT
             // passing state
             public int attackTarget = -1; public float attackT, attackCool; public int attackSide; public bool attackRun;
             // incident stub
-            public bool inIncident; public int spins, flips; public float stoppedT;
+            public bool inIncident; public int spins, flips, pivots; public float stoppedT;
+            public float vPeak; public bool pivotEp;      // fastest it went in the last ~1-2 s (decays 3 mph/s); this episode is an uncounted yellow-flag pivot
             public bool blocked;
             public string cdbg = "";
             public float crewHelpT;               // when the workers took the job
@@ -1469,8 +1472,12 @@ namespace OKT
                 bool stuck = (e.stoppedT > cfg.stoppedSeconds && !e.blocked && phase == RacePhase.Green)
                              // under caution a stop is normally just the queue; but a kart that's supposed to be rolling
                              // (its cap allows it) and hasn't moved for 5 s is stuck (e.g. nosed into the wall after a hit)
-                             || (phase == RacePhase.Caution && e.stoppedT > 5f && ai.speedCap > 3f * U.Mph); // stopped behind a kart = waiting in a jam; under caution, stopped in the queue is not a crash
+                             || (phase == RacePhase.Caution && e.stoppedT > 5f && ai.speedCap > 3f * U.Mph
+                                 // 11-26: and only if its driver is trying to go -- karts queued behind a crash (target 0, or a
+                                 // kart right ahead) are waiting, not stuck; 8 at once were sent to the tail that way
+                                 && ai.targetSpeed > 3f * U.Mph && !e.blocked); // stopped behind a kart = waiting in a jam; under caution, stopped in the queue is not a crash
                 bool incident = spun || flipped || stuck;
+                e.vPeak = Mathf.Max(Mathf.Abs(e.kart.ForwardSpeed), e.vPeak - YellowPivotDecayMph * U.Mph * dt);
                 bool wasRecovering = e.recovering;
                 bool newEpisode = incident && !e.inIncident && !e.recovering;
                 // Spin recovery: a spun or stuck kart (not flipped) drives itself out; it's done when it's
@@ -1503,7 +1510,11 @@ namespace OKT
                         else { e.outOfRace = true; e.outReason = "couldn't restart"; Event($"OUT: {Tag(e)} (couldn't get going)."); }
                     }
                 }
-                if (newEpisode || (flipped && !e.inIncident))
+                // Franklin 11-26: a kart that rotates round at crawl speed under yellow (nudged in the queue) isn't a
+                // spin -- it still straightens itself out, but it isn't counted, judged or sent to the tail.
+                if (newEpisode) e.pivotEp = !flipped && spun && !stuck && phase == RacePhase.Caution && e.vPeak < YellowPivotMph * U.Mph;
+                if (newEpisode && e.pivotEp) { e.pivots++; Event($"PIVOT (yellow, not counted): {Tag(e)} turned round at {e.vPeak / U.Mph:F0} mph."); }
+                else if (newEpisode || (flipped && !e.inIncident))
                 {
                     if (flipped) e.flips++; else e.spins++;
                     var kc = e.kc;
@@ -2213,6 +2224,7 @@ namespace OKT
 
         public int WallBreaches { get { int n = 0; foreach (var e in field) n += e.ai.bandBreaches; return n; } }
         public int Incidents { get { int n = 0; foreach (var e in field) n += e.spins + e.flips; return n; } }
+        public int Pivots { get { int n = 0; foreach (var e in field) n += e.pivots; return n; } }
         public int Dnfs { get { int n = 0; foreach (var e in field) if (e.outOfRace && !e.finished) n++; return n; } }
 
         public float BestCleanLap(Entry e)

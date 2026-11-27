@@ -185,7 +185,7 @@ namespace OKT.EditorTools
             // ---------- G. gearing x corner-speed sweep (anchor: Franklin's 10.5–10.8 s laps, 47–48 mph top)
             if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-okt-gear") >= 0)
             {
-                foreach (int axle in new[] { 61, 63, 65 })
+                foreach (int axle in new[] { 53, 55, 57 })
                     foreach (float slow in new[] { 0.30f, 0.27f, 0.25f, 0.22f, 0.19f })
                     {
                         var ks = new KartSetup { axleTeeth = axle };

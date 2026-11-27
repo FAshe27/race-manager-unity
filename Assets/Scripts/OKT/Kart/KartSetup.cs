@@ -173,18 +173,19 @@ namespace OKT
         // ---- engine & drive. Replaces spec §6.2's flat 4.5 m/s² cap so acceleration fades with
         // speed (momentum matters). Karts brake on the rear axle only.
         // Clone: 17 hp at the crank (Franklin: 16–17 tonight, 17–18 on 2026-11-13 — the overlap).
-        // Target rpm 6,900 (book Ch 24/32, the engine builder's number); strongest just under it
-        // (Franklin: "pulls more strongly" near the top); past it the engine is "gear bound" (Ch 24)
-        // and stops making power. Curve shape [TEST VALUE].
+        // Gear bound at 7,050-7,100 on today's engines (Franklin 11-26; the book's Ch 24/32 6,900 is older);
+        // strongest just under it (Franklin: "pulls more strongly" near the top); past it the engine is
+        // "gear bound" (Ch 24) and stops making power. Curve shape [TEST VALUE].
         public float crankHp = 17f;
         public float drivetrainEfficiency = 0.90f;   // clutch + chain [TEST VALUE]
-        public float targetRpm = 6900f;
+        public float targetRpm = 7075f;
         public float clutchEngageRpm = 2400f;        // centrifugal clutch lock-up [TEST VALUE]
-        public float[] powerCurveRpm = { 2000f, 3000f, 4000f, 5000f, 6000f, 6550f, 6900f, 7150f, 7400f, 7600f };
+        public float[] powerCurveRpm = { 2000f, 3000f, 4000f, 5000f, 6000f, 6725f, 7075f, 7325f, 7575f, 7775f };
         public float[] powerCurveFrac = { 0.40f, 0.55f, 0.68f, 0.80f, 0.92f, 1.00f, 1.00f, 0.80f, 0.45f, 0.0f };
-        // Gearing (Franklin): 12-tooth clutch driver, 63-tooth axle (book Ch 24: ratio = axle / clutch).
+        // Gearing: 12-tooth clutch driver, 55-tooth axle (book Ch 24: ratio = axle / clutch). Franklin 11-26: 12/55 is
+        // what the #72 ran for the MyChron data (6,763 rpm at 48 mph -> 4.58:1 on 34" rights; was 12/63).
         public int clutchTeeth = 12;
-        public int axleTeeth = 63;
+        public int axleTeeth = 55;
         public float gearRatio => (float)axleTeeth / clutchTeeth;
         public float rollingResistance = 0.030f;     // dirt, fraction of weight [TEST VALUE]
         public float dragAreaSqFt = 6.5f;            // Cd x frontal area, kart + driver [TEST VALUE]
