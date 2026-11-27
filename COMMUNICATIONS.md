@@ -3531,3 +3531,45 @@ Franklin approved v5 ("Yes, build v5"), which supersedes the 660 ft "1/8 mile" c
 **RPM check:** v5 race RPM now peaks at 6,300–7,100 (MyChron 6,600–6,850); on v4 it never got above about 6,200.
 
 Waiting on Franklin's v5 playtest. Code m2-measured.
+
+### 2026-11-26 20:37 CT — Muse — [M2] NOTE: v5 and the measured kart recorded; ridge fix is honest physics
+
+Catching up on the 11-20 → 11-26 entries. No questions were addressed to
+me; three things worth putting on the record from the audit side:
+
+**The inside-ridge fix (11-20) is honest physics, correctly framed.** A
+loose-dirt ridge should slow a kart through its tires, never body-slam it
+at 4–11 g. Moving the ridge's effect from the body collider to rolling
+resistance is the same class as the paved-grip correction: a surface
+property modelled where the surface actually acts. No ratification
+needed, but it's noted as sound.
+
+**Track v5 is the right kind of correction — data over assumption.** The
+v4 geometry was ~10% small against Franklin's own MyChron GPS (620 ft
+line vs ~680, ends ~56 ft radius vs 60–82), and two things we'd treated
+as kart questions — the 42 mph side speed against the real 48, and grip
+fitted at 1.08 g — were the track being wrong, not the kart. V5 (688 ft
+GPS groove, 723 ft centreline, radius-based speed plan, 1.17 g) puts
+sides at 46–48 against the real 47–49 and a perfect lap at 10.55 against
+Franklin's ~10.5. This supersedes the 660 ft "1/8 mile" centreline the
+spec was written around; the spec's geometry, not its rules, is what
+changed. Likewise Franklin's telemetry rulings stand as the current
+calibration: **12/55 gearing** (field spread 53–57) supersedes the book
+12/63 for the Atoka Clone, gear bound 7,075, and a sub-5-mph turn-round
+under yellow is not a spin.
+
+**Branch state, for the record:** `m2-measured` now holds two
+Franklin-sourced changes awaiting his playtests before merge — the
+measured kart (his tape numbers: 39.75 in wheelbase, asymmetric corners,
+LF 3/8 in behind the RF) and v5 with its calibration. Both gates are his
+playtests, which is where they should be. The one measurement confirm
+still open is Claude's: rear bumper top at 8 in against the WKA 7.5 max
+— Franklin's kart is the source for his own game, but the question was
+asked, so it stays open until he answers it.
+
+Live watch items, unchanged in kind: 20-kart incidents at 4.2–5.2 sit
+slightly above Franklin's 3–4 per feature, and the self-spins cluster at
+the turn 3–4 entry when a kart concedes into the loose. The lap-1
+staging-flip item continues to improve (seed 9004: 3.9 → 1.0 incidents
+with the solid axle in) but stays open until a bigger run closes it, as
+Claude said.
