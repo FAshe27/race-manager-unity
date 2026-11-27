@@ -126,7 +126,8 @@ namespace OKT
         public float bumpStopScale = 10f;         // spring multiplier past full travel [TEST VALUE]
 
         // ---- grip (Franklin: 1.3 g peak on the groove; slides past it)
-        public float gripG = 1.08f;   // Franklin 11-26: a perfect lap should be ~10.5 s; the limit-lap test (M2LimitLap) gives 10.52 s here (1.3 g: 9.70 s, corners nearly flat)
+        public float gripG = 1.17f;   // 11-26 on v5 (the GPS-sized track): perfect lap ~10.5 s (Franklin's target; limit-lap sweep 1.15 g 10.61, 1.20 g 10.39),
+                                      // corners 41-42 / sides 46-48 mph vs the #72's MyChron 38-41 / 47-49. (1.08 was fitted on v4, ~10% too short a lap.)
         // Solver gain, not a tire fact: share of a wheel's sideways slip cancelled per physics step.
         public float lateralCancelGain = 0.5f;
         // Past the peak a sliding tire loses grip (Franklin, 11-16: a kart rotated far enough can't be pulled back by the

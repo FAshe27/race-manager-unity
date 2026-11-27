@@ -19,6 +19,7 @@ namespace OKT.EditorTools
             var grips = new[] { 1.3f, 1.2f, 1.1f, 1.0f };
             for (int i = 0; i < a.Length - 1; i++) if (a[i] == "-okt-grips") grips = System.Array.ConvertAll(a[i + 1].Split(','), float.Parse);
             if (System.Array.IndexOf(a, "-okt-curve") >= 0) KartAI.CurveSpeed = true;
+            for (int i = 0; i < a.Length - 1; i++) if (a[i] == "-okt-cs") CsList = System.Array.ConvertAll(a[i + 1].Split(','), float.Parse);
             for (int i = 0; i < a.Length - 1; i++) if (a[i] == "-okt-trace") { var tv = a[i + 1].Split(','); TraceGrip = float.Parse(tv[0]); TraceCs = float.Parse(tv[1]); TracePath = outPath + ".trace.txt"; }
             var sb = new StringBuilder("Limit lap: one dialed kart alone, 45 s, best clean lap (no spin) per corner-slowing setting.\n");
             int code = 0;
@@ -29,24 +30,25 @@ namespace OKT.EditorTools
                 {
                     float limit = float.MaxValue; string at = "", atSegs = "", raceSegs = "";
                     var row = new StringBuilder($"grip {g:F2} g:");
-                    foreach (float cs in new[] { 0.24f, 0.20f, 0.16f, 0.12f, 0.08f, 0.04f })
+                    foreach (float cs in CsList)
                     {
                         KartAI.ExitSlowFrac = 0.5f;
                         var (best, spins, segs) = Try(g, cs);
                         row.Append($"  cs {cs:F2}: {(best < 99f ? best.ToString("F2") : "--")}{(spins > 0 ? $" ({spins} spin)" : "")}");
                         if (spins == 0 && best < limit) { limit = best; at = $"cs {cs:F2}"; atSegs = segs; }
-                        if (cs == 0.24f) raceSegs = segs;
+                        if (cs == CsList[0]) raceSegs = segs;
                     }
                     KartAI.ExitSlowFrac = exit0;
                     sb.AppendLine(row.ToString());
                     sb.AppendLine($"  -> LIMIT {g:F2} g: {(limit < 99f ? limit.ToString("F2") : "--")} s ({at})   speeds (mph) on that lap: {atSegs}");
-                    sb.AppendLine($"     race pace (cs 0.24) speeds (mph): {raceSegs}");
+                    sb.AppendLine($"     race pace (cs {CsList[0]:F2}) speeds (mph): {raceSegs}");
                 }
             }
             catch (System.Exception e) { sb.AppendLine("EXCEPTION " + e); code = 1; }
             File.WriteAllText(outPath, sb.ToString()); Debug.Log(sb.ToString()); EditorApplication.Exit(code);
         }
 
+        static float[] CsList = { 0.24f, 0.20f, 0.16f, 0.12f, 0.08f, 0.04f };
         static float TraceGrip = -1f, TraceCs = -1f; static string TracePath;
         static (float best, int spins, string segs) Try(float grip, float cornerSlow)
         {

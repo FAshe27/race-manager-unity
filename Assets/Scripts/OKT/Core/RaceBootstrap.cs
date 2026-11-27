@@ -17,7 +17,7 @@ namespace OKT
         [System.NonSerialized] public KartSetup kartSetup;
         [System.NonSerialized] public DriverConfig driver;
 
-        public const string CurrentTrackName = "test-track-one-v4";
+        public const string CurrentTrackName = "test-track-one-v5";   // 11-26: v5 = Atoka sized from the MyChron GPS (v4 kept for reference)
 
         public World world;
         public SimClock clock = new SimClock();

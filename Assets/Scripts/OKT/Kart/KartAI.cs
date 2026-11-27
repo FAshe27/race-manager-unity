@@ -19,7 +19,7 @@ namespace OKT
         // 0.27 -> laps ≈ 10.77 s (Franklin's fast window) but spins on any upset; 0.25 spins on clean laps.
         public float vMaxMph = 52f;            // [TEST VALUE] (spec start: 48.1 mph / 21.5 m/s)
         // Franklin (2026-11-14 playtest): "Safe" 0.30 feels realistic -> default.
-        public static float DefaultCornerSlow = 0.26f;  // 11-26: 0.26 at the new 1.08 g grip (fast karts ~10.9, perfect lap 10.5). Franklin q42 (11-20): 0.24, between 0.26 (laps 10.9 s, 0.8 cautions/race) and 0.22 (10.5 s, 1.1); was 0.30 then 0.26 (headless test may override)
+        public static float DefaultCornerSlow = 0.10f;  // 11-26 v5 + radius speed plan: share BELOW the grip limit (0 = the limit, 10.51 s alone at 1.17 g; 0.08 = 10.77, 0.12 = 10.91) [TEST VALUE]. (v4 flat-table history: 0.30 -> 0.26 -> 0.24 (Franklin q42) -> 0.26)
         public static bool UseTireFeel = false;          // loose-stuff speed also reads the rear tires' current grip (dust) [soak knob]
         public float cornerSlow = DefaultCornerSlow; // [TEST VALUE] (spec start: 0.30)
         public float pace = 1.0f;              // per-kart pace factor (M2 field spread)
@@ -161,8 +161,11 @@ namespace OKT
         public static float PaceSteerFrac = 0.6f;  // [TEST VALUE] share of the grip steering limit used when not racing
         // 11-26 EXPERIMENT (MyChron): speed from the radius of the line (grip limit sqrt(a r)) instead of the flat corner
         // table -- the real kart is 40 mph at the tight ends and accelerates to 48 down the sweeping sides (0.5-0.8 g).
-        public static bool CurveSpeed = false;
-        public static float CurveLatG = 1.44f;     // [TEST VALUE] tire grip 1.08 g on 8 deg banking ~ 1.44 g; x (1 - cornerSlow)
+        public static bool CurveSpeed = true;
+        public static float CurveLiftG = 0.15f;    // [TEST VALUE] slowing he plans on lifting into a turn (traces: lift -0.10..-0.15 g, drag-brake -0.13..-0.17)
+        public static float CurvePreviewM = 40f;   // [TEST VALUE] how far ahead he reads the turn (~130 ft)
+        public static float CurveLatScale = 1.21f; // the kart holds ~21% more than (mu + tan b)/(1 - mu tan b) with the lift preview: limit-lap
+                                                   // sweeps on v5 (11-26) peak 8% past the 1.12 first fit -> scaled so cornerSlow 0 = the limit (10.55 s at 1.17 g)
         public static float ExitSlowFrac = 0.8f;   // [TEST VALUE] share of the corner slowing kept on the exit
         public static float CatchGain = 0f;                     // [TEST VALUE] extra countersteer per rad of body angle past normal              // soak knob: steer for the front tires' slip angle
         public const float NoReturnCornerMin = 0.3f;   // "in a corner": the corner profile past this [TEST VALUE]
@@ -449,15 +452,20 @@ namespace OKT
             if (CurveSpeed && !formation)
             {
                 // the tighter of here and the speed lookahead, on the line's own radius
-                float rMin = float.MaxValue;
-                foreach (float sq in new[] { s, track.LineS(si0) })
+                // the most the tires + banking hold: (mu + tan b) / (1 - mu tan b), scaled by how hard he drives it
+                float mu = kart.setup.gripG, tb = Mathf.Tan(track.cfg.bankingDeg * Mathf.Deg2Rad);
+                float aLat = CurveLatScale * (mu + tb) / Mathf.Max(0.2f, 1f - mu * tb) * 9.81f * (1f - Mathf.Max(-0.5f, cfg.cornerSlow - attackBoost));   // below 0 = past the estimate (limit-lap sweeps)
+                // preview the line ahead: as fast as he can go now and still LIFT down to each point's grip speed in time
+                // (11-26: reading only 0.6 s ahead he arrived at the turn 3 entry hot, scrubbed and went loose)
+                float aDec = CurveLiftG * 9.81f, vAllow = cfg.vMax * cfg.pace, pvDist = 0f;
+                int kq = Mathf.Max(0, lineHint);   // set from my position earlier this step
+                for (int g = 0; g < track.LineCount && pvDist < CurvePreviewM; g++)
                 {
-                    float kq = track.CurvatureAt(sq);
-                    if (kq > 1e-4f) rMin = Mathf.Min(rMin, 1f / kq + track.Frame(sq).LineOffset);
+                    float vq = Mathf.Sqrt(aLat * Mathf.Max(1f, track.LineRadius(kq))) * cfg.pace;
+                    vAllow = Mathf.Min(vAllow, Mathf.Sqrt(vq * vq + 2f * aDec * pvDist));
+                    pvDist += track.LineStep(kq); kq++;
                 }
-                float aLat = CurveLatG * 9.81f * (1f - Mathf.Max(0f, cfg.cornerSlow - attackBoost));
-                freeSpeed = cfg.vMax * cfg.pace;
-                if (rMin < 1e4f) freeSpeed = Mathf.Min(freeSpeed, Mathf.Sqrt(aLat * Mathf.Max(1f, rMin)) * cfg.pace);
+                freeSpeed = vAllow;
             }
             if (cfg.balanceGrip < 1f) freeSpeed *= Mathf.Lerp(1f, Mathf.Sqrt(cfg.balanceGrip), tf.corner);
             // Off-line corner speed: the profile is tuned for Franklin's groove. A tighter line (an inside dive,

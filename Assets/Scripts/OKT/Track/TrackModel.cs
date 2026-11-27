@@ -178,6 +178,7 @@ namespace OKT
         // Racing line (from lineFrac), dense, with arc length.
         readonly Vector2[] lPos;
         readonly float[] lArc;
+        float[] lineR;              // racing-line radius at dense index (m)
         public readonly float lineLength;
 
         float tanBank;
@@ -282,6 +283,8 @@ namespace OKT
             }
             centerLength = dArc[M];
             lineLength = lArc[M];
+            lineR = new float[M];
+            for (int k = 0; k < M; k++) lineR[k] = LineRadiusAt((float)k / M * N);
         }
 
         public void RecomputeBanking() { tanBank = Mathf.Tan(cfg.bankingDeg * Mathf.Deg2Rad); }
@@ -398,6 +401,21 @@ namespace OKT
         public float LineArc(int k) => lArc[((k % M) + M) % M];
         /// <summary>Sample parameter s of dense line index k (line index k sits at the same s as dense centerline k).</summary>
         public float LineS(int k) => (float)(((k % M) + M) % M) / M * N;
+        public float LineRadius(int k) => lineR[((k % M) + M) % M];
+        public float LineStep(int k) { int j = ((k % M) + M) % M; return lArc[j + 1] - lArc[j]; }
+
+        /// <summary>Radius (m) of the racing line itself at sample s, from three line points ~3 m either side
+        /// (circumradius; large on the straights). 11-26: the line crosses the track, so the centreline radius
+        /// plus its offset is wrong down the sides.</summary>
+        public float LineRadiusAt(float s)
+        {
+            int k = Mathf.RoundToInt(WrapS(s) / N * M) % M;
+            int m = Mathf.Max(1, Mathf.RoundToInt(3f / Mathf.Max(0.01f, lineLength / M)));
+            Vector2 a = lPos[((k - m) % M + M) % M], b = lPos[k], c = lPos[(k + m) % M];
+            float ab = Vector2.Distance(a, b), bc = Vector2.Distance(b, c), ca = Vector2.Distance(c, a);
+            float area2 = Mathf.Abs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
+            return area2 < 1e-6f ? 1e6f : ab * bc * ca / (2f * area2);
+        }
 
         /// <summary>Nearest racing-line dense index to p (windowed around hint).</summary>
         public int NearestLineIndex(Vector2 p, int hint)
