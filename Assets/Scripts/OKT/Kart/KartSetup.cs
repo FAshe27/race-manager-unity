@@ -102,7 +102,7 @@ namespace OKT
         public float noseBottomRoundIn = 0f;         // lower front edge: square. A 2 in roll made a ramp -- the nose climbed the
                                                      // 3 in berm and the kart swung to 88 deg in the M1 berm ride (11-16)
         public float noseTopRoundIn = 3f;            // and the upper front edge
-        public float bodyFriction = 0.15f;           // fiberglass on fiberglass, slides freely [TEST VALUE]
+        public float bodyFriction = 0.15f;           // fiberglass on fiberglass, slides freely [TEST VALUE]. 11-27: 0.25 tried for crash "weight" -- 20-kart soaks worse (with grip 1.20: 7.8 vs 2.7 incidents/race), kept 0.15
         public float rearBumperTopIn = 8f;             // Franklin 11-21 measured 8 in (WKA 409.3.1 says 7.5 max -- asked); lowest bar no lower than the bottom of the rear axle (409.3.2)
         public float rearAxleDiaIn = 1.0f;             // WKA: 1 in min (40 mm max) [TEST VALUE]
 
@@ -126,7 +126,7 @@ namespace OKT
         public float bumpStopScale = 10f;         // spring multiplier past full travel [TEST VALUE]
 
         // ---- grip (Franklin: 1.3 g peak on the groove; slides past it)
-        public float gripG = 1.17f;   // 11-26 on v5 (the GPS-sized track): perfect lap ~10.5 s (Franklin's target; limit-lap sweep 1.15 g 10.61, 1.20 g 10.39),
+        public float gripG = 1.20f;   // 11-27: 1.17 -> 1.20 with the mid-corner line lowered (Franklin: karts 18-24 in too high) -- limit-lap 10.50 s.
                                       // corners 41-42 / sides 46-48 mph vs the #72's MyChron 38-41 / 47-49. (1.08 was fitted on v4, ~10% too short a lap.)
         // Solver gain, not a tire fact: share of a wheel's sideways slip cancelled per physics step.
         public float lateralCancelGain = 0.5f;
@@ -199,7 +199,7 @@ namespace OKT
         public int solverVelocityIterations = 8;  // velocity
         public float maxTireForceLbf = 900f;        // ceiling on one tire's spring force (~10x its static load) [TEST VALUE]
         public float maxTireForceN => maxTireForceLbf * 4.4482216f;
-        public float tireContactFriction = 0.35f;    // tire body vs kart/rail rubbing friction [TEST VALUE]
+        public float tireContactFriction = 0.35f;    // tire body vs kart/rail rubbing friction [TEST VALUE]. 11-27: 0.6 tried with the panels, same result, kept 0.35
         public float maxDepenetrationVelocity = 1.5f; // m/s, solver push-apart cap (Unity default 10) [TEST VALUE]
 
         // ================= SI (engine) values =================

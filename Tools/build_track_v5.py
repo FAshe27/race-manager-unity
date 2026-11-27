@@ -32,6 +32,11 @@ W_TURN = 29 * FT          # Franklin
 EASE_DEG = 30.0           # [TEST VALUE] (v4)
 CLEAR_WALL_FT = 4.5       # line to outside wall, mid-straight [TEST VALUE] (v4)
 CLEAR_APEX_FT = 3.7       # line to inside edge at the apex [TEST VALUE] (v4)
+# Franklin 11-27 (first v5 playtest): "where the kart runs in the middle of the corner is about 18-24 in too high" --
+# the GPS line (+-1.6 ft fix accuracy) is lowered through mid-corner, weighted by corner^2, never closer to the
+# inside edge than the kart's left side (~19 in from its centre) + ~1 in: left tires right up to the inside ridge.
+APEX_DROP_FT = 1.5
+LINE_MIN_IN_FT = 1.7
 N = 256
 
 v4 = json.load(open(V4))
@@ -141,6 +146,14 @@ for i in range(M2):
 kref = sorted(kap)[int(0.95 * (M2 - 1))]
 c512 = circ_smooth([min(1.0, k / kref * 1.02) for k in kap], 9)
 ct = [round(c512[i * 2], 3) for i in range(N)]
+
+# mid-corner drop (Franklin 11-27)
+for i in range(N):
+    hw = HW[i]; off = (frac[i] - 0.5) * 2 * hw; w = ct[i] ** 2
+    lo_off = -hw + LINE_MIN_IN_FT * FT
+    new = max(min(off, lo_off), off - APEX_DROP_FT * FT * w) if w > 0 else off
+    frac[i] = round(new / (2 * hw) + 0.5, 4); clear_in[i] = (new + hw) / FT
+print(f"after the mid-corner drop: groove off the inside edge {min(clear_in):.1f}..{max(clear_in):.1f} ft")
 
 # carried from v4 by lap fraction
 barriers = [dict(b, u0=round(map_u(b["u0"]), 4), u1=round(map_u(b["u1"]), 4)) for b in v4["barriers"]]

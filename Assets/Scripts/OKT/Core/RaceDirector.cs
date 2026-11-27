@@ -1107,8 +1107,13 @@ namespace OKT
                 if (myD >= od) hardMin = Mathf.Max(hardMin, od + room * cfg.rubFrac); else hardMax = Mathf.Min(hardMax, od - room * cfg.rubFrac);
                 // Hold my line; never climb (or dive) to make room for him (Franklin, 11-16: "They'll rub up against each
                 // other ten times before they move apart on purpose once"). Just don't steer further into him.
-                if (Mathf.Abs(goalAbs - od) < room)
-                    goalAbs = myD >= od ? Mathf.Max(goalAbs, Mathf.Min(myD, od + room)) : Mathf.Min(goalAbs, Mathf.Max(myD, od - room));
+                // Franklin 11-27 (v5 playtest): an inside kart climbed back to the groove at entry and ran the outside kart up
+                // past the corner. Alongside, hold my LANE (my offset from the groove, so I follow a parallel line) -- never
+                // close on him; the old rule let me come right up to touching distance first.
+                // (Inside kart only: holding the OUTSIDE kart's lane too kept him up by the wall on the exits -- wall contacts
+                // x3 in the soak; he still comes down only to a kart-width off me, as before.)
+                if (myD < od && goalAbs > myD && od - goalAbs < room * 1.5f) goalAbs = myD;
+                else if (myD >= od && Mathf.Abs(goalAbs - od) < room) goalAbs = Mathf.Max(goalAbs, Mathf.Min(myD, od + room));
             }
             // Squeezed against the berm/wall by a kart below me: don't get pushed onto it — lift and drop in behind.
             if (latMin > hiLim)

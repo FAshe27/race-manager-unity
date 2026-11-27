@@ -168,10 +168,13 @@ namespace OKT
         public static float CurveLiftG = 0.15f;    // [TEST VALUE] slowing he plans on lifting into a turn (traces: lift -0.10..-0.15 g, drag-brake -0.13..-0.17)
         public static float CurvePreviewM = 40f;   // [TEST VALUE] how far ahead he reads the turn (~130 ft)
         public static float CurveLatScale = 1.21f; // the kart holds ~21% more than (mu + tan b)/(1 - mu tan b) with the lift preview: limit-lap
-                                                   // sweeps on v5 (11-26) peak 8% past the 1.12 first fit -> scaled so cornerSlow 0 = the limit (10.55 s at 1.17 g)
+                                                   // sweeps on v5 (11-26) -> cornerSlow 0 = the limit. 11-27: 1.26 (re-fitted to the lowered line)
+                                                   // made the field drive too close to it -- 20-kart self spins x4; grip carries the speed instead
         public static float ExitSlowFrac = 0.8f;   // [TEST VALUE] share of the corner slowing kept on the exit
         public static float CatchGain = 0f;                     // [TEST VALUE] extra countersteer per rad of body angle past normal              // soak knob: steer for the front tires' slip angle
         public const float NoReturnCornerMin = 0.3f;   // "in a corner": the corner profile past this [TEST VALUE]
+        public static bool LockWhenSideways = true;   // [TEST VALUE] 11-27
+        public static bool LockWhenShoved = true;     // [TEST VALUE] 11-27
         public const float SpinLockDeg = 60f;          // rotated this far it's a spin: brakes locked [TEST VALUE]
         public const float NoReturnLuckDeg = 8f;       // knocked back under this (another kart's nose): he has it again [TEST VALUE]
         const int SlideHistN = 64;
@@ -218,7 +221,7 @@ namespace OKT
         /// </summary>
         public float LowLimit(in TrackFrame f)
             => -f.halfWidth + kart.setup.FootLeft + Mathf.Lerp(2f, insideCornerMarginIn, f.corner) * U.In;
-        [System.NonSerialized] public float insideCornerMarginIn = 6f; // [TEST VALUE]
+        [System.NonSerialized] public float insideCornerMarginIn = 1f; // Franklin 11-27: mid-corner karts ran 18-24 in too high -- left tires right up to the inside ridge (was 6)
 
         /// <summary>Lateral offset (m) of Franklin's groove at this kart's current position.</summary>
         public float LineOffsetHere => track.Frame(s).LineOffset;
@@ -290,6 +293,12 @@ namespace OKT
             // at grip's edge — entering low on purpose costs too much momentum unless you're passing)
             float off = cfg.lateralOffset * (1f - tf.corner) + DriveOverOffset(ti) + trafficOffset;
             float dWant = formation ? laneFrac * tf.halfWidth : tf.LineOffset + off;
+            // Franklin 11-27 (v5 playtest): a kart running the straight low turned UP to get back to the groove right at the
+            // entry, missed the corner and pushed wide. Below the groove with a corner coming (or in it, before the exit),
+            // he takes the corner from where he is -- holds his lane and lets the groove come down to him at the apex.
+            if (!formation && !recovering && !paceMode && d < tf.LineOffset - 0.1f && dWant > d
+                && tf.corner > 0.15f && tf.corner >= fr.corner - 0.02f)
+                dWant = Mathf.Max(d, LowLimit(tf));
             if (formation && grooveLane != NoGrooveLane)
             {
                 if (grooveLane == 0) dWant = Mathf.Min(tf.LineOffset, PaceHigh(tf));
@@ -539,7 +548,14 @@ namespace OKT
                         kart.accelCmd *= Mathf.Max(FeatherFloor, Mathf.Clamp01(1f - (beta - fs) / cfg.featherRangeDeg));
                 }
             }
-            bool locking = gone && Mathf.Abs(slipB) * Mathf.Rad2Deg > SpinLockDeg;
+            // Franklin 11-27: hit karts "slip off" each other, no weight. A kart knocked sideways/backwards rolled away on its
+            // tires (hit test: a T-boned stopped kart swung round and rolled 26 ft at 0.25 g). Going sideways, any driver is
+            // standing on the brake -- not only past the point of no return in a corner.
+            var vGround = kart.Body.linearVelocity; vGround.y = 0f;   // (not ForwardSpeed: going sideways that is ~0)
+            bool skidding = LockWhenSideways && Mathf.Abs(slipB) * Mathf.Rad2Deg > SpinLockDeg && vGround.magnitude > 2f * U.Mph;
+            // ...and a spun kart waiting to get going that gets shoved along is held on the brake too (any direction)
+            bool shoved = LockWhenShoved && recovering && vGround.magnitude > recoverySpeed + 3f * U.Mph;
+            bool locking = ((gone || skidding) && Mathf.Abs(slipB) * Mathf.Rad2Deg > SpinLockDeg) || shoved;
             kart.lockBrakes = locking; if (locking) kart.accelCmd = -100f; // spinning: brakes locked (capped at what they hold)
             if (TwoPedals && !paceMode && !recovering && !formation)
             {
