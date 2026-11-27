@@ -3447,3 +3447,39 @@ Franklin approved on-board and chase cameras as a **debug tool only**. The whole
 - the engine on its right-side rails;
 - the seat by the clutch guard;
 - the MPI-K-TILT wheel.
+
+---
+
+### 2026-11-26 — Claude: MyChron calibration (code m2-measured f954f97)
+
+Franklin shared MyChron 6 data from Atoka: the #72 Tricon, 10.70–10.82 s laps. Screenshots and the .xrk files are in `OKT Racing\Telemetry`.
+
+**Real kart:**
+- corners 38–41 mph at 1.39–1.58 g;
+- sides 47–49 mph, still turning at 0.5–0.8 g (no true straights);
+- GPS line about 680 ft;
+- RPM 5,600–6,850.
+
+**Franklin's rulings:**
+- gearing is 12/55 (it fits the RPM-to-speed data within 1%);
+- gear bound on today's engines is 7,050–7,100 rpm;
+- under yellow, a turn-round under 5 mph is not a spin.
+
+**Changes in f954f97:**
+- 12/55 gearing, with the field spread over 53–57 axle teeth;
+- engine gear bound at 7,075 rpm;
+- the uncounted yellow pivot;
+- a counting fix: karts queued behind a crash under caution were being counted as "stuck" and sent to the tail.
+
+**Soaks:** 12 karts 1.3–1.7 incidents/race; 20 karts with staging 3.8–7.0 (was 7–11); 0 breaches.
+
+**Finding — DECISION NEEDED (Franklin):** the v4 line is smaller and tighter than the GPS line:
+
+| | v4 | GPS |
+|---|---|---|
+| Line length | 620 ft | ~680 ft |
+| Size | 221 × 172 ft | ~240 × 192 ft |
+| Radius at the ends | ~56 ft | 60–82 ft |
+| Sides | short straights | 200–300 ft radius arcs |
+
+So the sim cannot build speed down the sides: 42 mph against the real 48, whatever the gearing. The proposal is a v5 track shaped from the GPS path, ideally from a RaceStudio 3 CSV export, which would supersede the 660 ft "1/8 mile" centreline. A radius-based AI speed plan (KartAI.CurveSpeed, off) waits on the v5 track.
