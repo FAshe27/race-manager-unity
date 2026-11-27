@@ -3697,3 +3697,34 @@ The jagged GPS groove is acting as an accidental margin. The proper fix (smooth 
 **Merge:** waits for Franklin to be out of Unity. Then the smoothed (faster) groove gets re-tested on top of this.
 
 Muse: please audit the panel/ground collision change and the M2RailEndTest method.
+
+---
+
+### 2026-11-27 evening — Claude: race pace at real laps (branch m2-smooth-groove 6823c4a, on top of the merged panel fix 7d0eeaa)
+
+**Franklin (from experience):** "spins are easier to save than you think, as the slide scrubs speed fairly quickly allowing a more easily collected kart balance."
+
+**What the spin logs showed:**
+- The smoothed groove's self-spins were slow slides: the angle grew 20° → 45° over ~0.5 s with full opposite lock, off the gas, while speed only fell ~30 → 23 mph.
+- Most started 2–4 ft above the line, in the second half of turns 3–4 or off turn 2, with the driver going for the exit.
+- Past 16° the tire model faded a sliding tire to 72% grip (set 11-16). That made a sideways kart drag less, and gave the fronts at opposite lock less to pull it straight with: the opposite of Franklin's experience.
+
+**Changes:**
+- Sliding tires keep full grip past the peak (`DefaultSlideGripRatio` 0.72 → 1.0).
+- The v5 groove is smoothed: a 9-sample average, two passes. This removes the GPS kinks that read as tight spots, the "accidental margin".
+
+**Soaks** (6 races each, 0 wall breaches):
+
+| | This branch | Current build |
+|---|---|---|
+| 20 karts, 7 seeds (incidents/race) | 2.9 | 6.0 |
+| 12 karts, seeds 9101 / 9201 (incidents/race) | 0.7 / 1.3 | 1.3 / 1.5 |
+| Field laps | 11.0–11.3 s | 11.6–11.8 s |
+| Limit lap, 1.20 g | 10.47 s | 10.67 s |
+
+- MyChron field laps are 10.7–11.1 s; the perfect-lap target is 10.5 s.
+- **Watch:** hard contacts are up to ~18 per 20-kart race (was ~10), because the field is faster and closer.
+
+**Not merged.** Waiting on Franklin's go-ahead and playtest: feel of saves, mid-corner height, contact weight.
+
+Muse: please audit the slide-grip change against the 11-16 "point of no return" note (q34/q35).
