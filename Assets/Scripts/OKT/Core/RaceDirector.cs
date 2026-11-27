@@ -393,6 +393,7 @@ namespace OKT
     {
         public static float YellowPivotMph = 5f;        // Franklin 11-26: under yellow, a turn-round slower than this isn't a spin
         public static float YellowPivotDecayMph = 3f;   // [TEST VALUE] how fast the remembered peak speed fades, mph per second
+        public static float ConcedeLiftMph = 2f;     // [TEST VALUE] 11-27: a conceding kart eases off at most this far under its speed
         public static float CatchUpInCorners = 0f;     // [TEST VALUE] share of the caution catch-up speed kept through the corners
         public readonly RaceConfig cfg;
         public RacePhase phase = RacePhase.Grid;
@@ -1181,7 +1182,12 @@ namespace OKT
                 {
                     var o = field[e.concedeTo];
                     if (!o.outOfRace && Gap(o, e) > -kartLen)
-                        ai.speedCap = Mathf.Min(ai.speedCap, Mathf.Max(0f, o.kart.ForwardSpeed - cfg.concedeSpeedDropMph * U.Mph / Urgency(e)));
+                    {
+                        // "lift slightly and file in" (Franklin q29): never more than a couple of mph under where I am -- the full lift
+                        // this used to ask for mid-corner, at the limit, took the rear's weight and spun the kart (turn 3-4, soak 11-27)
+                        float want = Mathf.Max(0f, o.kart.ForwardSpeed - cfg.concedeSpeedDropMph * U.Mph / Urgency(e));
+                        ai.speedCap = Mathf.Min(ai.speedCap, Mathf.Max(want, ai.kart.ForwardSpeed - ConcedeLiftMph * U.Mph));
+                    }
                     else e.concedeT = 0f;
                 }
             }
@@ -1769,7 +1775,7 @@ namespace OKT
         {
             if (phase != RacePhase.Green) return;
             phase = RacePhase.Caution; phaseTime = 0; cautions++;
-            cautionStart = raceTime; oneToGo = false; cautionDumped = false; cautionLeaderLap = -1; goDist = float.MaxValue;
+            cautionStart = raceTime; oneToGo = false; cautionDumped = false; cautionLeaderLap = -1; goDist = float.MaxValue; fsVerified = false;
             fsStage = 0; fsOrder.Clear(); orderFails = 0;
             // order from ~2 s before the incident (the spinner has already lost spots by now)
             List<Entry> snap = null;
@@ -2004,9 +2010,9 @@ namespace OKT
             if (!oneToGo && lapIdx != cautionLeaderLap)
             {
                 bool first = cautionLeaderLap < 0; cautionLeaderLap = lapIdx;
-                bool ready = !first && raceTime - cautionStart > cfg.minCautionSec && QueueReady();
+                bool ready = !first && raceTime - cautionStart > cfg.minCautionSec && (QueueReady() || (fsVerified && !notReadyCrew));
                 if (!first && !ready && notReady != null) Event($"CAUTION continues: {notReady}.");
-                if (!first && !ready && notReadyOrder)
+                if (!first && !ready && notReadyOrder && !fsVerified)
                 {
                     orderFails++;
                     int mixed = 0; foreach (var q in cautionQueue) if (q.dropping) mixed++;
@@ -2019,7 +2025,7 @@ namespace OKT
                     Event($"ONE TO GO: queue verified ({cautionQueue.Count} karts, {Tag(lead)} leads). Bunch up for the restart.");
                 }
             }
-            if (!oneToGo && raceTime - cautionStart > cfg.fieldStopWatchdogSec && raceTime - fsLastEnd > cfg.fieldStopWatchdogSec && !QueueReady() && !notReadyCrew)
+            if (!oneToGo && !fsVerified && raceTime - cautionStart > cfg.fieldStopWatchdogSec && raceTime - fsLastEnd > cfg.fieldStopWatchdogSec && !QueueReady() && !notReadyCrew)
             { BeginFieldStop($"caution {raceTime - cautionStart:F0} s and the line won't sort itself"); return; }
             if (oneToGo && lead.ai.raceDist >= goDist)
             {
@@ -2053,6 +2059,11 @@ namespace OKT
         public int fsStage; public int fieldStops;   // 0 none, 1 stopping, 2 releasing
         public readonly List<Entry> fsOrder = new List<Entry>();
         int fsNext, orderFails; float fsT, fsLastEnd = -1000f;
+        // The worker pointed every kart to its spot (Franklin q18: "pointed at = go and pace, that's your spot"): the order
+        // is settled. 11-27: re-checking it a lap later found karts that drifted getting up to speed and stopped the field
+        // again, and again -- one 20-kart race hit the time cap after 4 field stops. After a release only crews and
+        // recovering karts can hold the restart.
+        bool fsVerified;
         float FieldStopLine => w.track.ArcAt(cfg.workerPostU[0] * w.track.N); // the turns 1-2 worker's post
 
         void BeginFieldStop(string why)
@@ -2112,7 +2123,7 @@ namespace OKT
             }
             if (fsNext >= fsOrder.Count && raceTime - fsT > cfg.fieldStopReleaseSec)
             {
-                fsStage = 0; fsLastEnd = raceTime; orderFails = 0;
+                fsStage = 0; fsLastEnd = raceTime; orderFails = 0; fsVerified = true;
                 foreach (var q in fsOrder) { q.fsHeld = false; q.fsReleased = false; }
                 fsOrder.Clear();
                 cautionLeaderLap = cautionQueue.Count > 0 ? Mathf.FloorToInt(cautionQueue[0].ai.raceDist / L) : -1;

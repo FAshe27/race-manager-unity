@@ -36,7 +36,7 @@ CLEAR_APEX_FT = 3.7       # line to inside edge at the apex [TEST VALUE] (v4)
 # the GPS line (+-1.6 ft fix accuracy) is lowered through mid-corner, weighted by corner^2, never closer to the
 # inside edge than the kart's left side (~19 in from its centre) + ~1 in: left tires right up to the inside ridge.
 APEX_DROP_FT = 1.5
-LINE_MIN_IN_FT = 1.7
+LINE_MIN_IN_FT = 1.85     # 1.7 put karts on the inside ridge (turn 3-4 self spins, soak 11-27)
 N = 256
 
 v4 = json.load(open(V4))
@@ -154,6 +154,7 @@ for i in range(N):
     new = max(min(off, lo_off), off - APEX_DROP_FT * FT * w) if w > 0 else off
     frac[i] = round(new / (2 * hw) + 0.5, 4); clear_in[i] = (new + hw) / FT
 print(f"after the mid-corner drop: groove off the inside edge {min(clear_in):.1f}..{max(clear_in):.1f} ft")
+
 
 # carried from v4 by lap fraction
 barriers = [dict(b, u0=round(map_u(b["u0"]), 4), u1=round(map_u(b["u1"]), 4)) for b in v4["barriers"]]

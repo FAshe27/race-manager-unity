@@ -221,7 +221,7 @@ namespace OKT
         /// </summary>
         public float LowLimit(in TrackFrame f)
             => -f.halfWidth + kart.setup.FootLeft + Mathf.Lerp(2f, insideCornerMarginIn, f.corner) * U.In;
-        [System.NonSerialized] public float insideCornerMarginIn = 1f; // Franklin 11-27: mid-corner karts ran 18-24 in too high -- left tires right up to the inside ridge (was 6)
+        [System.NonSerialized] public float insideCornerMarginIn = 3f; // Franklin 11-27: mid-corner karts ran 18-24 in too high (was 6). 1 in put karts onto the 3 in inside ridge -> turn 3-4 self spins; 3 in
 
         /// <summary>Lateral offset (m) of Franklin's groove at this kart's current position.</summary>
         public float LineOffsetHere => track.Frame(s).LineOffset;
