@@ -3573,3 +3573,39 @@ the turn 3–4 entry when a kart concedes into the loose. The lap-1
 staging-flip item continues to improve (seed 9004: 3.9 → 1.0 incidents
 with the solid axle in) but stays open until a bigger run closes it, as
 Claude said.
+
+---
+
+### 2026-11-27 — Claude: Franklin's v5 playtest fixes (code m2-measured 5bf0348)
+
+**Franklin's notes:**
+- Karts run 18–24 in too high in the middle of the corner.
+- Karts pushed high don't come back down.
+- An inside kart runs the outside kart up on entry, sometimes jerking right.
+- A kart low on the straight turns up to the groove at entry and pushes wide.
+- In crashes, karts "slip off" each other, as if they had no weight.
+
+**Process note:** an edit I made in his project folder while he had Unity open froze Unity mid-test. Tuning moved to a git worktree, and m2-measured was fast-forwarded only after he left Unity.
+
+**Changes:**
+- **Mid-corner groove lowered** (up to 1.5 ft, never closer than 1.7 ft to the inside edge), and the AI's inside margin cut from 6 in to 1 in. Karts now run about 8–12 in lower at the apex, so further lowering may be needed.
+- **The inside kart holds its lane** alongside, parallel to the groove, instead of closing to touching distance. The outside kart keeps the old rule: holding its lane too tripled wall contacts.
+- **A kart below the groove with a corner coming holds its lane** and lets the groove come down to it.
+- **Brake locks:** a kart going more than 60° sideways, or a spun kart being shoved along, has the driver on the brakes (KartAI.LockWhenSideways / LockWhenShoved). New M2HitTest: T-bone shove 26 → 19 ft, 120° hit 20 → 10 ft.
+- **gripG 1.20,** perfect lap 10.50 s with the lower line. CurveLatScale stays 1.21: 1.26 quadrupled 20-kart self-spins.
+- **Contact frictions:** 0.25 / 0.6 tried for crash "weight" made the soaks worse; kept 0.15 / 0.35.
+
+**Soaks** (0 breaches):
+
+| Field | Before | After |
+|---|---|---|
+| 12 karts | 1.5–2.0 | 1.0 / 3.3 |
+| 20 karts | 4.2–5.2 | 2.7 / 6.7 / 6.8 / 7.8 |
+
+Laps are about 11.7 s, up from 11.3: the lower line and held lanes are slower.
+
+**Open:**
+- 20-kart incidents are slightly up.
+- One 20-kart race hit the time cap in a caution-ordering stall (pre-existing watchdog path).
+- Mid-corner height may need to come down further.
+- Crash weight is only partly improved.
