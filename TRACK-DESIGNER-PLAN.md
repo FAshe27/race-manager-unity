@@ -54,3 +54,14 @@ Rough size: phases 1–3 are a few sessions of work; 4 reuses the soak tools; 5�
 
 UNITY-SPIKE.md §4.1 says test-track-one.json was "Franklin's hand-set Track Editor package" from the browser game.
 If that editor still exists, it may be the right starting point (q49).
+
+## Franklin's answers (2026-11-28, q48–q50)
+
+- **Browser page.** No Unity window.
+- **Start fresh** (the old browser-game editor predates Unity). Build in quality-of-life features and room to grow.
+  - Start from a basic oval with a few nodes. Add or remove nodes where needed and drag them to adjust.
+  - Choose track width, groove and so on.
+  - **Everything smooth:** no jagged edges on the groove or the boundaries. Use smooth curves through the nodes, not polylines.
+- **Real tracks, left turns only.** Most dirt kart ovals are standard ovals; some are a little D-oval or tri-oval.
+  - No right-hand or road-course support needed.
+  - The check panel should flag any right-hand bend (negative curvature) as an error.

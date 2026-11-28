@@ -3760,3 +3760,6 @@ Franklin went to bed ("work on whatever"). Physics waits on his playtest of 0a6c
 - It plans a designer that edits the same track JSON the sim races.
 - Build order: Unity races any track file → the generator becomes a library (v5 byte-identical) → browser designer v1 → "race it" soaks → trace import → infield and dirt.
 - Pit Board q48 (browser or Unity), q49 (his old Track Editor), q50 (first tracks).
+
+### 2026-11-28 — Franklin's designer answers (q48–q50)
+Browser page; start fresh with QoL and expandability; basic oval with add/remove/drag nodes; width and groove settable; smooth curves, no jagged groove or edges; real tracks, left turns only (mostly ovals, some D/tri-oval). Added to TRACK-DESIGNER-PLAN.md.
