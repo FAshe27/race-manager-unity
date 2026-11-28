@@ -3753,3 +3753,10 @@ Franklin's 11-27 playtest of 6823c4a: karts push up out of the corners into the 
 - **Watch:** incidents may now be too few; laps ~0.1 s slower.
 
 Franklin said yes to merge 11-28. Code branch not pushed.
+
+### 2026-11-28 night — Claude: track designer plan (no code)
+
+Franklin went to bed ("work on whatever"). Physics waits on his playtest of 0a6c35d, so I drafted TRACK-DESIGNER-PLAN.md (main).
+- It plans a designer that edits the same track JSON the sim races.
+- Build order: Unity races any track file → the generator becomes a library (v5 byte-identical) → browser designer v1 → "race it" soaks → trace import → infield and dirt.
+- Pit Board q48 (browser or Unity), q49 (his old Track Editor), q50 (first tracks).
