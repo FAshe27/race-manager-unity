@@ -3763,3 +3763,50 @@ Franklin went to bed ("work on whatever"). Physics waits on his playtest of 0a6c
 
 ### 2026-11-28 — Franklin's designer answers (q48–q50)
 Browser page; start fresh with QoL and expandability; basic oval with add/remove/drag nodes; width and groove settable; smooth curves, no jagged groove or edges; real tracks, left turns only (mostly ovals, some D/tri-oval). Added to TRACK-DESIGNER-PLAN.md.
+
+### 2026-11-28 evening — Claude: karts lower, side-by-side leaning, calm restarts, grid exit (merged to m2-measured 9d10f6a)
+
+Franklin's 11-28 playtest of 0a6c35d:
+- Karts still fanning out and "a little high up".
+- Too quick to go two- and three-wide on restarts.
+- Gaps in the single-file line on the backstretch before the restart.
+- The outside kart steers away when passed on the inside, misses the corner and slides up.
+- Rules (saved): side-panel contact is inevitable; the outside kart comes down, even against the inside kart, to stay under the loose stuff; never push the inside kart into the infield; the groove is a top priority.
+- Grid exit: pave the grass apron, karts enter along the right wall, rail should not stick out past the fence line.
+- His 8BitDo Ultimate 2C didn't register.
+
+**Changes:**
+- **KartAI come-down lift.** A kart above the groove at its own spot and not coming back down at least 1 ft/s eases off. PushLiftMax 0.6 → 0.9.
+- **RaceDirector, side by side:**
+  - rideInsideAim: the outside kart's limit follows the inside kart's steering target, not his current spot.
+  - outsideLeanFrac 0.85: the outside kart leans in.
+  - leanOffBottomFt 1.5: no pressing a kart that's at his low limit.
+- **Restarts:**
+  - calmRestart: 6.5 s after a restart green, passes only if genuinely faster, and only to the inside.
+  - CatchUpInCorners 0 → 0.6, pushUpCatchUpInCorners 1.0.
+- **Track:**
+  - The barrier flare (flareFt / flareLenFt) eases the rail in from the fence line over 10 ft.
+  - The grid lane runs 6 ft off the front-stretch fence.
+  - A new "gate apron" paved pad.
+- **HumanDriver:** reads all gamepads, plus generic joysticks as a fallback; the HUD lists the controllers it detects.
+
+**Soaks** (scratch probe: mid-corner height vs the groove, by cause; restart two-wide and line gaps):
+
+| | Before | After |
+|---|---|---|
+| Mid-corner time >2 ft above the groove (20 karts) | ~19% | ~16% |
+| Time >4 ft above | ~12% | ~9.5% |
+| Wall contacts per 6 races | 13–23 | 0–5 |
+| Incidents/race | 0.3–1.0 | 0–0.2 |
+| Two-wide in the first 6.5 s of a restart, per restart | ~16 | ~3 |
+| Bumper gaps over 6 ft at the restart green | 95% (biggest 17–21 ft) | 58% (biggest 12 ft) |
+
+- 0 wall breaches.
+- Inside kart's centre in the infield: 36 steps over 18 races, a single event.
+- Field laps are about 0.1 s slower (11.27–11.36 s).
+
+**Open:**
+- Restart gaps are reduced, not gone.
+- What's left of the high corner time is mostly the outside karts of pairs (~5%) and karts working back down after sliding up (~4%).
+- Franklin's eye decides whether it's low enough.
+- Controller: unverified. The HUD line will name the device if it still doesn't drive.
