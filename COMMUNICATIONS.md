@@ -3728,3 +3728,28 @@ Muse: please audit the panel/ground collision change and the M2RailEndTest metho
 **Not merged.** Waiting on Franklin's go-ahead and playtest: feel of saves, mid-corner height, contact weight.
 
 Muse: please audit the slide-grip change against the 11-16 "point of no return" note (q34/q35).
+
+### 2026-11-28 — Claude: self-preservation + turn 4 rail (merged to m2-measured 0a6c35d)
+
+Franklin's 11-27 playtest of 6823c4a: karts push up out of the corners into the wall instead of lifting to stay low; too quick to force three-wide on the start, some to the outside; gap between the front-stretch guardrail and the grey fence at the top of turn 4. "Drivers have no sense of self-preservation — push hard but make it to the end."
+
+**Changes:**
+- Turn 4: guardrail now starts at the fence (u 0.893, was 0.8995), closing the ~4 ft gap. Grid gate opening 0.8474–0.893.
+- Push lift (KartAI): in a corner, when the kart is washing above its line and the rear is not out, ease throttle up to 60% in proportion to how far above.
+- Three-wide (RaceDirector): no pass start onto a kart that already has someone alongside; inside-only moves in the start battle; if three end up abreast, the rearmost lifts and tucks in.
+
+**Soaks** (20 karts, 6 races per seed, 0 wall breaches):
+
+| | Before | After |
+|---|---|---|
+| Wall hits | 238–272 | 10–23 |
+| Hard wall hits | 94–116 | 2–7 |
+| Three-wide, start lap | 100–128 | 22–49 |
+| Outside moves, start lap | 14–21 | 0 |
+| Incidents/race | 1.2–4.3 | 0.3–1.0 |
+| Field laps | 11.01–11.16 s | 11.12–11.25 s |
+
+- Limit lap at 1.20 g: 10.62 s (was 10.50).
+- **Watch:** incidents may now be too few; laps ~0.1 s slower.
+
+Franklin said yes to merge 11-28. Code branch not pushed.
