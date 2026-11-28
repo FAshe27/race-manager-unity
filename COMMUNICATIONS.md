@@ -3810,3 +3810,45 @@ Franklin's 11-28 playtest of 0a6c35d:
 - What's left of the high corner time is mostly the outside karts of pairs (~5%) and karts working back down after sliding up (~4%).
 - Franklin's eye decides whether it's low enough.
 - Controller: unverified. The HUD line will name the device if it still doesn't drive.
+
+### 2026-11-28 night — Claude: OKT Track Designer v1 + main menu with track picker (merged to m2-measured edda236)
+
+Franklin, away for a few hours: "full control ... brainstorm QoL features", plus "a way to select a track in the Unity project ... maybe a basic main menu".
+
+**OKT Track Designer**
+- A browser page: https://claude.ai/artifact/7F6WFCmJjeYAoEhyLSThtn. Source in Tools/TrackDesigner.
+- Shape: handles on a periodic cubic B-spline. A handle polygon that only turns left gives a curve that only turns left, smooth everywhere.
+  - Drag, add (double-click the track) and delete handles; multi-select; arrow-key nudges.
+  - Undo/redo; autosave.
+  - Templates: oval, D-oval, tri-oval. Atoka v5 with handles fitted (22 handles, within ~1.5 ft).
+- Per handle: track width, and groove height from the inside edge.
+- Checks:
+  - counter-clockwise; no right-hand bends (red handles); inside edge doesn't fold;
+  - outside wall closed except at openings, with gaps drawn red (the turn 4 lesson);
+  - two corners found.
+- Numbers: lap length (centre and groove), footprint, width, tightest groove radius and a rough corner speed per turn.
+- QoL:
+  - a satellite photo underlay with two-point scale calibration and a move tool;
+  - a tape measure (ft/in);
+  - Atoka ghost outline; 50 ft grid; scale bar.
+- Save:
+  - One .json is both a sim track file (v5 format) and a re-editable design (a "design" block).
+  - Opening a sim file without that block fits handles to it.
+
+**Unity**
+- Play opens a main menu: tracks from Assets/Tracks and Assets/Data, with a preview; field 8/12/16/20; staging-grid or on-track start; RACE. It remembers the last choices.
+- HUD "Menu" button.
+- `-okt-track <file>` for Play and the M2 soak.
+
+**Soaks**
+- Atoka on this build: unchanged (12 karts: 11.16 s, 0 incidents).
+- Atoka exported through the designer: 11.36 s, 0 incidents.
+- Template finding: a stadium with Atoka's own 21 ft-high straightaway groove raced badly: 12.6 s laps, 11 incidents a race, 432 wall hits. Atoka's "straights" still turn at 0.5–0.8 g.
+  - With the groove 16 ft up: 11.7 s.
+  - With it 11 ft up: 11.2 s, 0.3 incidents.
+  - Template default is now 11 ft up on the straights, 3 ft at the apex.
+- Default oval (20 karts), D-oval and tri-oval: 11.16–11.44 s, 0–0.3 incidents, 0 breaches.
+
+**Not yet seen on screen:** the menu's layout (the soaks run headless and skip it).
+
+**Pit Board:** q51 (what the menu should offer), q52 (gearing a new track).
